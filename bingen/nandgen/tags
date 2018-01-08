@@ -1,0 +1,33 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.9~svn20110310	//
+POLY	nandbingen.c	295;"	d	file:
+Parallel	nandbingen.c	/^	int Parallel;$/;"	m	struct:bchinfo	file:
+T_G_R	nandbingen.c	/^	int (*T_G_R)[rr_max];$/;"	m	struct:bchinfo	file:
+Verbose	nandbingen.c	/^int Verbose;           \/\/ Mode indicator$/;"	v
+alpha_to	nandbingen.c	/^	int *alpha_to;$/;"	m	struct:bchinfo	file:
+bchinfo	nandbingen.c	/^struct bchinfo {$/;"	s	file:
+data	nandbingen.c	/^	int *data;$/;"	m	struct:bchinfo	file:
+gen_poly	nandbingen.c	/^int gen_poly(int mm, int nn, int tt, int Parallel,$/;"	f
+generate_gf	nandbingen.c	/^void generate_gf(int mm, int nn, int alpha_to[], int index_of[])$/;"	f
+index_of	nandbingen.c	/^	int *index_of; \/\/ Galois field$/;"	m	struct:bchinfo	file:
+kk	nandbingen.c	/^	int kk;$/;"	m	struct:bchinfo	file:
+kk_max	nandbingen.c	29;"	d	file:
+kk_shorten	nandbingen.c	/^	int kk_shorten;$/;"	m	struct:bchinfo	file:
+main	nandbingen.c	/^int main(int argc, char* argv[])$/;"	f
+mm	nandbingen.c	/^	int mm;$/;"	m	struct:bchinfo	file:
+mm_max	nandbingen.c	26;"	d	file:
+nand_randomizer	nandbingen.c	/^void nand_randomizer(unsigned char *data, int len, unsigned short seed)$/;"	f
+nn	nandbingen.c	/^	int nn;$/;"	m	struct:bchinfo	file:
+nn_max	nandbingen.c	27;"	d	file:
+nn_shorten	nandbingen.c	/^	int nn_shorten;$/;"	m	struct:bchinfo	file:
+parallel_encode_bch	nandbingen.c	/^void parallel_encode_bch(int *bb, int *data, int (*data_p)[kk_max],$/;"	f
+parallel_max	nandbingen.c	31;"	d	file:
+rr	nandbingen.c	/^	int rr;$/;"	m	struct:bchinfo	file:
+rr_max	nandbingen.c	30;"	d	file:
+tid	nandbingen.c	/^	int tid;$/;"	m	struct:bchinfo	file:
+tt	nandbingen.c	/^	int tt;$/;"	m	struct:bchinfo	file:
+tt_max	nandbingen.c	28;"	d	file:
