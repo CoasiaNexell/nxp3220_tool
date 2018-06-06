@@ -3,7 +3,8 @@
 BASEDIR=$(cd "$(dirname "$0")" && pwd)
 BL_DIR=`readlink -e -n "$BASEDIR/../.."`
 RESULT=`readlink -e -n "$BASEDIR/../../result"`
-TOOLCHAIN=`readlink -e -n "$BASEDIR/../crosstools/gcc-arm-none-eabi-6-2017-q2-update/bin/"`
+BL_TOOLCHAIN=`readlink -e -n "$BASEDIR/../crosstools/gcc-arm-none-eabi-6-2017-q2-update/bin/"`
+LINUX_TOOLCHAIN=`readlink -e -n "$BASEDIR/../crosstools/gcc-linaro-7.2.1-2017.11-x86_64_arm-linux-gnueabihf/bin"`
 
 BL1_DIR=$BL_DIR/bl1/bl1-nxp3220
 BL1_BIN=$BL_DIR/bl1/bl1-nxp3220/out/nxp3220_bl1.bin.raw
@@ -14,7 +15,7 @@ BL2_BIN=$BL_DIR/bl2/bl2-nxp3220/out/bl2-vtk.bin.raw
 BL32_DIR=$BL_DIR/bl32/bl32-nxp3220
 BL32_BIN=$BL_DIR/bl32/bl32-nxp3220/out/bl32.bin.raw
 
-export PATH=$PATH:$TOOLCHAIN
+export PATH=$PATH:$BL_TOOLCHAIN:$LINUX_TOOLCHAIN
 
 mkdir -p $RESULT
 
