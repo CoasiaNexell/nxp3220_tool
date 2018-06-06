@@ -198,7 +198,7 @@ static int nxp3220_image_transfer(unsigned int vendor_id, unsigned int product_i
 
 	fd_image = fopen(bin_file , "rb");
 	if (!fd_image) {
-		printf("File open failed!! check filename!!\n");
+		printf("No such file: %s\n", bin_file);
 		goto error_exit;
 	}
 
