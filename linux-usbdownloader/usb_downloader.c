@@ -10,6 +10,7 @@
 #include <usb.h>
 
 #define	VER_STR		"Nexell USB Downloader Version 0.1.0-Alpha (Only Artik310/NXP3220)"
+#define	WAIT_TIME_OUT	60	/* sec */
 
 /* Global variables */
 char *nsih_file = NULL;
@@ -78,12 +79,14 @@ static usb_dev_handle *get_usb_dev_handle(int vid, int pid)
 {
 	struct usb_bus *bus;
 	struct usb_device *dev;
+	int retry_count = 0;
 
 	if (!is_init_usb) {
 		usb_init();
 		is_init_usb = 1;
 	}
 
+retry:
 	usb_find_busses();
 	usb_find_devices();
 
@@ -97,16 +100,21 @@ static usb_dev_handle *get_usb_dev_handle(int vid, int pid)
 			}
 		}
 	}
+
+	sleep(1);
+
+	if (retry_count++ < WAIT_TIME_OUT)
+		goto retry;
+
 	return NULL;
 }
 
 int send_data(int vid, int pid, unsigned char *data, int size)
 {
-	int ret;
 	usb_dev_handle *dev_handle;
+	int ret;
 
 	dev_handle = get_usb_dev_handle(vid, pid);
-
 	if (NULL == dev_handle) {
 		printf("Cannot found matching USB device."
 				"(vid=0x%04x, pid=0x%04x)\n", vid, pid);
@@ -263,8 +271,9 @@ int main(int argc, char **argv)
 	}
 
 	if (!strncmp("nxp3220", processor_type ,7)) {
-		if (0 != nxp3220_image_transfer(NEXELL_VID, NXP3220_PID)) {
-//		if (0 != nxp3220_image_transfer(SAMSUNG_VID, S5PXX18_PID)) {
+		unsigned int vendor_id  = NEXELL_VID;  // SAMSUNG_VID
+		unsigned int product_id = NXP3220_PID; // SAMSUNG_VID
+		if (0 != nxp3220_image_transfer(vendor_id, product_id)) {
 			printf("NXP3220_ImageDownload Failed\n");
 			return -1;
 		}
