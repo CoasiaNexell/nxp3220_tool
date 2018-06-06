@@ -19,8 +19,6 @@ export PATH=$PATH:$BL_TOOLCHAIN:$LINUX_TOOLCHAIN
 
 mkdir -p $RESULT
 
-path_info=`readlink -e -n "$BL1_DIR"`
-
 build_bl() {
 	dir=$1;	bin=$2; ret=$3; msg=$4
 
