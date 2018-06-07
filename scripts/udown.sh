@@ -16,6 +16,7 @@ for i in "${nxp3220[@]}"
 do
 	echo "DOWNLOAD: $i1"
 	sudo $DOWNLOADER -t nxp3220 $i
+	sleep 1	# wait for next connect
 	if [ $? -ne 0 ]; then
 		exit 1;
 	fi
