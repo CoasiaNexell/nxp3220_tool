@@ -1,8 +1,9 @@
 #!/bin/bash
 
 BASEDIR=$(cd "$(dirname "$0")" && pwd)
+RESULT="$BASEDIR/../../result"	# must be set with Relative path for not exist dir
+
 BL_DIR=`readlink -e -n "$BASEDIR/../.."`
-RESULT="$BL_DIR/result"
 BL_TOOLCHAIN=`readlink -e -n "$BASEDIR/../crosstools/gcc-arm-none-eabi-6-2017-q2-update/bin/"`
 LINUX_TOOLCHAIN=`readlink -e -n "$BASEDIR/../crosstools/gcc-linaro-7.2.1-2017.11-x86_64_arm-linux-gnueabihf/bin"`
 
@@ -17,11 +18,9 @@ BL32_BIN=$BL_DIR/bl32/bl32-nxp3220/out/bl32.bin.raw
 
 export PATH=$PATH:$BL_TOOLCHAIN:$LINUX_TOOLCHAIN
 
-echo BASEDIR: $BASEDIR
-echo BL_DIR: $BL_DIR
-echo RESULT: $RESULT
-
 mkdir -p $RESULT
+
+RESULT=`readlink -e -n "$BASEDIR/../../result"`
 
 build_bl() {
 	dir=$1;	bin=$2; ret=$3; msg=$4
