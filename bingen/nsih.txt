@@ -1,50 +1,26 @@
-//------------------------------------------------------------------------------
-//	Copyright (C) 2012 Nexell Co., All Rights Reserved
-//	Nexell Co. Proprietary < Confidential
-//
-//	NEXELL INFORMS THAT THIS CODE AND INFORMATION IS PROVIDED "AS IS" BASE
-//	AND WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING
-//	BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS
-//	FOR A PARTICULAR PURPOSE.
-//
-//	Module		: Boot Header
-//	File		: NSIH.txt
-//	Description	: system initialize info
-//	Author		: Firmware Team
-//	History		:
-//				Hans 2014.01.13 Excel Generator
-//				Hans 2013.06.23 Create
-//------------------------------------------------------------------------------
-// Excel sheet version - 0.5.0
-//------------------------------------------------------------------------------
-// This must be synchronized with SecondBoot.h
-//------------------------------------------------------------------------------
-// Nexell System Infomation Header
-//------------------------------------------------------------------------------
-// Vector Code Area
-E59FF018	// 0x000 : MOV PC, ResetV
-E59FF018	// 0x004 : MOV PC, UndefV
-E59FF018	// 0x008 : MOV PC, SWIV
-E59FF018	// 0x00C : MOV PC, PAbortV
-E59FF018	// 0x010 : MOV PC, DAbortV
-E59FF018	// 0x014 : MOV PC, NotUsed
-E59FF018	// 0x018 : MOV PC, IRQV
-E59FF018	// 0x01C : MOV PC, FIQV
+00000000	// 0x000
+00000000	// 0x004
+43C00000	// 0x008
+43C00000	// 0x00C
+0003C400	// 0x010
+00000000	// 0x014
+00000000	// 0x018
+00000000	// 0x01C
 
-FFFF0200	// 0x020 : SRAMBASE + Header
-FFFF0204	// 0x024 : SRAMBASE + Header
-FFFF0208	// 0x028 : SRAMBASE + Header
-FFFF020C	// 0x02C : SRAMBASE + Header
-FFFF0210	// 0x030 : SRAMBASE + Header
-FFFF0214	// 0x034 : SRAMBASE + Header
-FFFF0218	// 0x038 : SRAMBASE + Header
-FFFF021C	// 0x03C : SRAMBASE + Header
+00000000	// 0x020
+00000000	// 0x024
+00000000	// 0x028
+00000000	// 0x02C
+00000000	// 0x030
+00000000	// 0x034
+00000000	// 0x038
+00000000	// 0x03C
 
 00000000	// 0x040
 00000000	// 0x044
 00000000	// 0x048
 00000000	// 0x04C
-0001E400	// 0x050
+00000000	// 0x050
 00000000	// 0x054
 00000000	// 0x058
 00000000	// 0x05C
@@ -85,6 +61,6 @@ FFFF021C	// 0x03C : SRAMBASE + Header
 00000000	// 0x0E8
 00000000	// 0x0EC
 00000000	// 0x0F0
-00000000	// 0x0F4
+00000002	// 0x0F4
 32200600	// 0x0F8
 4849534E	// 0x0FC	"NSIH"
