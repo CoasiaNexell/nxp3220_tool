@@ -10,7 +10,20 @@
 #include <usb.h>
 
 #define	VER_STR		"Nexell USB Downloader Version 0.1.0-Alpha (Only Artik310/NXP3220)"
-#define	WAIT_TIME_OUT	60	/* sec */
+
+#define NXP3220_HEADER_SIZE			(256)
+
+#define HEADER_ID				\
+		((((uint32_t)'N')<< 0) |	\
+		 (((uint32_t)'S')<< 8) |	\
+		 (((uint32_t)'I')<<16) |	\
+		 (((uint32_t)'H')<<24))
+
+
+enum {
+	IMAGE_TRANSFER	  = 0,
+	ONLY_BIN_TRANSFER = 1
+};
 
 /* Global variables */
 char *nsih_file = NULL;
@@ -20,6 +33,8 @@ char *processor_type = NULL;
 
 char *down_address = NULL;
 char *start_address = NULL;
+
+unsigned int only_bin = 0;
 
 enum{
 	NEXELL_VID    = 0x2375,
@@ -59,16 +74,20 @@ static void usage(void)
 {
 	printf("\n%s, %s, %s\nusage : \n", VER_STR, __DATE__, __TIME__);
 	printf("   -h : show usage\n");
-	printf("   -f [file name]      : send file name\n");
+	printf("   -b [file name]      : nxp3220 boot-loader send file name \n");
+	printf("   -f [file name]      : send the general file name \n");
 	printf("   -t [processor type] : select target processor type\n");
 	printf("      ( type : nxp3220 )\n" );
 	printf("   -a [address]        : download address\n");
 	printf("   -j [address]        : jump address\n");
 	printf("\n");
-	printf(" case 1. nxp3220 Boot Loader Level1 Download\n" );
-	printf("  #>sudo ./usb-downloader -t nxp3220 -f bl1.bin -a 0xFFFF0000 -j 0xFFFF0000 \n" );
-	printf(" case 2. nxp3220 Image Downloade \n" );
-	printf("  #>sudo ./usb-downloader -t nxp3220 -f u-boot.bin -a 0x40000000 -j 0x40000000 \n" );
+	printf(" case 1. nxp3220 Boot Loader Level1 Download \n" );
+	printf("  #>sudo ./usb-downloader -t nxp3220 -b nxp3220_bl1.bin -a 0xFFFF0000 -j 0xFFFF0000 \n" );
+	printf(" case 2. nxp3220 Image Download \n" );
+	printf("  #>sudo ./usb-downloader -t nxp3220 -b u-boot.bin -a 0x43C0000 -j 0x43C00000 \n" );
+	printf(" case 3. General Image Download \n" );
+	printf("  #>sudo ./usb-downloader -t nxp3220 -f uimage \n" );
+	printf("  #>sudo ./usb-downloader -t nxp3220 -f dumpyimage \n" );
 	printf("\n");
 }
 
@@ -79,14 +98,12 @@ static usb_dev_handle *get_usb_dev_handle(int vid, int pid)
 {
 	struct usb_bus *bus;
 	struct usb_device *dev;
-	int retry_count = 0;
 
 	if (!is_init_usb) {
 		usb_init();
 		is_init_usb = 1;
 	}
 
-retry:
 	usb_find_busses();
 	usb_find_devices();
 
@@ -100,21 +117,16 @@ retry:
 			}
 		}
 	}
-
-	sleep(1);
-
-	if (retry_count++ < WAIT_TIME_OUT)
-		goto retry;
-
 	return NULL;
 }
 
 int send_data(int vid, int pid, unsigned char *data, int size)
 {
-	usb_dev_handle *dev_handle;
 	int ret;
+	usb_dev_handle *dev_handle;
 
 	dev_handle = get_usb_dev_handle(vid, pid);
+
 	if (NULL == dev_handle) {
 		printf("Cannot found matching USB device."
 				"(vid=0x%04x, pid=0x%04x)\n", vid, pid);
@@ -198,7 +210,7 @@ static int nxp3220_image_transfer(unsigned int vendor_id, unsigned int product_i
 
 	fd_image = fopen(bin_file , "rb");
 	if (!fd_image) {
-		printf("No such file: %s\n", bin_file);
+		printf("File open failed!! check filename!!\n");
 		goto error_exit;
 	}
 
@@ -235,13 +247,75 @@ error_exit:
 	return -1;
 }
 
+static int nxp3220_only_binary_transfer(unsigned int vendor_id, unsigned int product_id)
+{
+	FILE *fd_image = NULL;
+	unsigned char *send_buf = NULL;
+	unsigned int buf_size, read_size;
+	unsigned int *header;
+	int ret;
+
+	fd_image = fopen(bin_file , "rb");
+	if (!fd_image) {
+		printf("File open failed!! check filename!!\n");
+		goto error_exit;
+	}
+
+	buf_size = get_file_size(fd_image);
+	send_buf = malloc(buf_size + 512);
+
+	read_size = fread((send_buf + 512), 1, buf_size, fd_image);
+	if ((read_size < 0) || (read_size != buf_size)) {
+		printf("File Size is not the same!! (%d:%d) \n", read_size, buf_size);
+		goto error_exit;
+	}
+	memset(send_buf, 0, 512);
+
+	header = (unsigned int*)send_buf;
+	header[17] = buf_size;
+	header[127] = HEADER_ID;
+
+	ret = send_data(vendor_id, product_id, send_buf, buf_size + 512);
+
+	print_downlod_info("Boot Loader");
+	printf("Download %s !\n", (ret == 0) ? "Success" : "Fail");
+
+	free(send_buf);
+	if (fd_image)
+		fclose(fd_image);
+
+	return 0;
+
+error_exit:
+	free(send_buf);
+	if (fd_image)
+		fclose(fd_image);
+
+	return -1;
+}
+
+static int nxp3220_transfer(unsigned int vendor_id,
+				unsigned int product_id, unsigned int mode)
+{
+	int ret = 0;
+	switch (mode) {
+		case IMAGE_TRANSFER:
+			ret = nxp3220_image_transfer(vendor_id, product_id);
+			break;
+		case ONLY_BIN_TRANSFER:
+			ret = nxp3220_only_binary_transfer(vendor_id, product_id);
+			break;
+	}
+	return ret;
+}
+
 int main(int argc, char **argv)
 {
 	int param_opt;
 	printf("USB Download Tool\n");
 	printf("\n");
 
-	while (-1 != (param_opt = getopt(argc, argv, "a:j:f:t:h"))) {
+	while (-1 != (param_opt = getopt(argc, argv, "a:j:b:f:t:h"))) {
 		switch (param_opt) {
 			case 'a':
 				down_address = strdup(optarg);
@@ -249,8 +323,12 @@ int main(int argc, char **argv)
 			case 'j':
 				start_address = strdup(optarg);
 				break;
+			case 'b':
+				bin_file = strdup(optarg);
+				break;
 			case 'f':
 				bin_file = strdup(optarg);
+				only_bin = 1;
 				break;
 			case 't':
 				processor_type = strdup(optarg);
@@ -271,9 +349,7 @@ int main(int argc, char **argv)
 	}
 
 	if (!strncmp("nxp3220", processor_type ,7)) {
-		unsigned int vendor_id  = NEXELL_VID;  // SAMSUNG_VID
-		unsigned int product_id = NXP3220_PID; // SAMSUNG_VID
-		if (0 != nxp3220_image_transfer(vendor_id, product_id)) {
+		if (0 != nxp3220_transfer(NEXELL_VID, NXP3220_PID, only_bin)) {
 			printf("NXP3220_ImageDownload Failed\n");
 			return -1;
 		}
