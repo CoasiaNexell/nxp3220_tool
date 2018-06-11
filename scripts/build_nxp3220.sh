@@ -98,7 +98,7 @@ function build_linux() {
 	local arch=$3
 	local config=$4
 	local output=$path/$5
-	local result=$6
+	local result=$6/
 	local command=$7
 	local toolchain=$8
 	local compile=$9
@@ -178,23 +178,25 @@ function build_linux() {
 		return
 	fi
 
-	make -C $path ARCH=$arch $image CROSS_COMPILE=$compile -j $jobs
+	# build
+	if [ "$target" != "br2" ]; then
+		make -C $path ARCH=$arch $image CROSS_COMPILE=$compile -j $jobs
+	else
+		make -C $path -j $jobs 
+	fi
 	[ $? -ne 0 ] && exit 1;
 
 	# copy to result
-	if [ "$target" == "br2" ]; then
-		if [ -d $result/rootfs ]; then
-			rm -rf $result/rootfs
-		fi
-
-		cp -a $output $result/rootfs
-		echo "*** COPY   : $output ***"
-		echo "*** RESULT : $result/rootfs ***"
+	if [ "$target" != "br2" ]; then
+		cp $output $result
 	else
-		cp $output $result/
-		echo "*** COPY   : $output ***"
-		echo "*** RESULT : $result/ ***"
+		result=$result/rootfs
+		[ -d $result ] && rm -rf $result;
+		cp -a $output $result
 	fi
+
+	echo "*** COPY   : $output ***"
+	echo "*** RESULT : $result ***"
 
 	# u-boot bingen
 	if [ "$target" == "u-boot" ]; then
@@ -210,9 +212,9 @@ function build_linux() {
 		 		  -l 0x43c00000 -s 0x43c00000 -t
 
 		# copy to result
-		cp $output.raw $result/
+		cp $output.raw $result
 		echo "*** COPY   : $output.raw ***"
-		echo "*** RESULT : $result/ ***"
+		echo "*** RESULT : $result ***"
 	fi
 
 }
