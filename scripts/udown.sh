@@ -6,9 +6,9 @@ DOWNLOADER=$BASEDIR/../linux-usbdownloader/linux-usbdownloader
 TARGET=nxp3220
 
 BLIMAGES=(
-	"-b $RESULT/nxp3220_bl1.bin.raw  -a 0xFFFF0000 -j 0xFFFF0000"
+	"-b $RESULT/bl1-nxp3220.bin.raw  -a 0xFFFF0000 -j 0xFFFF0000"
 	"-b $RESULT/bl2-vtk.bin.raw -a 0xFFFF8000 -j 0xFFFF8000"
-#	"-b $BASEDIR/../../bl2/bl2-nxp3220/tools/sss.raw -a 0x60000000 -j 0x60000000"
+#	"-b $RESULT/sss.raw -a 0x60000000 -j 0x60000000"
 	"-b $RESULT/bl32.bin.raw -a 0x5E000000 -j 0x5E000000"
 	"-b $RESULT/u-boot.bin.raw -a 0x43C00000 -j 0x43C00000"
 	)

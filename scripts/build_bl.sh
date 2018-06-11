@@ -8,7 +8,7 @@ BL_TOOLCHAIN=`readlink -e -n "$BASEDIR/../crosstools/gcc-arm-none-eabi-6-2017-q2
 LINUX_TOOLCHAIN=`readlink -e -n "$BASEDIR/../crosstools/gcc-linaro-7.2.1-2017.11-x86_64_arm-linux-gnueabihf/bin"`
 
 BL1_DIR=$BL_DIR/bl1/bl1-nxp3220
-BL1_BIN=$BL_DIR/bl1/bl1-nxp3220/out/nxp3220_bl1.bin.raw
+BL1_BIN=$BL_DIR/bl1/bl1-nxp3220/out/bl1-nxp3220.bin.raw
 
 BL2_DIR=$BL_DIR/bl2/bl2-nxp3220
 BL2_BIN=$BL_DIR/bl2/bl2-nxp3220/out/bl2-vtk.bin.raw
