@@ -14,7 +14,7 @@ BUILD_IMAGES_VTK=(
 	"vtk"
 	"`readlink -e -n "$BASEDIR/../crosstools/gcc-linaro-7.2.1-2017.11-x86_64_arm-linux-gnueabihf/bin"`"
 	"arm-linux-gnueabihf-"
-	"bl1"  		"$TOPDIR/bl1/bl1-nxp3220" 	"arm" "" 				"nxp3220_bl1.bin.raw"
+	"bl1"  		"$TOPDIR/bl1/bl1-nxp3220" 	"arm" "" 				"bl1-nxp3220.bin.raw"
 	"bl2"  		"$TOPDIR/bl2/bl2-nxp3220" 	"arm" "" 				"bl2-vtk.bin.raw"
 	"bl32" 		"$TOPDIR/bl32/bl32-nxp3220" 	"arm" "" 				"bl32.bin.raw"
 	"u-boot" 	"$TOPDIR/u-boot/u-boot-2017.5"	"arm" "nxp3220_vtk_defconfig" 		"u-boot.bin"
