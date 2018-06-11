@@ -316,17 +316,7 @@ function build_images() {
 	done
 
 	if [ $ret != true ]; then
-		echo -e ""
 		echo "*** Invalid Target: $target ***"
-		echo -n "Support: "
-		for i in "${images[@]}"
-		do
-			if [ $(( $n % $BUILD_ARRAY_COLs )) -eq 0 ]; then
-				echo -n "$i "
-			fi
-			n=$((n + 1)); # parse next
-		done
-		echo -e ""
 	fi
 }
 
