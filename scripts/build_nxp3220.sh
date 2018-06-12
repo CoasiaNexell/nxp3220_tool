@@ -18,7 +18,8 @@ BUILD_IMAGES_VTK=(
 	"bl2"  		"$TOPDIR/bl2/bl2-nxp3220" 	"arm" "" 				"bl2-vtk.bin.raw"
 	"bl32" 		"$TOPDIR/bl32/bl32-nxp3220" 	"arm" "" 				"bl32.bin.raw"
 	"u-boot" 	"$TOPDIR/u-boot/u-boot-2017.5"	"arm" "nxp3220_vtk_defconfig" 		"u-boot.bin"
-#	"kernel" 	"$TOPDIR/kernel/kernel-4.14" 	"arm" "nxp3220_vtk_defconfig"		"arch/arm/boot/zImage"
+	"kernel" 	"$TOPDIR/kernel/kernel-4.14" 	"arm" "nxp3220_vtk_defconfig"		"arch/arm/boot/zImage"
+	"dts" 		"$TOPDIR/kernel/kernel-4.14" 	"arm" "nxp3220-vtk.dtb"			"arch/arm/boot/dts/nxp3220-vtk.dtb"
 	"br2" 	 	"$TOPDIR/rootfs/buildroot" 	""    "nxp3220_vtk_sysv_defconfig" 	"output/target"
 )
 BUILD_ARRAY_COLs=5
@@ -51,12 +52,12 @@ function build_bl() {
 
 	echo "*** BUILD: $target ***"
 	dmsg "================================================================="
-	dmsg "TARGET    :'$target'"
-	dmsg "PATH      :'$path'"
-	dmsg "OUTPUT    :'$output'"
-	dmsg "RESULT    :'$result'"
-	dmsg "COMMAND   :'$command'"
-	dmsg "TOOLCHAIN :'$toolchain'"
+	dmsg "TARGET    : $target"
+	dmsg "PATH      : $path"
+	dmsg "OUTPUT    : $output"
+	dmsg "RESULT    : $result"
+	dmsg "COMMAND   : $command"
+	dmsg "TOOLCHAIN : $toolchain"
 	dmsg "================================================================="
 
 	if [ "$command" ] &&
@@ -117,16 +118,16 @@ function build_linux() {
 
 	echo "*** BUILD: $target ***"
 	dmsg "================================================================="
-	dmsg "TARGET        :'$target'"
-	dmsg "PATH          :'$path'"
-	dmsg "ARCH          :'$arch'"
-	dmsg "CONFIG        :'$config'"
-	dmsg "OUTPUT        :'$output'"
-	dmsg "IMAGE         :'$image'"
-	dmsg "RESULT        :'$result'"
-	dmsg "COMMAND       :'$command'"
-	dmsg "TOOLCHAIN     :'$toolchain'"
-	dmsg "CROSS_COMPILE :'$compile'"
+	dmsg "TARGET    : $target"
+	dmsg "PATH      : $path"
+	dmsg "ARCH      : $arch"
+	dmsg "CONFIG    : $config"
+	dmsg "OUTPUT    : $output"
+	dmsg "IMAGE     : $image"
+	dmsg "RESULT    : $result"
+	dmsg "COMMAND   : $command"
+	dmsg "TOOLCHAIN : $toolchain"
+	dmsg "COMPILER  : $compile"
 	dmsg "================================================================="
 
 	# check support commands
@@ -179,10 +180,16 @@ function build_linux() {
 	fi
 
 	# build
-	if [ "$target" != "br2" ]; then
-		make -C $path ARCH=$arch $image CROSS_COMPILE=$compile -j $jobs
+	if [ "$target" == "u-boot" ] ||
+	   [ "$target" == "kernel" ]; then
+		make -C $path ARCH=$arch CROSS_COMPILE=$compile $image -j $jobs
+	elif [ "$target" == "dts" ]; then
+		make -C $path ARCH=$arch CROSS_COMPILE=$compile $config
+	elif [ "$target" == "br2" ]; then
+		make -C $path -j $jobs
 	else
-		make -C $path -j $jobs 
+		echo "Not support target: $target"
+		exit 1
 	fi
 	[ $? -ne 0 ] && exit 1;
 
