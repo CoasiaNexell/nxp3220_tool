@@ -11,6 +11,8 @@ BLIMAGES=(
 #	"-b $RESULT/sss.raw -a 0x60000000 -j 0x60000000"
 	"-b $RESULT/bl32.bin.raw -a 0x5E000000 -j 0x5E000000"
 	"-b $RESULT/u-boot.bin.raw -a 0x43C00000 -j 0x43C00000"
+	"-f $RESULT/zImage"
+	"-f $RESULT/nxp3220-vtk.dtb"
 	)
 
 # usb download input file
