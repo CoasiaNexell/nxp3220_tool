@@ -81,7 +81,7 @@ function build_bl() {
 	fi
 
 	if [ "$toolchain" ]; then
-		export PATH=$PATH:$toolchain
+		export PATH=$toolchain:$PATH
 	fi
 
 	make -C $path
@@ -148,7 +148,7 @@ function build_linux() {
 	fi
 
 	if [ "$toolchain" ]; then
-		export PATH=$PATH:$toolchain
+		export PATH=$toolchain:$PATH
 	fi
 
 	if [ "$command" == "distclean" ]; then
