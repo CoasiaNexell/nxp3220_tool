@@ -8,8 +8,8 @@ TARGET=nxp3220
 BLIMAGES=(
 	"-b $RESULT/bl1-nxp3220.bin.raw  -a 0xFFFF0000 -j 0xFFFF0000"
 	"-b $RESULT/bl2-vtk.bin.raw -a 0xFFFF8000 -j 0xFFFF8000"
-#	"-b $RESULT/sss.raw -a 0x60000000 -j 0x60000000"
-	"-b $RESULT/bl32.bin.raw -a 0x5E000000 -j 0x5E000000"
+#	"-b $RESULT/sss.raw -a 0x23D18000 -j 0x23D18000"
+	"-b $RESULT/bl32.bin.raw -a 0x5F000000 -j 0x5F000000"
 	"-b $RESULT/u-boot.bin.raw -a 0x43C00000 -j 0x43C00000"
 	"-f $RESULT/zImage"
 	"-f $RESULT/nxp3220-vtk.dtb"
