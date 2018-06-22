@@ -18,9 +18,9 @@ BUILD_IMAGES_VTK=(
 	"bl2"  		"$TOPDIR/bl2/bl2-nxp3220" 	"arm" "" 				"bl2-vtk.bin.raw"
 	"bl32" 		"$TOPDIR/bl32/bl32-nxp3220" 	"arm" "" 				"bl32.bin.raw"
 	"u-boot" 	"$TOPDIR/u-boot/u-boot-2017.5"	"arm" "nxp3220_vtk_defconfig" 		"u-boot.bin"
+	"br2" 	 	"$TOPDIR/rootfs/buildroot" 	""    "nxp3220_vtk_sysv_defconfig" 	"output/target"
 	"kernel" 	"$TOPDIR/kernel/kernel-4.14" 	"arm" "nxp3220_vtk_defconfig"		"arch/arm/boot/zImage"
 	"dts" 		"$TOPDIR/kernel/kernel-4.14" 	"arm" "nxp3220-vtk.dtb"			"arch/arm/boot/dts/nxp3220-vtk.dtb"
-	"br2" 	 	"$TOPDIR/rootfs/buildroot" 	""    "nxp3220_vtk_sysv_defconfig" 	"output/target"
 )
 BUILD_ARRAY_COLs=5
 
