@@ -14,7 +14,7 @@ BLIMAGE=(
 BLOCK_SIZE=1024
 BLOCK_COUNT=8192 # set disk image size kbyte
 
-function generate_gptdisk()
+function generate_gpt_sd_disk()
 {
 	bli=("${@}")
 	seek=17408	# FIX: 512 * 34 = 17408 (LBA34: 0 ~ 33)
@@ -24,7 +24,10 @@ function generate_gptdisk()
 
 	[ -f $disk ] && sudo rm $disk;
 
+	echo "================================================================"
 	echo "BOOTDISK : $disk bs=$BLOCK_SIZE count= $BLOCK_COUNT"
+	echo "================================================================"
+
 	sudo dd if=/dev/zero of=$disk bs=$BLOCK_SIZE count=$BLOCK_COUNT
 
 	echo "BOOTDISK : partition"
@@ -33,7 +36,7 @@ function generate_gptdisk()
 	sudo parted $disk --script -- mklabel gpt
 	sudo parted $disk --script -- mkpart primary 4 -1
 
-	# check the partition info with "parted" or fdisk command 
+	# check the partition info with "parted" or fdisk command
 	# $> sudo parted bootdisk.img
 	# $> print
 
@@ -49,7 +52,9 @@ function generate_gptdisk()
 
 			echo "BOOTDISK : $seek :`readlink -e -n "$file"` $disk"
 			if [ ! -f $file ]; then
-				echo "**** No such file: skip 'dd'"
+				echo ""
+				echo "**** No such file: $file"
+				echo ""
 			else
 				sudo dd if=$file of=$disk seek=$seek bs=1 conv=notrunc;sync
 			fi
@@ -58,18 +63,77 @@ function generate_gptdisk()
 	done
 
 	# make to sparse
+	echo ""
 	echo "Make to a sparse file $disk"
 	cp --sparse=always $disk tmp.img
 	sudo mv tmp.img $disk
 	echo -n "Actrual size: $(( $BLOCK_SIZE*$BLOCK_COUNT/1024/1024 ))M -> "
 	echo -e "$(du -h $disk | cut -f1)"
 
-	echo "================================================================"
+	echo ""
 	echo "Copy to SD card with command:"
 	echo "$> sudo dd if=bootdisk.img of=/dev/sd? bs=1 seek=0"
-	echo "================================================================"
+	echo ""
+
+	mv $disk $RESULT/$disk
+
+	echo "*** MOVE   : $image ***"                                         
+        echo "*** RESULT : `readlink -e -n "$RESULT/$disk"` ***"
+
 	sync
 }
 
-generate_gptdisk "${BLIMAGE[@]}"
+function generate_gpt_emmc_img()
+{
+	bli=("${@}")
+	seek=0	# FIX: 512 * 34 = 17408 (LBA34: 0 ~ 33)
+	block_size=512  # FIX: 512
+	size=0; n=0;
+
+	image="emmcboot.img"
+
+	[ -f $image ] && sudo rm $image;
+
+	echo "================================================================"
+	echo "EMMCBOOT : emmc boot images"
+	echo "================================================================"
+
+	for i in "${bli[@]}"
+	do
+		if [ $(( $n % 2 )) -eq 0 ]; then
+			file=$i
+		else
+			if [ ! -f $file ]; then
+				echo ""
+				echo "**** No such file: $file"
+				echo ""
+			else
+				echo "EMMCBOOT: $seek :`readlink -e -n "$file"` $image"
+				sudo dd if=$file of=$image seek=$seek bs=1;sync
+
+				# get next offset
+				size=$(stat -c %s $file)
+				next=`expr $seek + $size + $block_size - 1`
+				next=`expr $next / $block_size`
+				next=`expr $next \* $block_size`
+				seek=$next
+			fi
+		fi
+		n=$((n + 1));
+	done
+
+	echo ""
+	echo -n "Actrual size: "
+	echo -e "$(du -h $image | cut -f1)"
+
+	mv $image $RESULT/$image
+
+	echo "*** MOVE   : $image ***"                                         
+        echo "*** RESULT : `readlink -e -n "$RESULT/$image"` ***"
+
+	sync
+}
+
+generate_gpt_sd_disk  "${BLIMAGE[@]}"
+generate_gpt_emmc_img "${BLIMAGE[@]}"
 
