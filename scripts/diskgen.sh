@@ -77,7 +77,7 @@ function generate_gpt_sd_disk()
 
 	mv $disk $RESULT/$disk
 
-	echo "*** MOVE   : $image ***"                                         
+	echo "*** MOVE   : $image ***"
         echo "*** RESULT : `readlink -e -n "$RESULT/$disk"` ***"
 
 	sync
@@ -128,12 +128,69 @@ function generate_gpt_emmc_img()
 
 	mv $image $RESULT/$image
 
-	echo "*** MOVE   : $image ***"                                         
+	echo "*** MOVE   : $image ***"
         echo "*** RESULT : `readlink -e -n "$RESULT/$image"` ***"
+
+	sync
+}
+
+function generate_spi_img()
+{
+	bli=("${@}")
+	seek=0
+	size=0; n=0;
+	image="spi.img"
+	[ -f $image ] && sudo rm $image;
+
+	echo "================================================================"
+	echo "BOOTIMAGE : SPI boot Image									  "
+	echo "================================================================"
+
+	for i in "${bli[@]}"
+	do
+		if [ $(( $n % 2 )) -eq 0 ]; then
+			file=$i
+		else
+			# bl2 offset is 0x1440 (81Kbyte)
+			if [ $n == 3 ]; then
+				seek=$(($seek + 0x4400))
+			fi
+			seek=$(($seek + $size * 1024))
+			size=$i
+
+			echo "SPIIMAGE : $seek :`readlink -e -n "$file"` $image"
+			if [ ! -f $file ]; then
+				echo ""
+				echo "**** No such file: $file"
+				echo ""
+			else
+				sudo dd if=$file of=$image seek=$seek bs=1 conv=notrunc;sync
+			fi
+		fi
+		n=$((n + 1));
+	done
+
+	# make to sparse
+	echo ""
+	echo "Make to a sparse file $image"
+	cp --sparse=always $image tmp.img
+	sudo mv tmp.img $image
+	echo -n "Actrual size: $(( $BLOCK_SIZE*$BLOCK_COUNT/1024/1024 ))M -> "
+	echo -e "$(du -h $image | cut -f1)"
+
+	echo ""
+	echo "Copy to SPI Image with command:"
+	echo "$> sudo dd if=spi.img of=/dev/sd? bs=1 seek=0"
+	echo ""
+
+	mv $image $RESULT/$image
+
+	echo "*** MOVE   : $image ***"
+	echo "*** RESULT : `readlink -e -n "$RESULT/$image"` ***"
 
 	sync
 }
 
 generate_gpt_sd_disk  "${BLIMAGE[@]}"
 generate_gpt_emmc_img "${BLIMAGE[@]}"
-
+generate_spi_img "${BLIMAGE[@]}"
