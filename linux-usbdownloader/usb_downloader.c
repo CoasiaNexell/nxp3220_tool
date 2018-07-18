@@ -42,7 +42,7 @@ enum{
 	NEXELL_VID    = 0x2375,
 	SAMSUNG_VID   = 0x04E8,
 	NXP3220_PID   = 0x3220,
-	S5PXX18_PID   = 0x1234,
+	SAMSUNG_PID   = 0x1234,
 };
 
 static size_t get_file_size(FILE *fd)
@@ -79,20 +79,22 @@ static void usage(void)
 	printf("   -b [file name]      : nxp3220 boot-loader send file name \n");
 	printf("   -f [file name]      : send the general file name \n");
 	printf("   -t [processor type] : select target processor type\n");
-	printf("      ( type : nxp3220 )\n" );
+	printf("      ( type : nxp3220/artik310 )\n" );
 	printf("   -a [address]        : download address\n");
 	printf("   -j [address]        : jump address\n");
 	printf("\n");
 	printf(" case 1. nxp3220 Boot Loader Level1 Download \n" );
 	printf("  #>sudo ./usb-downloader -t nxp3220 -b nxp3220_bl1.bin -a 0xFFFF0000 -j 0xFFFF0000 \n" );
+	printf("  #>sudo ./usb-downloader -t artik310 -b nxp3220_bl1.bin -a 0xFFFF0000 -j 0xFFFF0000 \n" );
 	printf(" case 2. nxp3220 Image Download \n" );
 	printf("  #>sudo ./usb-downloader -t nxp3220 -b u-boot.bin -a 0x43C0000 -j 0x43C00000 \n" );
+	printf("  #>sudo ./usb-downloader -t artik310 -b u-boot.bin -a 0x43C0000 -j 0x43C00000 \n" );
 	printf(" case 3. General Image Download \n" );
 	printf("  #>sudo ./usb-downloader -t nxp3220 -f uimage \n" );
 	printf("  #>sudo ./usb-downloader -t nxp3220 -f dumpyimage \n" );
+	printf("  #>sudo ./usb-downloader -t artik310 -f dumpyimage \n" );
 	printf("\n");
 }
-
 
 static int is_init_usb = 0;
 
@@ -219,7 +221,7 @@ static int nxp3220_image_transfer(unsigned int vendor_id, unsigned int product_i
 
 	fd_image = fopen(bin_file , "rb");
 	if (!fd_image) {
-		printf("No such file: %s\n", bin_file);
+		printf("File open failed!! check filename!!\n");
 		goto error_exit;
 	}
 
@@ -358,11 +360,13 @@ int main(int argc, char **argv)
 	}
 
 	if (!strncmp("nxp3220", processor_type ,7)) {
-		unsigned int vendor_id  = NEXELL_VID;  // SAMSUNG_VID
-		unsigned int product_id = NXP3220_PID; // SAMSUNG_VID
-
-		if (0 != nxp3220_transfer(vendor_id, product_id, only_bin)) {
+		if (0 != nxp3220_transfer(NEXELL_VID, NXP3220_PID, only_bin)) {
 			printf("NXP3220_ImageDownload Failed\n");
+			return -1;
+		}
+	} else if (!strncmp("artik310", processor_type ,7)) {
+		if (0 != nxp3220_transfer(SAMSUNG_VID, SAMSUNG_PID, only_bin)) {
+			printf("Artik310_ImageDownload Failed\n");
 			return -1;
 		}
 	}
