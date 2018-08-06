@@ -85,10 +85,8 @@ static void usage(void)
 	printf("\n");
 	printf(" case 1. nxp3220 Boot Loader Level1 Download \n" );
 	printf("  #>sudo ./usb-downloader -t nxp3220 -b nxp3220_bl1.bin -a 0xFFFF0000 -j 0xFFFF0000 \n" );
-	printf("  #>sudo ./usb-downloader -t artik310 -b nxp3220_bl1.bin -a 0xFFFF0000 -j 0xFFFF0000 \n" );
 	printf(" case 2. nxp3220 Image Download \n" );
 	printf("  #>sudo ./usb-downloader -t nxp3220 -b u-boot.bin -a 0x43C0000 -j 0x43C00000 \n" );
-	printf("  #>sudo ./usb-downloader -t artik310 -b u-boot.bin -a 0x43C0000 -j 0x43C00000 \n" );
 	printf(" case 3. General Image Download \n" );
 	printf("  #>sudo ./usb-downloader -t nxp3220 -f uimage \n" );
 	printf("  #>sudo ./usb-downloader -t nxp3220 -f dumpyimage \n" );
