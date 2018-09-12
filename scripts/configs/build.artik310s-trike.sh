@@ -1,7 +1,6 @@
 #!/bin/bash
 
-BASEDIR=$(cd "$(dirname "$0")" && pwd)
-BASEDIR="$BASEDIR/../.."
+BASEDIR="$(cd "$(dirname "$0")" && pwd)/../.."
 RESULT="$BASEDIR/result"
 
 # DIR
@@ -53,8 +52,9 @@ BL1_AESCBC_ENC="$AESCBC_EXE -n $RESULT/bl1-nxp3220.bin
 BL32_AESCBC_ENC="$AESCBC_EXE -n $RESULT/bl32.bin
 			-k $AESKEY -v $AESVECTOR -m enc	-b 128"
 
-BL1_LOADER="$BL1_AESCBC_ENC; $BL1_BINGEN_ENC; $BL1_BINGEN"
-BL32_LOADER="$BL32_AESCBC_ENC; $BL32_BINGEN_ENC; $BL32_BINGEN"
+BL1_COMMAND="$BL1_AESCBC_ENC; $BL1_BINGEN_ENC; $BL1_BINGEN"
+BL32_COMMAND="$BL32_AESCBC_ENC; $BL32_BINGEN_ENC; $BL32_BINGEN"
+
 BUILD_IMAGES=(
 	"MACHINE= nxp3220",
 	"ARCH  	= arm",
@@ -64,7 +64,7 @@ BUILD_IMAGES=(
 		PATH  	: $BL1_DIR,
 		TOOL  	: $BL_TOOLCHAIN,
 		OUTPUT	: out/bl1-nxp3220.bin*,
-		POSTCMD : $BL1_LOADER,
+		POSTCMD : $BL1_COMMAND,
 		JOBS  	: 1", # must be 1
 	"bl2   	=
 		PATH  	: $BL2_DIR,
@@ -77,7 +77,7 @@ BUILD_IMAGES=(
 		PATH  	: $BL32_DIR,
 		TOOL  	: $BL_TOOLCHAIN,
 		OUTPUT	: out/bl32.bin,
-		POSTCMD	: $BL32_LOADER,
+		POSTCMD	: $BL32_COMMAND,
 		JOBS  	: 1", # must be 1
 	"uboot 	=
 		PATH  	: $UBOOT_DIR,

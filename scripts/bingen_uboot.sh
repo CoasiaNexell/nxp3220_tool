@@ -3,10 +3,10 @@
 BASEDIR=$(cd "$(dirname "$0")" && pwd)
 
 RESULT=$BASEDIR/../../result
-BINGENDIR=$BASEDIR/../bingen
+BINGENDIR=$BASEDIR/../bin/
 UBOOTBIN=$BASEDIR/../../u-boot/u-boot-2017.5/u-boot.bin
 
-NSIHFILE=nsih.txt
+NSIHFILE=nsih_uboot.txt
 BOOTKEY=bootkey
 USERKEY=userkey
 
