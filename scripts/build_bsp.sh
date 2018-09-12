@@ -30,10 +30,10 @@ declare -A TARGET_COMPONENTS=(
   	["CONFIG"]=" "	# build default condig (defconfig)
   	["IMAGE"]=" "	# build image
   	["TOOL"]=" "	# cross compiler
-  	["OUTPUT"]=" "	# output image
+  	["OUTPUT"]=" "	# output image to copy, copy after post command
   	["OPTION"]=" "	# build option
   	["PRECMD"]=" "	# pre command before build
-  	["POSTCMD"]=" "	# post command after build
+  	["POSTCMD"]=" "	# post command after copy done
   	["COPY"]=" "	# copy name to RESULT
   	["JOBS"]=" "	# build jobs number (-j n)
 )
@@ -48,9 +48,9 @@ function usage() {
 	echo " -i           : build info with -f file name"
 	echo " -o           : build options EX> -o V=0"
 	echo " -j           : build jobs"
-	echo " -b           : only run build command"
-	echo " -r           : only run pre command (related with PRECMD)"
-	echo " -s           : only run post command (related with POSTCMD)"
+	echo " -b           : only run build command, run make"
+	echo " -r           : only run pre command, run before build (related with PRECMD)"
+	echo " -s           : only run post command, run after copy done (related with POSTCMD)"
 	echo " -c           : only run copy to result (related with COPY)"
 	echo " -e           : open file with vim"
 	echo ""
@@ -372,7 +372,7 @@ function fn_build_target() {
 
 	if [ $run_prev_cmd == true ] && [ ! -z "${TARGET_COMPONENTS["PRECMD"]}" ]; then
 		echo -e "\033[47;34m PRECMD : ${TARGET_COMPONENTS["PRECMD"]} \033[0m"
-		${TARGET_COMPONENTS["PRECMD"]}
+		bash -c "${TARGET_COMPONENTS["PRECMD"]}"
 		[ $? -ne 0 ] && exit 1;
 		echo -e "\033[47;32m PRECMD : DONE \033[0m"
 	fi
@@ -382,19 +382,21 @@ function fn_build_target() {
 		[ $? -ne 0 ] && exit 1;
 	fi
 
-	if [ $run_post_cmd == true ] && [ ! -z "${TARGET_COMPONENTS["POSTCMD"]}" ]; then
-		echo -e "\033[47;34m POSTCMD: ${TARGET_COMPONENTS["POSTCMD"]} \033[0m"
-		${TARGET_COMPONENTS["POSTCMD"]}
-		[ $? -ne 0 ] && exit 1;
-		echo -e "\033[47;32m POSTCMD: DONE \033[0m"
-	fi
-
 	if [ $run_copy_ret == true ]; then
 		local path=${TARGET_COMPONENTS["PATH"]} out=${TARGET_COMPONENTS["OUTPUT"]}
 		local dir=${BUILD_ENVIRONMENT["RESULT"]} ret=${TARGET_COMPONENTS["COPY"]}
 
-		fn_copy_target "$path" "$out" "$dir" "$ret"
+		if [ ! -z "$out" ]; then
+			fn_copy_target "$path" "$out" "$dir" "$ret"
+			[ $? -ne 0 ] && exit 1;
+		fi
+	fi
+
+	if [ $run_post_cmd == true ] && [ ! -z "${TARGET_COMPONENTS["POSTCMD"]}" ]; then
+		echo -e "\033[47;34m POSTCMD: ${TARGET_COMPONENTS["POSTCMD"]} \033[0m"
+		bash -c "${TARGET_COMPONENTS["POSTCMD"]}"
 		[ $? -ne 0 ] && exit 1;
+		echo -e "\033[47;32m POSTCMD: DONE \033[0m"
 	fi
 }
 

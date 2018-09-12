@@ -16,6 +16,7 @@ function usage() {
 	echo "  -s : wait sec for next download"
 	echo "  -i : build info with -f file name"
 	echo "  -e : open file with vim"
+	echo "  -p : encryted file transfer"
 	echo ""
 }
 
@@ -67,9 +68,15 @@ function usb_download_array() {
 			continue
 		fi
 
-		local i="$(echo $i| cut -d':' -f 2)"
+		local cmd="$(echo $i| cut -d':' -f 2)"
+		local file="$(echo $cmd| cut -d' ' -f 2)"
 
-		sudo $DOWNLOADER -t $target $i
+		if [ ! -e "$file" ]; then
+			echo -e "\033[47;31m DOWNLOAD: No such file $file\033[0m"
+			exit 1
+		fi
+
+		sudo $DOWNLOADER -t $target $cmd
 		echo -e "\033[47;32m DOWNLOAD: DONE \033[0m"
 
 		[ $? -ne 0 ] && exit 1;
@@ -103,8 +110,9 @@ dn_load_objs=()
 dn_load_file=
 edit_file=false
 show_info=false
+encryted=false
 
-while getopts 'hf:l:s:ei' opt
+while getopts 'hf:l:s:eip' opt
 do
         case $opt in
         f )
@@ -123,6 +131,8 @@ do
 		;;
 	e )
 		edit_file=true
+		;;
+	p )	encryted=true
 		;;
 	s )
 		sleep_time_sec=$OPTARG
@@ -153,7 +163,11 @@ if [ ! -z $dn_load_file ]; then
 	# include input file
 	. $dn_load_file
 
-	usb_download_array "${DN_IMAGES[@]}"
+	if [ $encryted == false ]; then
+		usb_download_array "${DN_IMAGES[@]}"
+	else
+		usb_download_array "${DN_ENC_IMAGES[@]}"
+	fi
 fi
 
 if [ ${#dn_load_objs} -ne 0 ]; then
