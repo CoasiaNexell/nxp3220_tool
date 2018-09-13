@@ -12,8 +12,8 @@ DN_IMAGES=(
 #	"sss   : -b $RESULT/sss.raw -a 0x23D18000 -j 0x23D18000"
 	"bl32  : -b $RESULT/bl32.bin.raw -a 0x5F000000 -j 0x5F000000"
 	"uboot : -b $RESULT/u-boot.bin.raw -a 0x43C00000 -j 0x43C00000"
-#	"kernel: -f $RESULT/zImage"
-#	"dtb   : -f $RESULT/nxp3220-vtk.dtb"
+	"kernel: -f $RESULT/zImage"
+	"dtb   : -f $RESULT/sip-s31nx-artik310s-trike-rev00.dtb"
 )
 
 DN_ENC_IMAGES=(
@@ -24,6 +24,6 @@ DN_ENC_IMAGES=(
 #	"sss   : -b $RESULT/sss.raw -a 0x23D18000 -j 0x23D18000"
 	"bl32  : -b $RESULT/bl32.bin.raw -a 0x5F000000 -j 0x5F000000"
 	"uboot : -b $RESULT/u-boot.bin.raw -a 0x43C00000 -j 0x43C00000"
-#	"kernel: -f $RESULT/zImage"
-#	"dtb   : -f $RESULT/nxp3220-vtk.dtb"
+	"kernel: -f $RESULT/zImage"
+	"dtb   : -f $RESULT/sip-s31nx-artik310s-trike-rev00.dtb"
 )
