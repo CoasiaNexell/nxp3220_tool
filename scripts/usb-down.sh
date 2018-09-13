@@ -5,14 +5,17 @@
 BASEDIR=$(cd "$(dirname "$0")" && pwd)
 DOWNLOADER=$BASEDIR/../bin/linux-usbdownloader
 sleep_time_sec=2
+TARGET=
 
 function usage() {
 	echo "usage: `basename $0` [-f file name][-l file file][-s] "
 	echo ""
 	echo "  -f : download with file config"
 	echo "       EX> `basename $0` -f <file name>"
-	echo "  -l : download file objects"
-	echo "       EX> `basename $0` <path>/file1 <path>/file2"
+	echo "  -t : set target name(nxp3220,...) to download filed with file option(-l)"
+	echo "       EX> `basename $0` -t <target> -l <path>/file1 <path>/file2"
+	echo "  -l : set file name to download files with target option(-t)"
+	echo "       EX> `basename $0` -t <target> -l <path>/file1 <path>/file2"
 	echo "  -s : wait sec for next download"
 	echo "  -i : build info with -f file name"
 	echo "  -e : open file with vim"
@@ -46,7 +49,7 @@ function usb_download_array() {
 	get_prefix_element target "TARGET" "${images[@]}"
 
 	if [ -z "$target" ]; then
-		echo -e "Not find TARGET !!!"
+		echo -e "\033[47;31m Not find TARGET !!!\033[0m"
 		echo -e "[${images[@]}]"
 		return
 	fi
@@ -87,17 +90,23 @@ function usb_download_array() {
 
 # input parameters
 # $1 = download file array
-function usb_dn_load_file() {
+function usb_download_files() {
 	local files=("${@}")	# IMAGES
 
 	for i in "${files[@]}"
 	do
-		echo "DOWNLOAD: $i"
 		if [ ! -f $i ]; then
-			echo "No such file: $i ... "
+			echo -e "\033[47;31m No such file: $i... \033[0m"
 			exit 1;
 		fi
 
+		if [ -z "$TARGET" ]; then
+			echo -e "\033[47;31m No Target... \033[0m"
+			usage
+			exit 1;
+		fi
+
+		echo "DOWNLOAD: $TARGET, $i"
 		sudo $DOWNLOADER -t $TARGET -f $i
 
 		[ $? -ne 0 ] && exit 1;
@@ -112,11 +121,14 @@ edit_file=false
 show_info=false
 encryted=false
 
-while getopts 'hf:l:s:eip' opt
+while getopts 'hf:l:t:s:eip' opt
 do
         case $opt in
         f )
  		dn_load_file=$OPTARG
+		;;
+        t )
+ 		TARGET=$OPTARG
 		;;
 
         l )
@@ -171,5 +183,5 @@ if [ ! -z $dn_load_file ]; then
 fi
 
 if [ ${#dn_load_objs} -ne 0 ]; then
-	usb_dn_load_file "${dn_load_objs[@]}"
+	usb_download_files "${dn_load_objs[@]}"
 fi
