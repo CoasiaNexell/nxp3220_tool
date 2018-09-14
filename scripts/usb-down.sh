@@ -4,18 +4,21 @@
 
 BASEDIR=$(cd "$(dirname "$0")" && pwd)
 DOWNLOADER=$BASEDIR/../bin/linux-usbdownloader
-sleep_time_sec=2
-TARGET=
+DN_TARGET=
 
 function usage() {
 	echo "usage: `basename $0` [-f file name][-l file file][-s] "
 	echo ""
+	echo "  -t : set target name, target name overwrite configs 'TARGET' field"
+	echo "     : support target [nxp3220,artik310]"
+	echo "       EX> `basename $0` -t <target> -l <path>/file1 <path>/file2"
+	echo ""
 	echo "  -f : download with file config"
 	echo "       EX> `basename $0` -f <file name>"
-	echo "  -t : set target name(nxp3220,...) to download filed with file option(-l)"
-	echo "       EX> `basename $0` -t <target> -l <path>/file1 <path>/file2"
+	echo ""
 	echo "  -l : set file name to download files with target option(-t)"
 	echo "       EX> `basename $0` -t <target> -l <path>/file1 <path>/file2"
+	echo ""
 	echo "  -s : wait sec for next download"
 	echo "  -i : build info with -f file name"
 	echo "  -e : open file with vim"
@@ -48,11 +51,21 @@ function usb_download_array() {
 
 	get_prefix_element target "TARGET" "${images[@]}"
 
-	if [ -z "$target" ]; then
-		echo -e "\033[47;31m Not find TARGET !!!\033[0m"
-		echo -e "[${images[@]}]"
-		return
+	if [ -z "$DN_TARGET" ]; then
+ 		if [ -z "$target" ]; then
+			echo -e "\033[47;31m Not find TARGET !!!\033[0m"
+			echo -e "[${images[@]}]"
+			return
+		fi
+		DN_TARGET=$target # set DN_TARGET with config file
+	else
+		target=$DN_TARGET # overwrite target with input target parameter with '-t'
 	fi
+
+	echo "##################################################################"
+	echo -e "\033[47;34m CONFIG TARGET: $target \033[0m"
+	echo "##################################################################"
+	echo ""
 
 	for i in "${images[@]}"
 	do
@@ -84,7 +97,7 @@ function usb_download_array() {
 
 		[ $? -ne 0 ] && exit 1;
 
-		sleep $sleep_time_sec	# wait for next connect
+		sleep $sleep_sec	# wait for next connect
 	done
 }
 
@@ -92,6 +105,12 @@ function usb_download_array() {
 # $1 = download file array
 function usb_download_files() {
 	local files=("${@}")	# IMAGES
+	local target=$DN_TARGET
+
+	echo "##################################################################"
+	echo -e "\033[47;34m LOAD TARGET: $target \033[0m"
+	echo "##################################################################"
+	echo ""
 
 	for i in "${files[@]}"
 	do
@@ -100,18 +119,21 @@ function usb_download_files() {
 			exit 1;
 		fi
 
-		if [ -z "$TARGET" ]; then
+		if [ -z "$target" ]; then
 			echo -e "\033[47;31m No Target... \033[0m"
 			usage
 			exit 1;
 		fi
 
-		echo "DOWNLOAD: $TARGET, $i"
-		sudo $DOWNLOADER -t $TARGET -f $i
+		echo -e "\033[47;34m DOWNLOAD: $i \033[0m"
+
+		sudo $DOWNLOADER -t $target -f $i
+
+		echo -e "\033[47;32m DOWNLOAD: DONE \033[0m"
 
 		[ $? -ne 0 ] && exit 1;
 
-		sleep $sleep_time_sec
+		sleep $sleep_sec
 	done
 }
 
@@ -120,6 +142,7 @@ dn_load_file=
 edit_file=false
 show_info=false
 encryted=false
+sleep_sec=2
 
 while getopts 'hf:l:t:s:eip' opt
 do
@@ -128,9 +151,8 @@ do
  		dn_load_file=$OPTARG
 		;;
         t )
- 		TARGET=$OPTARG
+		DN_TARGET=$OPTARG
 		;;
-
         l )
 		dn_load_objs=("$OPTARG")
 		until [[ $(eval "echo \${$OPTIND}") =~ ^-.* ]] || [ -z $(eval "echo \${$OPTIND}") ]; do
@@ -138,18 +160,18 @@ do
                 	OPTIND=$((OPTIND + 1))
 		done
 		;;
-
-	i )	show_info=true
+	i )
+		show_info=true
 		;;
 	e )
 		edit_file=true
 		;;
-	p )	encryted=true
+	p )
+		encryted=true
 		;;
 	s )
-		sleep_time_sec=$OPTARG
+		sleep_sec=$OPTARG
 		;;
-
         h | *)
         	usage
 		exit 1;;
