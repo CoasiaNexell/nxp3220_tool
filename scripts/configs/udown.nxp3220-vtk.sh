@@ -2,9 +2,10 @@
 
 BASEDIR="$(cd "$(dirname "$0")" && pwd)/../.."
 RESULT="$BASEDIR/result"
+TARGET=nxp3220
 
 DN_IMAGES=(
-	"TARGET: nxp3220"
+	"TARGET: $TARGET"
 	"BOARD : vtk"
 	"bl1   : -b $RESULT/bl1-nxp3220.bin.raw  -a 0xFFFF0000 -j 0xFFFF0000"
 	"bl2   : -b $RESULT/bl2-vtk.bin.raw -a 0xFFFF9000 -j 0xFFFF9000"
@@ -16,7 +17,7 @@ DN_IMAGES=(
 )
 
 DN_ENC_IMAGES=(
-	"TARGET: nxp3220"
+	"TARGET: $TARGET"
 	"BOARD : vtk"
 	"bl1   : -b $RESULT/bl1-nxp3220.bin.enc.raw  -a 0xFFFF0000 -j 0xFFFF0000"
 	"bl2   : -b $RESULT/bl2-vtk.bin.raw -a 0xFFFF9000 -j 0xFFFF9000"
