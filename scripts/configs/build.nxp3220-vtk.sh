@@ -3,55 +3,57 @@
 BASEDIR="$(cd "$(dirname "$0")" && pwd)/../.."
 RESULT="$BASEDIR/result"
 
-# DIR
+# Toolchains for Bootloader/Linux
+BL_TOOLCHAIN="$BASEDIR/tools/crosstools/gcc-arm-none-eabi-6-2017-q2-update/bin/arm-none-eabi-"
+LINUX_TOOLCHAIN="$BASEDIR/tools/crosstools/gcc-linaro-7.2.1-2017.11-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-"
+
+# Build DIR
 BL1_DIR=$BASEDIR/bootloader/bl1-nxp3220
 BL2_DIR=$BASEDIR/bootloader/bl2-nxp3220
 BL32_DIR=$BASEDIR/bootloader/bl32-nxp3220
 BR2_DIR=$BASEDIR/rootfs/buildroot
-
 UBOOT_DIR=$BASEDIR/u-boot/u-boot-2018.5
 KERNEL_DIR=$BASEDIR/kernel/kernel-4.14
+BIN_DIR="$BASEDIR/tools/bin"
 
-# for bootloader (bl1/2/32)
-BL_TOOLCHAIN_PATH="$BASEDIR/tools/crosstools/gcc-arm-none-eabi-6-2017-q2-update/bin"
-BL_TOOLCHAIN="$BL_TOOLCHAIN_PATH/arm-none-eabi-"
-LINUX_TOOLCHAIN="$BASEDIR/tools/crosstools/gcc-linaro-7.2.1-2017.11-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-"
+# Boot Bingen
+BL1_NSIH="$BL1_DIR/reference-nsih/nsih_general.txt"
+BL2_NSIH="$BL2_DIR/reference-nsih/nsih_vtk_ddr3_800Mhz.txt"
+BL32_NSIH="$BL32_DIR/reference-nsih/nsih_general.txt"
+UBOOT_NSIH="$BIN_DIR/nsih_uboot.txt"
+BOOT_KEY="$BIN_DIR/bootkey"
+USER_KEY="$BIN_DIR/userkey"
 
-BINGEN_DIR="$BASEDIR/tools/bin"
-BL1_NSIHFILE="$BL1_DIR/reference-nsih/nsih_general.txt"
-BL2_NSIHFILE="$BL2_DIR/reference-nsih/nsih_vtk_ddr3_800Mhz.txt"
-BL32_NSIHFILE="$BL32_DIR/reference-nsih/nsih_general.txt"
-UBOOT_NSIHFILE="$BINGEN_DIR/nsih_uboot.txt"
-BOOTKEY="$BINGEN_DIR/bootkey"
-USERKEY="$BINGEN_DIR/userkey"
+BINGEN_EXE="$BIN_DIR/bingen"
+BL1_BINGEN="$BINGEN_EXE -n $BL1_NSIH -i $RESULT/bl1-nxp3220.bin
+			-b $BOOT_KEY -u $USER_KEY	-k bl1 l 0xFFFF0000 -s 0xFFFF0000 -t"
+BL1_BINGEN_ENC="$BINGEN_EXE -n $BL1_NSIH -i $RESULT/bl1-nxp3220.bin.en
+			-b $BOOT_KEY -u $USER_KEY	-k bl1 -l 0xFFFF0000 -s 0xFFFF0000 -t"
 
-BINGEN_EXE="$BASEDIR/tools/bin/bingen"
-BL1_BINGEN="$BINGEN_EXE -n $BL1_NSIHFILE -i $RESULT/bl1-nxp3220.bin
-			-b $BOOTKEY -u $USERKEY	-k bl1 l 0xFFFF0000 -s 0xFFFF0000 -t"
-BL1_BINGEN_ENC="$BINGEN_EXE -n $BL1_NSIHFILE -i $RESULT/bl1-nxp3220.bin.enc
-			-b $BOOTKEY -u $USERKEY	-k bl1 -l 0xFFFF0000 -s 0xFFFF0000 -t"
+BL2_BINGEN="$BINGEN_EXE -n $BL2_NSIH -i $RESULT/bl2-vtk.bin
+			-b $BOOT_KEY -u $USER_KEY	-k bl2 -l 0xFFFF9000 -s 0xFFFF9000 -t"
 
-BL2_BINGEN="$BINGEN_EXE -n $BL2_NSIHFILE -i $RESULT/bl2-vtk.bin
-			-b $BOOTKEY -u $USERKEY	-k bl2 -l 0xFFFF9000 -s 0xFFFF9000 -t"
+BL32_BINGEN="$BINGEN_EXE -n $BL32_NSIH -i $RESULT/bl32.bin
+			-b $BOOT_KEY -u $USER_KEY	-k bl32	-l 0x5F000000 -s 0x5F000000 -t"
 
-BL32_BINGEN="$BINGEN_EXE -n $BL32_NSIHFILE -i $RESULT/bl32.bin
-			-b $BOOTKEY -u $USERKEY	-k bl32	-l 0x5F000000 -s 0x5F000000 -t"
+BL32_BINGEN_ENC="$BINGEN_EXE -n $BL32_NSIH -i $RESULT/bl32.bin.enc
+			-b $BOOT_KEY -u $USER_KEY	-k bl32	-l 0x5F000000 -s 0x5F000000 -t"
 
-BL32_BINGEN_ENC="$BINGEN_EXE -n $BL32_NSIHFILE -i $RESULT/bl32.bin.enc
-			-b $BOOTKEY -u $USERKEY	-k bl32	-l 0x5F000000 -s 0x5F000000 -t"
+UBOOT_BINGEN="$BINGEN_EXE -n $UBOOT_NSIH -i $RESULT/u-boot.bin
+			-b $BOOT_KEY -u $USER_KEY -k bl33 -l 0x43C00000 -s 0x43C00000 -t"
 
-UBOOT_BINGEN="$BINGEN_EXE -n $UBOOT_NSIHFILE -i $RESULT/u-boot.bin
-			-b $BOOTKEY -u $USERKEY -k bl33 -l 0x43C00000 -s 0x43C00000 -t"
+# Encryption Commands
+AESCBC_EXE="$BIN_DIR/aescbc_enc"
+AESKEY=$(<$BIN_DIR/aeskey.txt)
+AESVECTOR=$(<$BIN_DIR/aesvector.txt)
 
-AESCBC_EXE="$BASEDIR/tools/bin/aescbc_enc"
-AESKEY=$(<$BASEDIR/tools/bin/aeskey.txt)
-AESVECTOR=$(<$BASEDIR/tools/bin/aesvector.txt)
 BL1_AESCBC_ENC="$AESCBC_EXE -n $RESULT/bl1-nxp3220.bin
 			-k $AESKEY -v $AESVECTOR -m enc	-b 128"
 
 BL32_AESCBC_ENC="$AESCBC_EXE -n $RESULT/bl32.bin
 			-k $AESKEY -v $AESVECTOR -m enc	-b 128"
 
+# Boot Image Build Command
 BL1_COMMAND="$BL1_AESCBC_ENC; $BL1_BINGEN_ENC; $BL1_BINGEN"
 BL32_COMMAND="$BL32_AESCBC_ENC; $BL32_BINGEN_ENC; $BL32_BINGEN"
 
