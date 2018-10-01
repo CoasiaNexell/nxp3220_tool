@@ -44,17 +44,17 @@ function usage() {
 	do
 		echo -n "[$i]";
 	done
-	echo -e "[-o option] <build command> -i";
-	echo " -i           : build info with -f file name"
-	echo " -o           : build options EX> -o V=0"
-	echo " -j           : build jobs"
-	echo " -b           : only run build command, run make"
-	echo " -r           : only run pre command, run before build (related with PRECMD)"
-	echo " -s           : only run post command, run after copy done (related with POSTCMD)"
-	echo " -c           : only run copy to result (related with COPY)"
-	echo " -e           : open file with vim"
+	echo -e " [options] [command]";
+	echo "[options]"
+	echo "  -i : build info with -f file name"
+	echo "  -j : set build jobs"
+	echo "  -b : only run build command, run make"
+	echo "  -r : only run pre command, run before build (related with PRECMD)"
+	echo "  -s : only run post command, run after copy done (related with POSTCMD)"
+	echo "  -c : only run copy to result (related with COPY)"
+	echo "  -e : open file with vim"
 	echo ""
-	echo "<build command> if not set, build 'IMAGE'"
+	echo "[command] if not set, build 'IMAGE'"
 	echo " defconfig    : set default config"
 	echo " menuconfig   : menuconfig "
 	echo " clean        : clean"
@@ -292,7 +292,7 @@ function fn_parse_target() {
 }
 
 function fn_make_target() {
-	local target=$1 cmd=$2 opt=$3
+	local target=$1 cmd=$2
 	local path=${TARGET_COMPONENTS["PATH"]}
 	local tool=${TARGET_COMPONENTS["TOOL"]}
 	local defconfig=${TARGET_COMPONENTS["CONFIG"]}
@@ -343,16 +343,16 @@ function fn_make_target() {
 	fi
 
 	if [ ! -z "$cmd" ] && [ "$cmd" != "rebuild" ] && [ "$cmd" != "cleanbuild" ] ; then
-		opt="" jobs="" image="" option=""
+		jobs="" image="" option=""
 	else
 		cmd=${TARGET_COMPONENTS["IMAGE"]}
 	fi
 
-	make -C $path ARCH=$arch CROSS_COMPILE=$tool $cmd $opt $option $jobs
+	make -C $path ARCH=$arch CROSS_COMPILE=$tool $cmd $option $jobs
 }
 
 function fn_build_target() {
-	local target=$1 command=$2 opt=$3
+	local target=$1 command=$2
 
 	fn_parse_target "$target" "${BUILD_IMAGES[@]}"
 
@@ -378,7 +378,7 @@ function fn_build_target() {
 	fi
 
 	if [ $run_make_cmd == true ]; then
-		fn_make_target "$target" "$command" "$opt"
+		fn_make_target "$target" "$command"
 		[ $? -ne 0 ] && exit 1;
 	fi
 
@@ -405,7 +405,6 @@ case "$1" in
 		build_file=$2
 		build_targets=()
 		build_command=""
-		build_option=""
 		build_jobs=`grep processor /proc/cpuinfo | wc -l`
 
 		show_info=false
@@ -439,7 +438,6 @@ case "$1" in
 			done
 
 			case "$3" in
-			-o )	build_option=$4; shift 2;; # get option
 			-j )	build_jobs=$4; shift 2;; # get jobs
 			-i ) 	show_info=true; shift 1;;
 			-b )	run_make_cmd=true; shift 1;;
@@ -485,7 +483,7 @@ case "$1" in
 		for i in "${build_targets[@]}"
 		do
 			build_target=$i
-			fn_build_target "$build_target" "$build_command" "$build_option"
+			fn_build_target "$build_target" "$build_command"
 		done
 		;;
 
