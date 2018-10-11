@@ -155,14 +155,15 @@ static int open_rsa_publickey(mbedtls_pk_context *pk, char *fname)
 	return ret;
 }
 
-static int efuse_bootkey_genhash(mbedtls_rsa_context* ctx, char* key_name)
+//static int efuse_bootkey_genhash(mbedtls_rsa_context* ctx, char* key_name)
+static int efuse_bootkey_genhash(unsigned int *Nv, char* key_name)
 {
 	char fname[512];
 	unsigned int hash[8];
 	int i;
 
 	memset(hash, 0, 32);
-	mbedtls_sha256((const unsigned char *)ctx->N.p, 256,
+	mbedtls_sha256((const unsigned char *)Nv, 256,
 		(unsigned char *)hash, 0);
 
 	memset(fname, 0, 512);
@@ -171,7 +172,7 @@ static int efuse_bootkey_genhash(mbedtls_rsa_context* ctx, char* key_name)
 			fname);
 	s_fwrite(fname, (char*)hash, sizeof(hash));
 	mbedtls_printf("rsa public boot key hash:\n");
-	dbg_dump_hash(hash, sizeof(hash), 2);
+	dbg_dump_hash(hash, sizeof(hash), 4);
 
 	return 0;
 }
@@ -289,6 +290,9 @@ int main(int argc, char *argv[])
 	bg_m.other_boot = ONLY_BL1;
 	bg_m.obuf = NULL;
 
+	other_boot = "bl1";
+
+
 	if (argc <= 1) {
 		help();
 		return -1;
@@ -388,7 +392,8 @@ int main(int argc, char *argv[])
 		dbg_dump_keyfile(ctx, bg_m.bootkey_name);
 		memcpy(pbh0->rsa_public.rsapublicbootkey,
 			(unsigned char*)Nv, (ctx->N.n * 8));
-		efuse_bootkey_genhash(ctx, bg_m.bootkey_name);
+//		efuse_bootkey_genhash(ctx, bg_m.bootkey_name);
+		efuse_bootkey_genhash(Nv, bg_m.bootkey_name);
 	}
 
 	/* @brief: user.pub write to raw file */
@@ -401,20 +406,10 @@ int main(int argc, char *argv[])
 	else
 		memcpy(g_rsa_public_userkey,
 			(unsigned char*)Nv, (ctx->N.n * 8));
-#if 0
-	{
-		char name[512];
-		memset(name, 0, 512);
-		mbedtls_snprintf(name, 512, "%s.key", bg_m.userkey_name);
-		s_fwrite(name, (char*)Nv, 32);
-	}
-#else
-	efuse_bootkey_genhash(ctx, bg_m.userkey_name);
-
-#endif
+	efuse_bootkey_genhash(Nv, bg_m.userkey_name);
 
 	/*
-	 * @brief: open & read the boot-loader file
+	 * @brief: open and read the boot-loader file
 	 */
 	bg_m.fbuf = image_open_and_read(bg_m.image_name);
 
@@ -445,11 +440,11 @@ int main(int argc, char *argv[])
 	unsigned char hash[32];
 
 	if (bg_m.other_boot == ONLY_BL1) {
-		desc[0].ptr = (const unsigned char *)&pbh0->bi;
+		desc[0].ptr  = (const unsigned char *)&pbh0->bi;
 		desc[0].size = sizeof(struct nx_bootinfo);
-		desc[1].ptr = (const unsigned char *)&pbh0->rsa_public;
+		desc[1].ptr  = (const unsigned char *)&pbh0->rsa_public;
 		desc[1].size = sizeof(struct asymmetrickey);
-		desc[2].ptr = (const unsigned char *)pbh0->bl1image;
+		desc[2].ptr  = (const unsigned char *)pbh0->bl1image;
 		desc[2].size = pbh0->bi.LoadSize;
 
 		sha256_multi(desc,
@@ -458,12 +453,14 @@ int main(int argc, char *argv[])
 				sizeof(struct asymmetrickey) +
 				pbh0->bi.LoadSize, hash, 0);
 	} else {
-		desc[0].ptr = (const unsigned char *)&pobh->bi;
+		char zb[256];
+		memset(zb, 0, sizeof(zb));
+
+		desc[0].ptr  = (const unsigned char *)&pobh->bi;
 		desc[0].size = sizeof(struct sbi_header);
-		desc[1].ptr =
-			(const unsigned char *)g_rsa_public_userkey;
+		desc[1].ptr  = (const unsigned char *)zb;
 		desc[1].size = 256;
-		desc[2].ptr = (const unsigned char *)pobh->image;
+		desc[2].ptr  = (const unsigned char *)pobh->image;
 		desc[2].size = pobh->bi.load_size;
 
 		sha256_multi(desc,
@@ -471,7 +468,8 @@ int main(int argc, char *argv[])
 				sizeof(struct sbi_header) +
 				256 + pobh->bi.load_size, hash, 0);
 	}
-	/* @brief: crate the output hash file */
+
+	/* @brief: crate the output total-image-hash file */
 	{
 		if (bg_m.testsample) {
 			char name[512];
@@ -479,12 +477,14 @@ int main(int argc, char *argv[])
 			mbedtls_snprintf(name, 512, "%s.hash", bg_m.image_name);
 			s_fwrite(name, hash, (256/8));
 		}
-		dbg_dump_hash((unsigned int*)hash, sizeof(hash), 2);
+		dbg_dump_hash((unsigned int*)hash, sizeof(hash), 4);
 	}
+
 	/* @brief: generate sig and write signature */
 	 if (bg_m.other_boot == ONLY_BL1) {
 		if ((ret = mbedtls_pk_sign(&bpk, MBEDTLS_MD_SHA256, hash, 0, buf, &olen,
 						mbedtls_ctr_drbg_random, &ctr_drbg)) != 0) {
+
 			mbedtls_printf(" failed\n  ! mbedtls_pk_sign returned %d\n\n", ret);
 			goto exit;
 		}
@@ -495,7 +495,15 @@ int main(int argc, char *argv[])
 			 goto exit;
 		 }
 	 }
+
 	/* @brief: crate the result output sign file */
+	if (bg_m.other_boot == ONLY_BL1) {
+		memcpy(pbh0->bl1sign, buf, olen);
+	} else {
+		swap(buf, olen);
+		memcpy(pobh->sign, buf, olen);
+	}
+
 	{
 		if (bg_m.testsample) {
 			char name[512];
@@ -503,12 +511,8 @@ int main(int argc, char *argv[])
 			mbedtls_snprintf(name, 512, "%s.sign", bg_m.image_name);
 			s_fwrite(name, buf, olen);
 		}
-		if (bg_m.other_boot == ONLY_BL1)
-			memcpy(pbh0->bl1sign, buf, olen);
-		else
-			memcpy(pobh->sign, buf, olen);
 		mbedtls_printf("\n boot-loader image hash sign:\n");
-		dbg_dump_hash((unsigned int*)buf, olen, 4);
+		dbg_dump_hash((unsigned int*)buf, olen, 8);
 	}
 #if 0
 	/* @brief: crate the result output raw file */
@@ -522,6 +526,7 @@ int main(int argc, char *argv[])
 			s_fwrite(name, (char*)pobh, bg_m.total_size);
 	}
 #else
+	/* @brief: relocated to a specified file format format */
 	if (bg_m.other_boot != ONLY_BL1) {
 		unsigned int extra_size = 256;
 		bg_m.total_size += extra_size;

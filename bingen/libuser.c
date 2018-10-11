@@ -18,6 +18,17 @@
 
 #define POLY 0xEDB88320L
 
+void swap(char *buf, int size)
+{
+	unsigned int swap, index, reverse_index = (size - 1);
+
+	for (index = 0; index < (size / 2); index++, reverse_index--) {
+		swap = buf[reverse_index];
+		buf[reverse_index] = buf[index];
+		buf[index] = swap;
+	}
+}
+
 unsigned int get_fcs(unsigned int fcs, unsigned char data)
 {
 	int i;
@@ -223,6 +234,7 @@ void dbg_dump_keyfile(mbedtls_rsa_context *ctx, char *key_name)
 void dbg_dump_hash(unsigned int *hash, int size, int div_unit)
 {
 	unsigned int i;
+#if 0
 	unsigned long *ulbuf = (unsigned long *)hash;
 
 	for (i = 0; i < (size >> 3); i++) {
@@ -230,5 +242,12 @@ void dbg_dump_hash(unsigned int *hash, int size, int div_unit)
 			mbedtls_printf("\n");
 		mbedtls_printf("%016lx ", (unsigned long)ulbuf[i]);
 	}
+#else
+	for (i = 0; i < (size >> 2); i++) {
+		if (i % div_unit == 0)
+			mbedtls_printf("\n");
+		mbedtls_printf("%08X ", (unsigned int)hash[i]);
+	}
+#endif
 	mbedtls_printf("\n\n");
 }

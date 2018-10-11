@@ -1,6 +1,8 @@
 #ifndef __LIBUSER_H__
 #define __LIBUSER_H__
 
+void swap(char *buf, int size);
+
 unsigned int get_fcs(unsigned int fcs, unsigned char data);
 unsigned int calc_crc(unsigned char *data, int size);
 

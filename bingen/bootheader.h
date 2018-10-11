@@ -202,8 +202,8 @@ struct asymmetric_key {
 
 struct bootheader {
 	struct sbi_header bi;							/* 0x000 ~ 0x1FC */
-	uint8_t sign[2048/8];
-	unsigned int image[1];
+	unsigned char sign[2048/8];
+	unsigned int  image[1];
 };
 
 struct nx_bootinfo {
