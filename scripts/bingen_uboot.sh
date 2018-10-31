@@ -4,7 +4,7 @@ BASEDIR=$(cd "$(dirname "$0")" && pwd)
 
 RESULT=$BASEDIR/../../result
 BINGENDIR=$BASEDIR/../bin/
-UBOOTBIN=$BASEDIR/../../u-boot/u-boot-2017.5/u-boot.bin
+UBOOTBIN=$BASEDIR/../../u-boot/u-boot-2018.5/u-boot.bin
 
 NSIHFILE=nsih_uboot.txt
 BOOTKEY=bootkey
