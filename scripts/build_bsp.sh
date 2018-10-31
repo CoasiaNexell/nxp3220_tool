@@ -278,7 +278,8 @@ function fn_parse_target() {
   		parse_target_comp comp "$key" ":" "$target"
 		TARGET_COMPONENTS[$key]=$comp
 
-		if [ "$key" == "PRECMD" ] || [ "$key" == "POSTCMD" ]; then
+		if [ "$key" == "PRECMD" ] || [ "$key" == "POSTCMD" ] ||
+			[ "$key" == "OPTION" ]; then
 			continue
 		fi
 
