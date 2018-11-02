@@ -16,7 +16,7 @@ KERNEL_DIR=$BASEDIR/kernel-4.14
 BIN_DIR="$BASEDIR/tools/bin"
 
 #Bootloader Make Option
-BL2_MAKEOPT="CHIPNAME=nxp3220 BOARD=vtk PMIC=nxe1500"
+BL2_MAKEOPT="CHIPNAME=sip_s31nx BOARD=vtk PMIC=sm5011"
 
 # BINGEN Input Path
 BL2_NSIH="$BL2_DIR/reference-nsih/nsih_vtk_ddr3_800Mhz.txt"
@@ -76,7 +76,7 @@ BUILD_IMAGES=(
 		JOBS  	: 1", # must be 1
 	"uboot 	=
 		PATH  	: $UBOOT_DIR,
-		CONFIG	: nxp3220_vtk_defconfig,
+		CONFIG	: sip_s31nx_vtk_defconfig,
 		OUTPUT	: u-boot.bin,
 		POSTCMD	: $UBOOT_BINGEN"
 	"br2   	=
@@ -91,6 +91,6 @@ BUILD_IMAGES=(
 		OUTPUT	: arch/arm/boot/zImage",
 	"dtb   	=
 		PATH  	: $KERNEL_DIR,
-		IMAGE 	: nxp3220-vtk.dtb,
-		OUTPUT	: arch/arm/boot/dts/nxp3220-vtk.dtb",
+		IMAGE 	: sip-s31nx-vtk.dtb,
+		OUTPUT	: arch/arm/boot/dts/sip-s31nx-vtk.dtb,",
 )
