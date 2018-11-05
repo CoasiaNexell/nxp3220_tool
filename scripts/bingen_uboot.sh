@@ -4,11 +4,12 @@ BASEDIR=$(cd "$(dirname "$0")" && pwd)
 
 RESULT=$BASEDIR/../../result
 BINGENDIR=$BASEDIR/../bin/
-UBOOTBIN=$BASEDIR/../../u-boot/u-boot-2018.5/u-boot.bin
+UBOOTBIN=$BASEDIR/../../u-boot-2018.5/u-boot.bin
 
-NSIHFILE=nsih_uboot.txt
-BOOTKEY=bootkey
-USERKEY=userkey
+FILES_DIR=$BASEDIR/../files
+NSIHFILE=$FILES_DIR/nsih_uboot.txt
+BOOTKEY=$FILES_DIR/bootkey
+USERKEY=$FILES_DIR/userkey
 
 mkdir -p $RESULT
 
@@ -18,7 +19,7 @@ if [ ! -f $UBOOTBIN ]; then
 fi
 
 echo "*** Generate Binary for U-Boot ***"
-$BINGENDIR/bingen -n $BINGENDIR/$NSIHFILE -i $UBOOTBIN -b $BINGENDIR/$BOOTKEY -u $BINGENDIR/$USERKEY -k bl33 -l 0x43c00000 -s 0x43c00000 -t
+$BINGENDIR/bingen -n $NSIHFILE -i $UBOOTBIN -b $BOOTKEY -u $USERKEY -k bl33 -l 0x43c00000 -s 0x43c00000 -t
 
 cp $UBOOTBIN $RESULT
 cp $UBOOTBIN.raw $RESULT
