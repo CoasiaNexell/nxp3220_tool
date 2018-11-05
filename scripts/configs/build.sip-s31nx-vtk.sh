@@ -8,8 +8,8 @@ BL_TOOLCHAIN="$BASEDIR/tools/crosstools/gcc-arm-none-eabi-6-2017-q2-update/bin/a
 LINUX_TOOLCHAIN="$BASEDIR/tools/crosstools/gcc-linaro-7.2.1-2017.11-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-"
 
 # Build Path
-BL2_DIR=$BASEDIR/bootloader/bl2-nxp3220
-BL32_DIR=$BASEDIR/bootloader/bl32-nxp3220
+BL2_DIR=$BASEDIR/firmwares/bl2-nxp3220
+BL32_DIR=$BASEDIR/firmwares/bl32-nxp3220
 BR2_DIR=$BASEDIR/buildroot
 UBOOT_DIR=$BASEDIR/u-boot-2018.5
 KERNEL_DIR=$BASEDIR/kernel-4.14
@@ -60,7 +60,7 @@ BUILD_IMAGES=(
 	"TOOL	= $LINUX_TOOLCHAIN",
 	"RESULT = $RESULT",
 	"bl1   	=
-		OUTPUT	: $BASEDIR/bootloader/binary/bl1-nxp3220.bin.raw",
+		OUTPUT	: $BASEDIR/firmwares/binary/bl1-nxp3220.bin.raw",
 	"bl2   	=
 		PATH  	: $BL2_DIR,
 		TOOL  	: $BL_TOOLCHAIN,
