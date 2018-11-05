@@ -14,6 +14,7 @@ BR2_DIR=$BASEDIR/buildroot
 UBOOT_DIR=$BASEDIR/u-boot-2018.5
 KERNEL_DIR=$BASEDIR/kernel-4.14
 BIN_DIR="$BASEDIR/tools/bin"
+FILES_DIR="$BASEDIR/tools/files"
 
 #Bootloader Make Option
 BL2_MAKEOPT="CHIPNAME=nxp3220 BOARD=vtk PMIC=nxe1500"
@@ -21,28 +22,28 @@ BL2_MAKEOPT="CHIPNAME=nxp3220 BOARD=vtk PMIC=nxe1500"
 # BINGEN Input Path
 BL2_NSIH="$BL2_DIR/reference-nsih/nsih_vtk_ddr3_800Mhz.txt"
 BL32_NSIH="$BL32_DIR/reference-nsih/nsih_general.txt"
-UBOOT_NSIH="$BIN_DIR/nsih_uboot.txt"
-BOOT_KEY="$BIN_DIR/bootkey"
-USER_KEY="$BIN_DIR/userkey"
+UBOOT_NSIH="$FILES_DIR/nsih_uboot.txt"
+BOOT_KEY="$FILES_DIR/bootkey"
+USER_KEY="$FILES_DIR/userkey"
 
 # BINGEN Command
 BINGEN_EXE="$BIN_DIR/bingen"
 BL2_BINGEN="$BINGEN_EXE -n $BL2_NSIH -i $RESULT/bl2-vtk.bin
-			-b $BOOT_KEY -u $USER_KEY	-k bl2 -l 0xFFFF9000 -s 0xFFFF9000 -t"
+			-b $BOOT_KEY -u $USER_KEY -k bl2 -l 0xFFFF9000 -s 0xFFFF9000 -t"
 
 BL32_BINGEN="$BINGEN_EXE -n $BL32_NSIH -i $RESULT/bl32.bin
-			-b $BOOT_KEY -u $USER_KEY	-k bl32	-l 0x5F000000 -s 0x5F000000 -t"
+			-b $BOOT_KEY -u $USER_KEY -k bl32 -l 0x5F000000 -s 0x5F000000 -t"
 
 BL32_BINGEN_ENC="$BINGEN_EXE -n $BL32_NSIH -i $RESULT/bl32.bin.enc
-			-b $BOOT_KEY -u $USER_KEY	-k bl32	-l 0x5F000000 -s 0x5F000000 -t"
+			-b $BOOT_KEY -u $USER_KEY -k bl32 -l 0x5F000000 -s 0x5F000000 -t"
 
 UBOOT_BINGEN="$BINGEN_EXE -n $UBOOT_NSIH -i $RESULT/u-boot.bin
 			-b $BOOT_KEY -u $USER_KEY -k bl33 -l 0x43C00000 -s 0x43C00000 -t"
 
 # Encryption Commands
 AESCBC_EXE="$BIN_DIR/aescbc_enc"
-AESKEY=$(<$BIN_DIR/aeskey.txt)
-AESVECTOR=$(<$BIN_DIR/aesvector.txt)
+AESKEY=$(<$FILES_DIR/aeskey.txt)
+AESVECTOR=$(<$FILES_DIR/aesvector.txt)
 
 BL1_AESCBC_ENC="$AESCBC_EXE -n $RESULT/bl1-nxp3220.bin
 			-k $AESKEY -v $AESVECTOR -m enc	-b 128"
