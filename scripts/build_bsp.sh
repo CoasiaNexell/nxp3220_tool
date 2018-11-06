@@ -108,6 +108,7 @@ function parse_build_targets() {
 		eval "${value}+=(\"${val}\")"
 	done
 }
+
 function parse_prefix_target() {
 	local value=$1	# $1 = store the value
 	local params=("${@}")
@@ -423,7 +424,7 @@ case "$1" in
 		fi
 
 		# include input file
-		. $build_file
+		source $build_file
 
 		parse_build_targets BUILD_TARGETS "=" "${BUILD_IMAGES[@]}"
 
