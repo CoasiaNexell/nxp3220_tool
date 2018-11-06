@@ -20,7 +20,7 @@ function usage() {
 	echo "       EX> `basename $0` -t <target> -l <path>/file1 <path>/file2"
 	echo ""
 	echo "  -s : wait sec for next download"
-	echo "  -i : build info with -f file name"
+	echo "  -i : usb down info with -f file name"
 	echo "  -e : open file with vim"
 	echo "  -p : encryted file transfer"
 	echo ""
@@ -195,7 +195,7 @@ if [ ! -z $dn_load_file ]; then
 	fi
 
 	# include input file
-	. $dn_load_file
+	source $dn_load_file
 
 	if [ $encryted == false ]; then
 		usb_download_array "${DN_IMAGES[@]}"
