@@ -86,7 +86,7 @@ BUILD_IMAGES=(
 		COPY  	: rootfs",
 	"kernel	=
 		PATH  	: $KERNEL_DIR,
-		CONFIG	: nxp3220_vtk_defconfig,
+		CONFIG	: sip-s31nx_vtk_defconfig,
 		IMAGE 	: zImage,
 		OUTPUT	: arch/arm/boot/zImage",
 	"dtb   	=
