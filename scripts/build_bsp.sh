@@ -456,6 +456,21 @@ case "$1" in
 			esac
 		done
 
+		if [ ${#build_targets} -eq 0 ] && [ ! -z $build_command ]; then
+			if [ "$build_command" != "clean" ] && [ "$build_command" != "cleanbuild" ] &&
+			   [ "$build_command" != "rebuild" ]; then
+				echo -e "\033[47;31m Unknown target or command: $build_command ... \033[0m"
+				echo -e " Check command: clean/cleanbuild/rebuild"
+				echo -en " Check target : "
+				for i in "${BUILD_TARGETS[@]}"
+				do
+					echo -n "$i "
+				done
+				echo ""
+				exit 1;
+			fi
+		fi
+
 		if [ $edit_file == true ]; then
 			vim $build_file
 			exit 0;
