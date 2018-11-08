@@ -119,12 +119,15 @@ function parse_prefix_target() {
 	for i in "${images[@]}"
 	do
 		if [[ "$i" = *"$prefix"* ]]; then
-			#local comp="$(echo $i| cut -d$separator -f 2)"
+			local comp="$(echo $(echo $i| cut -d$separator -f 1) | cut -d' ' -f 1)"
+			if [ "$prefix" != "$comp" ]; then
+				continue
+			fi
 			local pos=`expr index "$i" $separator`
 			if [ $pos -eq 0 ]; then
 				return
 			fi
-			local comp=${i:$pos}
+			comp=${i:$pos}
 			eval "$value=(\"${comp}\")"
 			break
 		fi
