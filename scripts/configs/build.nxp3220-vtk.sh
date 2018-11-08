@@ -15,6 +15,7 @@ UBOOT_DIR=$BASEDIR/u-boot-2018.5
 KERNEL_DIR=$BASEDIR/kernel-4.14
 BIN_DIR="$BASEDIR/tools/bin"
 FILES_DIR="$BASEDIR/tools/files"
+SCRIPT_DIR="$BASEDIR/tools/scripts"
 
 #Bootloader Make Option
 BL2_MAKEOPT="CHIPNAME=nxp3220 BOARD=vtk PMIC=nxe1500"
@@ -39,6 +40,10 @@ BL32_BINGEN_ENC="$BINGEN_EXE -n $BL32_NSIH -i $RESULT/bl32.bin.enc
 
 UBOOT_BINGEN="$BINGEN_EXE -n $UBOOT_NSIH -i $RESULT/u-boot.bin
 			-b $BOOT_KEY -u $USER_KEY -k bl33 -l 0x43C00000 -s 0x43C00000 -t"
+
+MAKE_BOOT="$SCRIPT_DIR/mkboot.sh"
+
+MAKE_ROOTFS="$SCRIPT_DIR/mkrootfs.sh"
 
 # Encryption Commands
 AESCBC_EXE="$BIN_DIR/aescbc_enc"
@@ -89,9 +94,13 @@ BUILD_IMAGES=(
 		PATH  	: $KERNEL_DIR,
 		CONFIG	: nxp3220_vtk_defconfig,
 		IMAGE 	: zImage,
-		OUTPUT	: arch/arm/boot/zImage",
+		OUTPUT	: arch/arm/boot/zImage,
+		POSTCMD : $MAKE_BOOT",
 	"dtb   	=
 		PATH  	: $KERNEL_DIR,
 		IMAGE 	: nxp3220-vtk.dtb,
-		OUTPUT	: arch/arm/boot/dts/nxp3220-vtk.dtb",
+		OUTPUT	: arch/arm/boot/dts/nxp3220-vtk.dtb,
+		POSTCMD : $MAKE_BOOT",
+	"rootimg =
+		POSTCMD	: $MAKE_ROOTFS",
 )
