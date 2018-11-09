@@ -419,7 +419,6 @@ case "$1" in
 
 		show_targets=false
 		show_info=false
-		edit_file=false
 
 		run_make_cmd=false
 		run_prev_cmd=false
@@ -456,7 +455,9 @@ case "$1" in
 			-r ) 	run_prev_cmd=true; shift 1;;
 			-s ) 	run_post_cmd=true; shift 1;;
 			-c )	run_copy_ret=true; shift 1;;
-			-e ) 	edit_file=true; break; shift 1;;
+			-e )
+				vim $build_file
+				exit 0;;
 			-h )	usage;	exit 1;;
 			*)	[ ! -z $3 ] && build_command=$3;
 				shift;;
@@ -464,11 +465,12 @@ case "$1" in
 		done
 
 		if [ ${#build_targets} -eq 0 ] && [ ! -z $build_command ]; then
-			if [ "$build_command" != "clean" ] && [ "$build_command" != "cleanbuild" ] &&
+			if [ "$build_command" != "clean" ] &&
+			   [ "$build_command" != "cleanbuild" ] &&
 			   [ "$build_command" != "rebuild" ]; then
 				echo -e "\033[47;31m Unknown target or command: $build_command ... \033[0m"
-				echo -e " Check command: clean/cleanbuild/rebuild"
-				echo -en " Check targets: "
+				echo -e " Check command : clean, cleanbuild, rebuild"
+				echo -en " Check targets : "
 				for i in "${BUILD_TARGETS[@]}"
 				do
 					echo -n "$i "
@@ -476,11 +478,6 @@ case "$1" in
 				echo ""
 				exit 1;
 			fi
-		fi
-
-		if [ $edit_file == true ]; then
-			vim $build_file
-			exit 0;
 		fi
 
 		if [ $run_make_cmd == false ] &&
@@ -494,7 +491,7 @@ case "$1" in
 		fi
 
 		# build all
-		if [ ${#build_targets} -eq 0 ]; then
+		if [ ${#build_targets[@]} -eq 0 ]; then
 			build_targets=(${BUILD_TARGETS[@]})
 		fi
 
@@ -503,10 +500,10 @@ case "$1" in
 		setup_environment ${BUILD_ENVIRONMENT["TOOL"]}
 
 		if [ $show_targets == true ]; then
-			echo -en " Build targets: "
+			echo -en "\033[47;30m Build targets: \033[0m"
 			for i in "${BUILD_TARGETS[@]}"
 			do
-				echo -n "$i "
+				echo -n " $i"
 			done
 			echo ""
 			exit 0;
