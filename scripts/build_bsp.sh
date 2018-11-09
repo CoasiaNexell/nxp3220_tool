@@ -305,6 +305,10 @@ function fn_make_target() {
 	local jobs="-j ${TARGET_COMPONENTS["JOBS"]}"
 	local option=${TARGET_COMPONENTS["OPTION"]}
 
+	if [ -z $path ]; then
+		return
+	fi
+
 	if [ ! -d $path ]; then
 		echo -e "\033[47;31m No such to build $target: '$path' ... \033[0m"
 		return
