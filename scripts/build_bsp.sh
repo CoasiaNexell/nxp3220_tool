@@ -47,6 +47,7 @@ function usage() {
 	echo -e " [options] [command]";
 	echo "[options]"
 	echo "  -i : build info with -f file name"
+	echo "  -l : listup build targets"
 	echo "  -j : set build jobs"
 	echo "  -b : only run build command, run make"
 	echo "  -r : only run pre command, run before build (related with PRECMD)"
@@ -412,6 +413,7 @@ case "$1" in
 		build_command=""
 		build_jobs=`grep processor /proc/cpuinfo | wc -l`
 
+		show_targets=false
 		show_info=false
 		edit_file=false
 
@@ -444,6 +446,7 @@ case "$1" in
 
 			case "$3" in
 			-j )	build_jobs=$4; shift 2;; # get jobs
+			-l )	show_targets=true; shift 2;; # get jobs
 			-i ) 	show_info=true; shift 1;;
 			-b )	run_make_cmd=true; shift 1;;
 			-r ) 	run_prev_cmd=true; shift 1;;
@@ -461,7 +464,7 @@ case "$1" in
 			   [ "$build_command" != "rebuild" ]; then
 				echo -e "\033[47;31m Unknown target or command: $build_command ... \033[0m"
 				echo -e " Check command: clean/cleanbuild/rebuild"
-				echo -en " Check target : "
+				echo -en " Check targets: "
 				for i in "${BUILD_TARGETS[@]}"
 				do
 					echo -n "$i "
@@ -494,6 +497,16 @@ case "$1" in
 		# parse environment
 		parse_environment "${BUILD_IMAGES[@]}"
 		setup_environment ${BUILD_ENVIRONMENT["TOOL"]}
+
+		if [ $show_targets == true ]; then
+			echo -en " Build targets: "
+			for i in "${BUILD_TARGETS[@]}"
+			do
+				echo -n "$i "
+			done
+			echo ""
+			exit 0;
+		fi
 
 		if [ $show_info == true ]; then
 			print_environments
