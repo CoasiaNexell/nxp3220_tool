@@ -96,17 +96,21 @@ function parse_build_targets() {
 		local val="$(echo $i| cut -d$separator -f 1)"
 		val="$(echo -e "${val}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
 
+		# skip buil environments"
 		for n in ${!BUILD_ENVIRONMENT[@]}
 		do
 			if [ "$n" == $val ]; then
 				add=false
 				break
 			fi
+			[ $? -ne 0 ] && exit 1;
 		done
 
 		[ $add != true ] && continue;
 
-		eval "${value}+=(\"${val}\")"
+		if [[ "$i" == *"="* ]];then
+			eval "${value}+=(\"${val}\")"
+		fi
 	done
 }
 
