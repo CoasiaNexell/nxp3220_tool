@@ -95,6 +95,10 @@ case "$1" in
 
 		while read line;
 		do
+			if [[ "$line" == *"#"* ]];then
+				continue
+			fi
+
 			PARTMAP_CONTEXT+=($line)
 		done < $PARTMAP_FILE
 
