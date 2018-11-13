@@ -315,11 +315,11 @@ function fn_make_target() {
 
 	if [ ! -d $path ]; then
 		echo -e "\033[47;31m No such to build $target: '$path' ... \033[0m"
-		return
+		exit 1;
 	fi
 
 	if [ ! -f "$path/makefile" ] && [ ! -f "$path/Makefile" ]; then
-		return
+		exit 1;
 	fi
 
 	if [ $target != "dtb" ]; then
