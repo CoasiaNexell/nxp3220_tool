@@ -95,11 +95,13 @@ BUILD_IMAGES=(
 		PATH  	: $KERNEL_DIR,
 		CONFIG	: ${TARGET_CHIP_ALIAS}_${TARGET_BOARD}_defconfig,
 		IMAGE 	: zImage,
-		OUTPUT	: arch/arm/boot/zImage",
+		OUTPUT	: arch/arm/boot/zImage,
+		POSTCMD : $MAKE_BOOTIMG",
 	"dtb   	=
 		PATH  	: $KERNEL_DIR,
 		IMAGE 	: ${TARGET_CHIP}-${TARGET_BOARD}.dtb,
-		OUTPUT	: arch/arm/boot/dts/${TARGET_CHIP}-${TARGET_BOARD}.dtb",
+		OUTPUT	: arch/arm/boot/dts/${TARGET_CHIP}-${TARGET_BOARD}.dtb,
+		POSTCMD : $MAKE_BOOTIMG",
 	"bootimg =
 		POSTCMD : $MAKE_BOOTIMG",
 	"rootimg =
