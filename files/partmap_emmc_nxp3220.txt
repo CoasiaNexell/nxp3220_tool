@@ -1,7 +1,0 @@
-flash=mmc,0:bl1:bootsector:0x0,0x10000:bl1-nxp3220.bin.raw;
-flash=mmc,0:bl2:bootsector:0x14400,0x10000:bl2-vtk.bin.raw;
-flash=mmc,0:bl32:bootsector:0x2c400,0x200000:bl32.bin.raw;
-flash=mmc,0:bootloader:bootsector:0x22c400,0x100000:u-boot.bin.raw;
-flash=mmc,0:boot:partition:0x500000,0x2000000:boot.img;
-flash=mmc,0:rootfs:partition:0x4500000,0x40000000:rootfs.img;
-
