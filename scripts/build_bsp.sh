@@ -210,8 +210,10 @@ function print_environments() {
 }
 
 function print_components() {
-	echo -e "\n\033[0;31m================================================================== \033[0m"
-	echo -e "\033[47;30m $build_target \033[0m"
+	local target=$1
+	echo -e "\n\033[0;33m================================================================== \033[0m"
+	echo -e "\033[0;33m $target \033[0m"
+	echo -e ""
 	for key in ${!TARGET_COMPONENTS[@]}
 	do
 		if [ -z "${TARGET_COMPONENTS[$key]}" ]; then
@@ -219,7 +221,7 @@ function print_components() {
 		fi
   		echo -e "$key\t: ${TARGET_COMPONENTS[$key]}"
 	done
-	echo -e "\033[0;31m================================================================== \033[0m"
+	echo -e "\033[0;33m================================================================== \033[0m"
 }
 
 function fn_copy_target() {
@@ -303,8 +305,9 @@ function fn_parse_target() {
 
 function fn_make_target() {
 	local target=$1 cmd=$2
-	local path=${TARGET_COMPONENTS["PATH"]}
 	local tool=${TARGET_COMPONENTS["TOOL"]}
+	local path=${TARGET_COMPONENTS["PATH"]}
+	local image=${TARGET_COMPONENTS["IMAGE"]}
 	local defconfig=${TARGET_COMPONENTS["CONFIG"]}
 	local jobs="-j ${TARGET_COMPONENTS["JOBS"]}"
 	local option=${TARGET_COMPONENTS["OPTION"]}
@@ -322,13 +325,11 @@ function fn_make_target() {
 		exit 1;
 	fi
 
-	if [ $target != "dtb" ]; then
+	if [[ $image != *".dtb"* ]]; then
 		if [ "$cmd" == "distclean" ] || [ "$cmd" == "rebuild" ]; then
 			make -C $path distclean
 		fi
-	fi
 
-	if [ $target != "dtb" ]; then
 		if [ "$cmd" == "clean" ] || [ "$cmd" == "cleanbuild" ] ||
 		   [ "$cmd" == "rebuild" ]; then
 			make -C $path clean
@@ -357,7 +358,7 @@ function fn_make_target() {
 	fi
 
 	if [ ! -z "$cmd" ] && [ "$cmd" != "rebuild" ] && [ "$cmd" != "cleanbuild" ] ; then
-		jobs="" image="" option=""
+		jobs="" option=""
 	else
 		cmd=${TARGET_COMPONENTS["IMAGE"]}
 	fi
@@ -378,7 +379,7 @@ function fn_build_target() {
 		TARGET_COMPONENTS["JOBS"]=$build_jobs
 	fi
 
-	print_components
+	print_components $target
 
 	if [ $show_info == true ]; then
 		return
@@ -388,7 +389,7 @@ function fn_build_target() {
 		echo -e "\033[47;34m PRECMD : ${TARGET_COMPONENTS["PRECMD"]} \033[0m"
 		bash -c "${TARGET_COMPONENTS["PRECMD"]}"
 		[ $? -ne 0 ] && exit 1;
-		echo -e "\033[47;32m PRECMD : DONE \033[0m"
+		echo -e "\033[47;34m PRECMD : DONE \033[0m"
 	fi
 
 	if [ $run_make_cmd == true ]; then
@@ -410,7 +411,7 @@ function fn_build_target() {
 		echo -e "\033[47;34m POSTCMD: ${TARGET_COMPONENTS["POSTCMD"]} \033[0m"
 		bash -c "${TARGET_COMPONENTS["POSTCMD"]}"
 		[ $? -ne 0 ] && exit 1;
-		echo -e "\033[47;32m POSTCMD: DONE \033[0m"
+		echo -e "\033[47;34m POSTCMD: DONE \033[0m"
 	fi
 }
 
@@ -421,7 +422,7 @@ case "$1" in
 		build_command=""
 		build_jobs=`grep processor /proc/cpuinfo | wc -l`
 
-		show_targets=false
+		show_target=false
 		show_info=false
 
 		run_make_cmd=false
@@ -441,19 +442,22 @@ case "$1" in
 		parse_build_targets BUILD_TARGETS "=" "${BUILD_IMAGES[@]}"
 
 		while [ "$#" -gt 2 ]; do
-			# argc: bl1,bl2,bl32,uboot,kernel,dtb,br2
-			for i in "${BUILD_TARGETS[@]}"
+			count=0
+			while true
 			do
-				if [ "$i" == "$3" ]; then
-					build_targets+=("$i");
+				if [ "${BUILD_TARGETS[$count]}" == "$3" ]; then
+					build_targets+=("${BUILD_TARGETS[$count]}");
+					((count=0))
 					shift 1
 					continue
 				fi
+				((count++))
+				[ $count -ge ${#BUILD_TARGETS[@]} ] && break;
 			done
 
 			case "$3" in
 			-j )	build_jobs=$4; shift 2;; # get jobs
-			-l )	show_targets=true; shift 2;; # get jobs
+			-l )	show_target=true; shift 2;; # get jobs
 			-i ) 	show_info=true; shift 1;;
 			-b )	run_make_cmd=true; shift 1;;
 			-r ) 	run_prev_cmd=true; shift 1;;
@@ -468,7 +472,7 @@ case "$1" in
 			esac
 		done
 
-		if [ ${#build_targets} -eq 0 ] && [ ! -z $build_command ]; then
+		if [ ${#build_targets[@]} -eq 0 ] && [ ! -z $build_command ]; then
 			if [ "$build_command" != "clean" ] &&
 			   [ "$build_command" != "cleanbuild" ] &&
 			   [ "$build_command" != "rebuild" ]; then
@@ -503,13 +507,14 @@ case "$1" in
 		parse_environment "${BUILD_IMAGES[@]}"
 		setup_environment ${BUILD_ENVIRONMENT["TOOL"]}
 
-		if [ $show_targets == true ]; then
+		if [ $show_target == true ]; then
+			echo -e "\033[0;33m------------------------------------------------------------------ \033[0m"
 			echo -en "\033[47;30m Build targets: \033[0m"
 			for i in "${BUILD_TARGETS[@]}"
 			do
 				echo -n " $i"
 			done
-			echo ""
+			echo -e "\n\033[0;33m------------------------------------------------------------------ \033[0m"
 			exit 0;
 		fi
 
@@ -530,6 +535,3 @@ case "$1" in
 		exit 1
 		;;
 esac
-
-unset BUILD_ENVIRONMENT
-unset TARGET_COMPONENTS
