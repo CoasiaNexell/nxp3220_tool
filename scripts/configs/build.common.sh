@@ -27,7 +27,7 @@ BL2_NSIH="$BL2_DIR/reference-nsih/${TARGET_BL2_NSIH}.txt"
 
 BL2_BINGEN="$BINGEN_EXE -n $BL2_NSIH -i $RESULT/bl2-${TARGET_BL2_BOARD}.bin
 		-b $BOOT_KEY -u $USER_KEY -k bl2 -l 0xFFFF9000 -s 0xFFFF9000 -t"
-BL2_COMMAND="$BL2_BINGEN; \
+BL2_POSTCMD="$BL2_BINGEN; \
 		cp $RESULT/bl2-${TARGET_BL2_BOARD}.bin.raw $RESULT/bl2.bin.raw"
 
 # BL32 BUILD
@@ -38,7 +38,7 @@ BL32_BINGEN="$BINGEN_EXE -n $BL32_NSIH -i $RESULT/bl32.bin
 		-b $BOOT_KEY -u $USER_KEY -k bl32 -l 0x5F000000 -s 0x5F000000 -t"
 BL32_BINGEN_ENC="$BINGEN_EXE -n $BL32_NSIH -i $RESULT/bl32.bin.enc
 		-b $BOOT_KEY -u $USER_KEY -k bl32 -l 0x5F000000 -s 0x5F000000 -t"
-UBOOT_BINGEN="$BINGEN_EXE -n $UBOOT_NSIH -i $RESULT/u-boot.bin
+UBOOT_POSTCMD="$BINGEN_EXE -n $UBOOT_NSIH -i $RESULT/u-boot.bin
 		-b $BOOT_KEY -u $USER_KEY -k bl33 -l 0x43C00000 -s 0x43C00000 -t"
 
 AESCBC_EXE="$BIN_DIR/aescbc_enc"
@@ -46,14 +46,17 @@ AESKEY=$(<$FILES_DIR/aeskey.txt)
 AESVECTOR=$(<$FILES_DIR/aesvector.txt)
 
 BL32_AESCBC_ENC="$AESCBC_EXE -n $RESULT/bl32.bin -k $AESKEY -v $AESVECTOR -m enc -b 128"
-BL32_COMMAND="$BL32_AESCBC_ENC; $BL32_BINGEN_ENC; $BL32_BINGEN"
+BL32_POSTCMD="$BL32_AESCBC_ENC; $BL32_BINGEN_ENC; $BL32_BINGEN"
 
 # Images BUILD
 EXT4FS_EXE="$BASEDIR/tools/bin/make_ext4fs"
 
-MAKE_BOOTIMG="mkdir -p $RESULT/boot; \
-		cp -a $RESULT/zImage $RESULT/boot; \
-		cp -a $RESULT/${TARGET_KERNEL_DTB}.dtb $RESULT/boot; \
+KERNEL_POSTCMD="mkdir -p $RESULT/boot; \
+		cp -a $RESULT/zImage $RESULT/boot;"
+DTB_POSTCMD="mkdir -p $RESULT/boot; \
+		cp -a $RESULT/${TARGET_KERNEL_DTB}.dtb $RESULT/boot;"
+
+MAKE_BOOTIMG="$KERNEL_POSTCMD $DTB_POSTCMD
 		$EXT4FS_EXE -b 4096 -L boot -l 33554432 $RESULT/boot.img $RESULT/boot/"
 MAKE_ROOTIMG="$EXT4FS_EXE -b 4096 -L rootfs -l 1073741824 $RESULT/rootfs.img $RESULT/rootfs"
 
@@ -70,19 +73,19 @@ BUILD_IMAGES=(
 		TOOL  	: $BL_TOOLCHAIN,
 		OPTION	: $BL2_MAKEOPT,
 		OUTPUT	: out/bl2-${TARGET_BL2_BOARD}.bin*,
-		POSTCMD : $BL2_COMMAND,
+		POSTCMD : $BL2_POSTCMD,
 		JOBS  	: 1", # must be 1
 	"bl32   	=
 		PATH  	: $BL32_DIR,
 		TOOL  	: $BL_TOOLCHAIN,
 		OUTPUT	: out/bl32.bin*,
-		POSTCMD	: $BL32_COMMAND,
+		POSTCMD	: $BL32_POSTCMD,
 		JOBS  	: 1", # must be 1
 	"uboot 	=
 		PATH  	: $UBOOT_DIR,
 		CONFIG	: ${TARGET_UBOOT_DEFCONFIG},
 		OUTPUT	: u-boot.bin,
-		POSTCMD	: $UBOOT_BINGEN"
+		POSTCMD	: $UBOOT_POSTCMD"
 	"br2   	=
 		PATH  	: $BR2_DIR,
 		CONFIG	: ${TARGET_BR2_DEFCONFIG},
@@ -93,12 +96,12 @@ BUILD_IMAGES=(
 		CONFIG	: ${TARGET_KERNEL_DEFCONFIG},
 		IMAGE 	: zImage,
 		OUTPUT	: arch/arm/boot/zImage,
-		POSTCMD : $MAKE_BOOTIMG",
+		POSTCMD : $KERNEL_POSTCMD",
 	"dtb   	=
 		PATH  	: $KERNEL_DIR,
 		IMAGE 	: ${TARGET_KERNEL_DTB}.dtb,
 		OUTPUT	: arch/arm/boot/dts/${TARGET_KERNEL_DTB}.dtb,
-		POSTCMD : $MAKE_BOOTIMG",
+		POSTCMD : $DTB_POSTCMD",
 	"bootimg =
 		POSTCMD : $MAKE_BOOTIMG",
 	"rootimg =
