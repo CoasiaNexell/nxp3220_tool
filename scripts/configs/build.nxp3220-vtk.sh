@@ -14,6 +14,9 @@ TARGET_UBOOT_DEFCONFIG=nxp3220_vtk_defconfig
 
 TARGET_BR2_DEFCONFIG=nxp3220_sysv_defconfig
 
+BOOT_IMAGE_SIZE=33554432
+ROOT_IMAGE_SIZE=1073741824
+
 CONFIGDIR="$(cd "$(dirname "$0")" && pwd)"/configs
 
 source $CONFIGDIR/build.common.sh

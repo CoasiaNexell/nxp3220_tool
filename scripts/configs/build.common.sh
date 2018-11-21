@@ -38,8 +38,6 @@ BL32_BINGEN="$BINGEN_EXE -n $BL32_NSIH -i $RESULT/bl32.bin
 		-b $BOOT_KEY -u $USER_KEY -k bl32 -l 0x5F000000 -s 0x5F000000 -t"
 BL32_BINGEN_ENC="$BINGEN_EXE -n $BL32_NSIH -i $RESULT/bl32.bin.enc
 		-b $BOOT_KEY -u $USER_KEY -k bl32 -l 0x5F000000 -s 0x5F000000 -t"
-UBOOT_POSTCMD="$BINGEN_EXE -n $UBOOT_NSIH -i $RESULT/u-boot.bin
-		-b $BOOT_KEY -u $USER_KEY -k bl33 -l 0x43C00000 -s 0x43C00000 -t"
 
 AESCBC_EXE="$BIN_DIR/aescbc_enc"
 AESKEY=$(<$FILES_DIR/aeskey.txt)
@@ -51,14 +49,16 @@ BL32_POSTCMD="$BL32_AESCBC_ENC; $BL32_BINGEN_ENC; $BL32_BINGEN"
 # Images BUILD
 EXT4FS_EXE="$BASEDIR/tools/bin/make_ext4fs"
 
+UBOOT_POSTCMD="$BINGEN_EXE -n $UBOOT_NSIH -i $RESULT/u-boot.bin
+		-b $BOOT_KEY -u $USER_KEY -k bl33 -l 0x43C00000 -s 0x43C00000 -t"
 KERNEL_POSTCMD="mkdir -p $RESULT/boot; \
 		cp -a $RESULT/zImage $RESULT/boot;"
 DTB_POSTCMD="mkdir -p $RESULT/boot; \
 		cp -a $RESULT/${TARGET_KERNEL_DTB}.dtb $RESULT/boot;"
 
 MAKE_BOOTIMG="$KERNEL_POSTCMD $DTB_POSTCMD
-		$EXT4FS_EXE -b 4096 -L boot -l 33554432 $RESULT/boot.img $RESULT/boot/"
-MAKE_ROOTIMG="$EXT4FS_EXE -b 4096 -L rootfs -l 1073741824 $RESULT/rootfs.img $RESULT/rootfs"
+		$EXT4FS_EXE -b 4096 -L boot -l ${BOOT_IMAGE_SIZE} $RESULT/boot.img $RESULT/boot/"
+MAKE_ROOTIMG="$EXT4FS_EXE -b 4096 -L rootfs -l ${ROOT_IMAGE_SIZE} $RESULT/rootfs.img $RESULT/rootfs"
 
 # Build Targets
 BUILD_IMAGES=(
