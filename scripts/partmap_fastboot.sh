@@ -117,7 +117,7 @@ case "$1" in
 			done
 
 			case "$3" in
-			-d )	PARTMAP_IMAGE_DIR=$4; ((options+=1)); shift 2;;
+			-d )	PARTMAP_IMAGE_DIR=$4; ((options+=2)); shift 2;;
 			-r ) 	send_reboot=true; ((options+=1)); shift 1;;
 			-l )
 				echo -e "\033[0;33m------------------------------------------------------------------ \033[0m"
