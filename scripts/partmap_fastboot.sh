@@ -51,7 +51,9 @@ function update_fastboot () {
 		do
 			local v="$(echo $n| cut -d':' -f 2)"
 			if [ "$i" == "$v" ]; then
-				image="$PARTMAP_IMAGE_DIR/$(echo $(echo $n| cut -d':' -f 5)| cut -d';' -f 1)"
+				image="$(echo $(echo $n| cut -d':' -f 5)| cut -d';' -f 1)"
+				[ -z "$image" ] && continue;
+				image="$PARTMAP_IMAGE_DIR/$image"
 				break;
 			fi
 		done
