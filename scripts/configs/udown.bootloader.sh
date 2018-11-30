@@ -1,7 +1,6 @@
 #!/bin/bash
 
 BASEDIR="$(cd "$(dirname "$0")" && pwd)/../.."
-RESULT="$BASEDIR/result"
 TARGET=nxp3220
 
 DN_IMAGES=(
