@@ -5,6 +5,7 @@
 BASEDIR=$(cd "$(dirname "$0")" && pwd)
 DOWNLOADER=$BASEDIR/../bin/linux-usbdownloader
 DN_TARGET=nxp3220
+RESULT="$BASEDIR/../../result"
 
 function usage() {
 	echo "usage: `basename $0` [-f file name][-l file file][-s] "
@@ -23,6 +24,7 @@ function usage() {
 	echo "  -i : usb down info with -f file name"
 	echo "  -e : open file with vim"
 	echo "  -p : encryted file transfer"
+	echo "  -d : download image path, default:$RESULT"
 	echo ""
 }
 
@@ -144,7 +146,7 @@ show_info=false
 encryted=false
 sleep_sec=2
 
-while getopts 'hf:l:t:s:eip' opt
+while getopts 'hf:l:t:s:d:eip' opt
 do
         case $opt in
         f )
@@ -171,6 +173,9 @@ do
 		;;
 	s )
 		sleep_sec=$OPTARG
+		;;
+	d )
+		RESULT=$OPTARG
 		;;
         h | *)
         	usage
