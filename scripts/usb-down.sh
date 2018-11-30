@@ -4,7 +4,7 @@
 
 BASEDIR=$(cd "$(dirname "$0")" && pwd)
 DOWNLOADER=$BASEDIR/../bin/linux-usbdownloader
-DN_TARGET=
+DN_TARGET=nxp3220
 
 function usage() {
 	echo "usage: `basename $0` [-f file name][-l file file][-s] "
