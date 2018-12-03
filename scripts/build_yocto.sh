@@ -211,10 +211,17 @@ function parse_ramfs_image () {
 }
 
 function parse_machine_jobs () {
-	if [ ! -z $BUILD_JOBS ]; then
+	if [ -z $BUILD_JOBS ]; then
+		return
+	fi
+
+	local file=$BB_BUILD_DIR/conf/local.conf
+	if grep -q BB_NUMBER_THREADS "$file"; then
+		replace="\"$BUILD_JOBS\""
+		sed -i "s/.*BB_NUMBER_THREADS.*/BB_NUMBER_THREADS = $replace/" $file
+	else
 		echo "" >> $BB_BUILD_DIR/conf/local.conf
-		echo "BB_NUMBER_THREADS = \"${BUILD_JOBS}\"" >> \
-			$BB_BUILD_DIR/conf/local.conf
+		echo "BB_NUMBER_THREADS = \"${BUILD_JOBS}\"" >> $file
 	fi
 }
 
