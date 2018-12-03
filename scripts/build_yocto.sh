@@ -22,6 +22,7 @@ BB_BUILD_DIR=$BUILD_DIR/build-$MACHINE_TYPE
 IMAGE_PREFIX=nexell-image
 IMAGE_CONF=
 RESULT_OUT=
+BUILD_JOBS=
 
 declare -A BSP_PATH=(
 	["BSP_ROOT_DIR"]="$ROOT_DIR"
@@ -209,6 +210,14 @@ function parse_ramfs_image () {
 	sed -i "s/.*INITRAMFS_IMAGE.*/INITRAMFS_IMAGE = $replace/" $dst
 }
 
+function parse_machine_jobs () {
+	if [ ! -z $BUILD_JOBS ]; then
+		echo "" >> $BB_BUILD_DIR/conf/local.conf
+		echo "BB_NUMBER_THREADS = \"${BUILD_JOBS}\"" >> \
+			$BB_BUILD_DIR/conf/local.conf
+	fi
+}
+
 function parse_bblayer_config () {
 	local src=$EXT_CONF_DIR/$MACHINE_TYPE.bblayers
         local dst=$BB_BUILD_DIR/conf/bblayers.conf
@@ -373,6 +382,7 @@ function usage () {
 	echo "  -o : bitbake option"
 	echo "  -S : sdk create"
 	echo "  -f : force overwrite buid confing files (local.conf/bblayers.conf)"
+	echo "  -j : determines how many tasks bitbake should run in parallel"
 	echo "  -h : help"
 	exit 1;
 }
@@ -384,7 +394,7 @@ BB_OPT=""
 BB_SDK=false
 
 function parse_args () {
-    	ARGS=$(getopt -o lSfht:i:c:o: -- "$@");
+    	ARGS=$(getopt -o lSfht:i:c:o:j: -- "$@");
     	eval set -- "$ARGS";
 
     	while true; do
@@ -421,6 +431,7 @@ function parse_args () {
 		-o )	BB_OPT=$2; shift 2;;
 		-S )	BB_SDK=true; shift 1;;
 		-f )	BB_PARSE=true; shift 1;;
+		-j )	BUILD_JOBS=$2; shift 2;;
 		-h )	usage;	exit 1;;
 		-- ) 	break ;;
 		esac
@@ -448,6 +459,7 @@ if [ $NEED_PARSE == 1 ] || [ $BB_PARSE == true ]; then
 fi
 
 parse_ramfs_image
+parse_machine_jobs
 
 msg "-----------------------------------------------------------------"
 msg " MACHINE    : $MACHINE_TYPE"
