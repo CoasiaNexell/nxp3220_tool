@@ -260,30 +260,30 @@ function print_avail_lists () {
 	msg "AVAILABLE LISTs:"
 	msg "================================================================="
 
-	msg "MACHINE:"
+	msg "MACHINE: <machine name>"
 	msg "\t:$MACHINE_DIR"
+	msg "\t:$EXT_CONF_DIR"
 	msg "\t----------------------------------------------------------"
 	msg "\t${MACHINE_TABLE}"
 	msg "\t----------------------------------------------------------"
 
-	msg "IMAGE TYPE:"
+	msg "IMAGE TYPE: <image type>"
 	msg "\t:$IMAGE_DIR"
-	msg "\t:$EXT_CONF_DIR"
 	msg "\t----------------------------------------------------------"
 	msg "\t ${IMAGE_TABLE}"
 	msg "\t----------------------------------------------------------"
 
-	msg "IMAGE CONFIG:"
+	msg "IMAGE CONFIG: '-i'"
 	msg "\t:$EXT_IMAGE_DIR"
 	msg "\t----------------------------------------------------------"
 	msg "\t ${IMAGE_CONF_TABLE}"
 	msg "\t----------------------------------------------------------"
 
-	msg "TARGETs:"
+	msg "TARGETs: '-t'"
 	for i in "${!BUILD_TARGETS[@]}"; do
 		msg "\t$i (${BUILD_TARGETS[$i]})"
 	done
-	msg "COMMANDs:"
+	msg "COMMANDs: '-c'"
 	for i in "${!BUILD_COMMANDS[@]}"; do
 		msg "\t$i (${BUILD_COMMANDS[$i]})"
 	done
