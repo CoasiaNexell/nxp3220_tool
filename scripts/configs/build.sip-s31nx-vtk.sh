@@ -1,5 +1,8 @@
 #!/bin/bash
 
+BASEDIR="$(cd "$(dirname "$0")" && pwd)/../.."
+RESULT="$BASEDIR/result"
+
 TARGET_BL1_NAME=nxp3220
 
 TARGET_BL2_CHIP=sip_s31nx
