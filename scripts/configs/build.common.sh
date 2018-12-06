@@ -1,8 +1,5 @@
 #!/bin/bash
 
-BASEDIR="$(cd "$(dirname "$0")" && pwd)/../.."
-RESULT="$BASEDIR/result"
-
 # Toolchains for Bootloader and Linux
 BL_TOOLCHAIN="$BASEDIR/tools/crosstools/gcc-arm-none-eabi-6-2017-q2-update/bin/arm-none-eabi-"
 LINUX_TOOLCHAIN="$BASEDIR/tools/crosstools/gcc-linaro-7.2.1-2017.11-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-"
