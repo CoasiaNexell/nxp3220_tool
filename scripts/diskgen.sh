@@ -1,40 +1,47 @@
 #!/bin/bash
+# Copyright (c) 2018 Nexell Co., Ltd.
+# Author: Deokjin, Lee <truevirtue@nexell.co.kr>
+
+set -e
 
 BASEDIR=$(cd "$(dirname "$0")" && pwd)
-RESULT="$BASEDIR/../../result"
+RESULT_PATH="$BASEDIR/../../result"
+OUTPUT_PATH="$RESULT_PATH"
 
-BLIMAGE=(
-        "$RESULT/bl1-nxp3220.bin.raw" 		64
-        "$RESULT/bl2-vtk.bin.raw"		64
-        "$RESULT/sss.raw" 			32
-        "$RESULT/bl32.bin.raw" 			2048
-        "$RESULT/u-boot.bin.raw"  		0
+GENERATE_TARGETS=("gpt" "loader" "mbr")
+
+IMAGE_PARTMAP=(
+        "$RESULT_PATH/bl1-nxp3220.bin.raw" 	64
+        "$RESULT_PATH/bl2-vtk.bin.raw"		64
+        "$RESULT_PATH/sss.raw" 			32
+        "$RESULT_PATH/bl32.bin.raw" 		2048
+        "$RESULT_PATH/u-boot.bin.raw"  		0
         )
 
-BLIMAGE_ENC=(
-        "$RESULT/bl1-nxp3220.bin.enc.raw"	64
-        "$RESULT/bl2-vtk.bin.raw"		64
-        "$RESULT/sss.raw" 			32
-        "$RESULT/bl32.bin.enc.raw"		2048
-        "$RESULT/u-boot.bin.raw"  		0
-        )
-
+# Block Variables
 BLOCK_SIZE=1024
 BLOCK_COUNT=8192				# set disk image size kbyte
-ENC_OPTION=0					# (0: Not AES-CBC Encrypt, 1: Encrypt)
+
+function usage() {
+	echo "Usage: `basename $0` [-f file name] [build target: gpt/mbr/loader] -d [result_path]"
+	echo "Sample examples you can try."
+	echo "Example0) ./$0 -f ../files/partmap_emmc.txt"
+	echo "Example1) ./$0 -f ../files/partmap_emmc.txt -d ../../result_evb"
+	echo "Example2) ./$0 -f ../files/partmap_emmc.txt gpt mbr -d ../../result_evb"
+	echo ""
+	echo "Fusing: If you are trying to Fusing SD Card"
+	echo "Example0) sudo dd if=/dev/zero of=../../result/fip-gpt bs=512"
+	echo "Example1) sudo dd if=/dev/zero of=../../result/fip-mbr bs=512"
+	echo "Use the u-boot command if you are going to fusing to SPI flash or eMMC."
+}
 
 # Firmware Image Package - GPT Partition
-function generate_gpt_image()
-{
-	bli=("${@}")
-	seek=17408				# FIX: 512 * 34 = 17408 (LBA34: 0 ~ 33)
-	size=0; n=0;
+function generate_gpt_image() {
+	local images_list=("${@}")
+	local seek=17408				# FIX: (512 * 34) = 17408 (LBA34: 0 ~ 33)
+	local size=0; n=0;
 
-	if [ $ENC_OPTION == 1 ]; then
-		disk="fip-gpt.enc.img"
-	else
-		disk="fip-gpt.img"
-	fi
+	disk="fip-gpt.img"
 
 	[ -f $disk ] && sudo rm $disk;
 
@@ -56,7 +63,7 @@ function generate_gpt_image()
 
 	echo "Step 02. Write image for match the format"
 
-	for i in "${bli[@]}"
+	for i in "${images_list[@]}"
 	do
 		if [ $(( $n % 2 )) -eq 0 ]; then
 			file=$i
@@ -89,28 +96,23 @@ function generate_gpt_image()
 	echo " $> sudo dd if=fip-gpt.img of=/dev/sd? bs=1 seek=0"
 	echo -e "\033[1;32m ----------------------------------------------------------------- \033[0m"
 
-	mv $disk $RESULT/$disk
+	mv $disk $OUTPUT_PATH/$disk
 
 	echo -e "\n\033[1;23m ----------------------------------------------------------------- \033[0m"
 	echo " *** Move   : $disk ***"
-        echo " *** Result : `readlink -e -n "$RESULT/$disk"` ***"
+        echo " *** Result : `readlink -e -n "$OUTPUT_PATH/$disk"` ***"
 	echo -e "\033[1;23m ----------------------------------------------------------------- \033[0m"
 
 	sync
 }
 
 # Firmware Image Package - Loader Image
-function generate_loader_image()
-{
-	bli=("${@}")
-	seek=0
-	size=0; n=0;
+function generate_loader_image() {
+	local images_list=("${@}")
+	local seek=0
+	local size=0; n=0;
 
-	if [ $ENC_OPTION == 1 ]; then
-		image="fip-loader.enc.img"
-	else
-		image="fip-loader.img"
-	fi
+	image="fip-loader.img"
 
 	[ -f $image ] && sudo rm $image;
 
@@ -120,7 +122,7 @@ function generate_loader_image()
 
 	echo "Step 01. Write image for match the format"
 
-	for i in "${bli[@]}"
+	for i in "${images_list[@]}"
 	do
 		if [ $(( $n % 2 )) -eq 0 ]; then
 			file=$i
@@ -157,28 +159,23 @@ function generate_loader_image()
 	echo " $> sudo dd if=fip-loader.img of=/dev/sd? bs=1 seek=0"
 	echo -e "\033[1;32m ----------------------------------------------------------------- \033[0m"
 
-	mv $image $RESULT/$image
+	mv $image $OUTPUT_PATH/$image
 
 	echo -e "\n\033[1;23m ----------------------------------------------------------------- \033[0m"
 	echo " *** Move   : $image ***"
-	echo " *** Result : `readlink -e -n "$RESULT/$image"` ***"
+	echo " *** Result : `readlink -e -n "$OUTPUT_PATH/$image"` ***"
 	echo -e "\033[1;23m ----------------------------------------------------------------- \033[0m"
 
 	sync
 }
 
 # Firmware Image Package - MBR Partition
-function generate_mbr_image()
-{
-	bli=("${@}")
-	seek=512
-	size=0; n=0;
+function generate_mbr_image() {
+	local images_list=("${@}")
+	local seek=512
+	local size=0; n=0;
 
-	if [ $ENC_OPTION == 1 ]; then
-		image="fip-mbr.enc.img"
-	else
-		image="fip-mbr.img"
-	fi
+	image="fip-mbr.img"
 
 	[ -f $image ] && sudo rm $image;
 
@@ -196,7 +193,7 @@ function generate_mbr_image()
 
 	echo "Step 02. Write image for match the format"
 
-	for i in "${bli[@]}"
+	for i in "${images_list[@]}"
 	do
 		if [ $(( $n % 2 )) -eq 0 ]; then
 			file=$i
@@ -233,22 +230,115 @@ function generate_mbr_image()
 	echo " $> sudo dd if=fip-gpt.img of=/dev/sd? bs=1 seek=0"
 	echo -e "\033[1;32m ----------------------------------------------------------------- \033[0m"
 
-	mv $image $RESULT/$image
+	mv $image $OUTPUT_PATH/$image
 
 	echo -e "\n\033[1;23m ----------------------------------------------------------------- \033[0m"
 	echo " *** Move   : $image ***"
-        echo " *** Result : `readlink -e -n "$RESULT/$image"` ***"
+        echo " *** Result : `readlink -e -n "$OUTPUT_PATH/$image"` ***"
 	echo -e "\033[1;23m ----------------------------------------------------------------- \033[0m"
 	sync
 }
 
-# Firmware Image Package
-generate_gpt_image 	"${BLIMAGE[@]}"
-generate_loader_image	"${BLIMAGE[@]}"
-generate_mbr_image	"${BLIMAGE[@]}"
+function parsing_partmap() {
+	local partmap_file=$1
+	local partmap_context=
+	local count=0
+	local number=0
 
-# Encrypted Firmware Image package
-ENC_OPTION=1
-generate_gpt_image	"${BLIMAGE_ENC[@]}"
-generate_loader_image	"${BLIMAGE_ENC[@]}"
-generate_mbr_image	"${BLIMAGE_ENC[@]}"
+	if [ ! -f $partmap_file ]; then
+		echo -e "\033[47;31m No such to partmap: $partmap_file \033[0m"
+		exit 1;
+	fi
+
+	while read line;
+	do
+		if [[ "$line" == *"#"* ]];then
+			continue
+		fi
+
+		partmap_context+=($line)
+	done < $partmap_file
+
+	for i in ${partmap_context[@]}
+	do
+		# parsing information
+		fname=$(echo $(echo $i| cut -d':' -f 5) | cut -d';' -f 1)
+		size=$(echo $(echo $i| cut -d':' -f 4) | cut -d',' -f 2)
+		# convert the for unit (KB)
+		size=$((size/1024))
+
+		if [ $count -eq 0 ]; then
+			number=0
+		else
+			number=$((count*2))
+		fi
+
+		# check the index number
+		if [ $number -eq 4 ]; then
+			# skip the SSS image
+			count=$((count+1))
+			number=$((count*2))
+		elif [ $number -eq 10 ]; then
+			break;
+		fi
+
+		IMAGE_PARTMAP[$number]=$RESULT_PATH/$fname
+		IMAGE_PARTMAP[$((number+1))]=$size
+
+		count=$((count+1))
+	done
+}
+
+# main
+case "$1" in
+	-f )
+		partmap_file=$2
+		generate_targets=()
+		count=0
+
+		while [ "$#" -gt 2 ]; do
+			count=0
+			while true; do
+				if [ "${GENERATE_TARGETS[$count]}" == "$3" ]; then
+					generate_targets+=("$3");
+					shift 1
+				fi
+
+				count=$((count+1))
+				if [ $count -ge ${#GENERATE_TARGETS[@]} ]; then
+					break;
+				fi
+			done
+
+			case "$3" in
+				-d )	OUTPUT_PATH=$4;
+					OUTPUT_PATH="$(realpath $OUTPUT_PATH)"
+					shift 2;;
+				-h )	usage; exit 1;;
+				* )	shift;;
+			esac
+		done
+
+		# parsing partmap file
+		parsing_partmap $partmap_file
+
+		if [ ${#generate_targets[@]} -eq 0 ]; then
+			generate_targets=(${GENERATE_TARGETS[@]})
+		fi
+
+		# generate images
+		for target in "${generate_targets[@]}"
+		do
+			if [ "$target" == "gpt" ]; then
+				generate_gpt_image "${IMAGE_PARTMAP[@]}"
+			elif [ "$target" == "loader" ]; then
+				generate_loader_image "${IMAGE_PARTMAP[@]}"
+			elif [ "$target" == "mbr" ]; then
+				generate_mbr_image "${IMAGE_PARTMAP[@]}"
+			fi
+		done
+		;;
+	-h | * )
+		usage
+		exit 1
+esac
