@@ -35,7 +35,7 @@ declare -A BUILD_TARGETS=(
   	["uboot"]="virtual/bootloader"
   	["kernel"]="virtual/kernel"
   	["bootimg"]="nexell-bootimg"
-  	["rootfsimg"]="nexell-rootfsimg"
+  	["dataimg"]="nexell-dataimg"
 )
 
 declare -A BUILD_COMMANDS=(
@@ -55,6 +55,7 @@ declare -A RESULT_TARGETS=(
   	["boot"]="boot/"
   	["bootimg"]="boot.img"
   	["rootfsimg"]="rootfs.img"
+  	["dataimg"]="userdata.img"
 )
 
 function err() {
@@ -250,6 +251,10 @@ function setup_bitbake_env () {
 
 	# run oe-init-build-env
 	source $POKY_DIR/oe-init-build-env $BB_BUILD_DIR >/dev/null 2>&1
+	msg "-----------------------------------------------------------------"
+	msg " bitbake environment set up command:"
+	msg " $> source $POKY_DIR/oe-init-build-env $BB_BUILD_DIR"
+	msg "-----------------------------------------------------------------"
 }
 
 function check_bitbake_env () {
@@ -258,7 +263,7 @@ function check_bitbake_env () {
 
         if [ ! -f $conf ]; then
                 err "Not build setup environment : '$conf' ..."
-                err "#> source poky/oe-init-build-env <build dir>/<machin type>"
+                err "$> source poky/oe-init-build-env <build dir>/<machin type>"
 		exit 1;
 	fi
 
@@ -273,7 +278,7 @@ function check_bitbake_env () {
 
 function print_avail_lists () {
 	msg "================================================================="
-	msg "AVAILABLE LISTs:"
+	msg "Support Lists:"
 	msg "================================================================="
 
 	msg "MACHINE: <machine name>"
@@ -391,6 +396,8 @@ function usage () {
 	echo "  -f : force overwrite buid confing files (local.conf/bblayers.conf)"
 	echo "  -j : determines how many tasks bitbake should run in parallel"
 	echo "  -h : help"
+	echo ""
+	print_avail_lists
 	exit 1;
 }
 
@@ -499,5 +506,5 @@ msg " RESULT DIR : $RESULT_OUT"
 msg "-----------------------------------------------------------------"
 msg "-----------------------------------------------------------------"
 msg " bitbake environment set up command:"
-msg " #> source $POKY_DIR/oe-init-build-env $BB_BUILD_DIR"
+msg " $> source $POKY_DIR/oe-init-build-env $BB_BUILD_DIR"
 msg "-----------------------------------------------------------------"
