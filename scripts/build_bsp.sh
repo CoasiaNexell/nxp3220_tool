@@ -250,7 +250,11 @@ function fn_copy_target() {
 			dst=$dir/$dst
 		fi
 	else
-		dst=$dir/
+		if [ ! -z $dst ]; then
+			dst=$dir/$dst
+		else
+			dst=$dir/
+		fi
 	fi
 
 	echo -e "\n\033[2;32m ----------------------------------------------------------------- \033[0m"
