@@ -433,7 +433,7 @@ function parse_args () {
 				[ $i != $2 ] && continue;
 				BB_CMD="-c ${BUILD_COMMANDS[$i]}"; shift 2; break;
 			done
-			if [ -z $BB_CMD ]; then
+			if [ -z "$BB_CMD" ]; then
 				err "Available Targets:"
 				for i in "${!BUILD_COMMANDS[@]}"; do
 					err "\t$i\t: ${BUILD_COMMANDS[$i]}"
