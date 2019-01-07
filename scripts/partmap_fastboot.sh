@@ -134,7 +134,18 @@ case "$1" in
 				echo -e "\033[0;33m------------------------------------------------------------------ \033[0m"
 				for i in "${PARTMAP_CONTEXT[@]}"
 				do
-					echo "$i"
+					KB=$((1024)) MB=$((1024 * 1024)) GB=$((1024 * 1024 * 1024))
+					val="$(echo "$(echo "$i" | cut -d':' -f4)" | cut -d',' -f2)"
+
+					if [[ $val -ge "$GB" ]]; then
+						len="$((val/$GB)) GB"
+					elif [[ $val -ge "$MB" ]]; then
+						len="$((val/$MB)) MB"
+					else
+						len="$((val/$KB)) KB"
+					fi
+
+					echo -e "$i [$len]"
 				done
 				echo -e "\033[0;33m------------------------------------------------------------------ \033[0m"
 				exit 0;;
