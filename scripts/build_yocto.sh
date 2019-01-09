@@ -40,7 +40,7 @@ declare -A BUILD_TARGETS=(
 declare -A BUILD_COMMANDS=(
   	["clean"]="buildclean"
   	["distclean"]="cleansstate"
-  	["cleanall"]="cleanall"
+  	["cleanall"]="cleanall"		# clean download files
   	["menuconfig"]="menuconfig"
   	["savedefconfig"]="savedefconfig"
 )
@@ -342,27 +342,28 @@ function copy_deploy_images () {
 	mkdir -p $result
 	[ $? -ne 0 ] && exit 1;
 
+	cd $deploy
+
 	for i in "${!RESULT_TARGETS[@]}"
 	do
-		local file=$deploy/${RESULT_TARGETS[$i]}
+		local file=${RESULT_TARGETS[$i]}
 		local files=$(find $file -print \
 			2> >(grep -v 'No such file or directory' >&2) | sort)
 
-		to=$result
 		for n in $files; do
-			name=$(basename $n)
+			to=$result/$n
+
 			if [ -d "$n" ]; then
-				mkdir -p $result/$name
-				to=$to/$name
+				mkdir -p $to
 				continue
 			fi
 
-			if [ -f $to/$name ]; then
+			if [ -f $to ]; then
 				ts="$(stat --printf=%y $n | cut -d. -f1)"
-				td="$(stat --printf=%y $to/$name | cut -d. -f1)"
+				td="$(stat --printf=%y $to | cut -d. -f1)"
 				[ "${ts}" == "${td}" ] && continue;
 			fi
-			cp -a $n $to/$name
+			cp -a $n $to
 		done
 	done
 }
