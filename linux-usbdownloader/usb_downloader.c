@@ -33,9 +33,6 @@ char *bin_file = NULL;
 char *secondboot_file = NULL;
 char *processor_type = NULL;
 
-char *down_address = NULL;
-char *start_address = NULL;
-
 unsigned int only_bin = 0;
 
 enum{
@@ -68,8 +65,6 @@ static void print_downlod_info(const char *msg)
 	printf( " %s \n", msg );
 	printf( " Processor type  : %s\n", processor_type?processor_type:"NULL" );
 	printf( " Bin file        : %s\n", bin_file?bin_file:"NULL" );
-	printf( " Download addr   : %s\n", down_address?down_address:"default" );
-	printf( " Start addr      : %s\n", start_address?start_address:"default" );
 	printf( "==================================================================\n" );
 }
 
@@ -81,13 +76,11 @@ static void usage(void)
 	printf("   -f [file name]      : send the general file name \n");
 	printf("   -t [processor type] : select target processor type\n");
 	printf("      ( type : nxp3220/nxp3225/artik310 )\n" );
-	printf("   -a [address]        : download address\n");
-	printf("   -j [address]        : jump address\n");
 	printf("\n");
 	printf(" case 1. nxp322x Boot Loader Level1 Download \n" );
-	printf("  #>sudo ./usb-downloader -t nxp3220 -b nxp3220_bl1.bin -a 0xFFFF0000 -j 0xFFFF0000 \n" );
+	printf("  #>sudo ./usb-downloader -t nxp3220 -b nxp3220_bl1.bin \n" );
 	printf(" case 2. nxp322x Image Download \n" );
-	printf("  #>sudo ./usb-downloader -t nxp3220 -b u-boot.bin -a 0x43C0000 -j 0x43C00000 \n" );
+	printf("  #>sudo ./usb-downloader -t nxp3220 -b u-boot.bin \n" );
 	printf(" case 3. General Image Download \n" );
 	printf("  #>sudo ./usb-downloader -t nxp3220 -f uimage \n" );
 	printf("  #>sudo ./usb-downloader -t nxp3220 -f dumpyimage \n" );
@@ -208,15 +201,7 @@ static int nxp3220_image_transfer(unsigned int vendor_id, unsigned int product_i
 	FILE *fd_image = NULL;
 	unsigned char *send_buf = NULL;
 	unsigned int buf_size, read_size;
-	unsigned int *header;
-	unsigned int down_addr = 0xFFFF0000;
-	unsigned int start_addr = 0xFFFF0000;
 	int ret;
-
-	if (down_address)
-		down_addr  = strtoul(down_address , NULL, 16);
-	if (start_address)
-		start_addr = strtoul(start_address, NULL, 16);
 
 	fd_image = fopen(bin_file , "rb");
 	if (!fd_image) {
@@ -233,10 +218,6 @@ static int nxp3220_image_transfer(unsigned int vendor_id, unsigned int product_i
 		printf("File Size is not the same!! (%d:%d) \n", read_size, buf_size);
 		goto error_exit;
 	}
-
-	header = (unsigned int*)send_buf;
-	header[2] = down_addr;
-	header[3] = start_addr;
 
 	ret = send_data(vendor_id, product_id, send_buf, buf_size);
 
@@ -327,12 +308,6 @@ int main(int argc, char **argv)
 
 	while (-1 != (param_opt = getopt(argc, argv, "a:j:b:f:t:h"))) {
 		switch (param_opt) {
-			case 'a':
-				down_address = strdup(optarg);
-				break;
-			case 'j':
-				start_address = strdup(optarg);
-				break;
 			case 'b':
 				bin_file = strdup(optarg);
 				break;
