@@ -3,9 +3,9 @@
 # Author: Junghyun, Kim <jhkim@nexell.co.kr>
 
 BASEDIR="$(cd "$(dirname "$0")" && pwd)"
+RESULTDIR="$BASEDIR/../../result"
 
 PARTMAP_FILE=
-PARTMAP_IMAGE_DIR="$BASEDIR/../../result"
 PARTMAP_CONTEXT=()
 PARTMAP_TARGETS=()
 
@@ -22,7 +22,7 @@ function usage () {
 	echo -e "\t2. sudo fastboot flash <target> <image>"
 	echo ""
 	echo "[options]"
-	echo "  -d : download image path for fastboot, default: `readlink -e -n $PARTMAP_IMAGE_DIR`"
+	echo "  -d : download image path for fastboot, default: `readlink -e -n $RESULTDIR`"
 	echo "  -i : partmap info"
 	echo "  -l : listup target in partmap list"
 	echo "  -r : send reboot command after end of fastboot"
@@ -53,7 +53,7 @@ function update_fastboot () {
 			if [ "$i" == "$v" ]; then
 				image="$(echo $(echo $n| cut -d':' -f 5)| cut -d';' -f 1)"
 				[ -z "$image" ] && continue;
-				image="$PARTMAP_IMAGE_DIR/$image"
+				image="$RESULTDIR/$image"
 				break;
 			fi
 		done
@@ -61,8 +61,11 @@ function update_fastboot () {
 		[ -z "$image" ] && continue;
 
 		if [ ! -f "$image" ]; then
-			echo -e "\033[47;31m Not found '$i': $image\033[0m"
-			continue
+			image=./$(basename $image)
+			if [ ! -f "$image" ]; then
+				echo -e "\033[47;31m Not found '$i': $image\033[0m"
+				continue
+			fi
 		fi
 		partmap_images+=("$i:`readlink -e -n "$image"`");
 	done
@@ -76,13 +79,13 @@ function update_fastboot () {
 		target=$(echo $i| cut -d':' -f 1)
 		image=$(echo $i| cut -d':' -f 2)
 
-		echo -e "\033[0;33m $target:\t$image\033[0m"
+		echo -e "\033[0;33m $target: $image\033[0m"
 		sudo fastboot flash $target $image
 		[ $? -ne 0 ] && exit 1;
 	done
 }
 
-send_reboot=false
+SEND_REBOOT=false
 
 case "$1" in
 	-f )
@@ -119,8 +122,8 @@ case "$1" in
 			done
 
 			case "$3" in
-			-d )	PARTMAP_IMAGE_DIR=$4; ((options+=2)); shift 2;;
-			-r ) 	send_reboot=true; ((options+=1)); shift 1;;
+			-d )	RESULTDIR=$4; ((options+=2)); shift 2;;
+			-r ) 	SEND_REBOOT=true; ((options+=1)); shift 1;;
 			-l )
 				echo -e "\033[0;33m------------------------------------------------------------------ \033[0m"
 				echo -en " Partmap targets: "
@@ -183,13 +186,13 @@ case "$1" in
 		update_fastboot
 		;;
 	-r )
-		send_reboot=true; shift 1;;
+		SEND_REBOOT=true; shift 1;;
 	-h | * )
 		usage;
 		exit 1;;
 esac
 
-if [ $send_reboot == true ]; then
+if [ $SEND_REBOOT == true ]; then
 	echo -e "\033[47;30m send reboot command...\033[0m"
 	sudo fastboot reboot
 fi
