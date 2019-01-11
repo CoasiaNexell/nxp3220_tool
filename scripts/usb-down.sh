@@ -3,9 +3,16 @@
 # Author: Junghyun, Kim <jhkim@nexell.co.kr>
 
 BASEDIR=$(cd "$(dirname "$0")" && pwd)
-DOWNLOADER=$BASEDIR/../bin/linux-usbdownloader
-DN_TARGET=nxp3220
-RESULT="$BASEDIR/../../result"
+USBDOWNLOADER=linux-usbdownloader
+DOWNLOADER_TOOL=$BASEDIR/../bin/$USBDOWNLOADER
+RESULTDIR="$BASEDIR/../../result"
+USBVENDOR="Digit"
+DN_TARGET=
+
+declare -A TARGET_PRODUCT_ID=(
+	["3220"]="nxp3220"
+	["3225"]="nxp3225"
+)
 
 function usage() {
 	echo "usage: `basename $0` [-f file name][-l file file][-s] "
@@ -24,7 +31,7 @@ function usage() {
 	echo "  -i : usb down info with -f file name"
 	echo "  -e : open file with vim"
 	echo "  -p : encryted file transfer"
-	echo "  -d : download image path, default:$RESULT"
+	echo "  -d : download image path, default:$RESULTDIR"
 	echo ""
 }
 
@@ -47,6 +54,29 @@ function get_prefix_element() {
 	done
 }
 
+function get_target_name() {
+	local value=$1			# $1 = store the prefix's value
+	local id="$(lsusb | grep $USBVENDOR | cut -d ':' -f 3 | cut -d ' ' -f 1)"
+
+	if [ -z "$id" ]; then
+		echo -e "\033[47;31m Not find vendor: $USBVENDOR !!!\033[0m"
+		exit 1;
+	fi
+
+	for i in "${!TARGET_PRODUCT_ID[@]}"
+	do
+		if [ "$i" == "$id" ]; then
+			id=${TARGET_PRODUCT_ID[$i]}
+			eval "$value=(\"${id}\")"
+			return
+		fi
+	done
+
+	echo -e "\033[47;31m Not suport $id !!!\033[0m"
+	echo -e "[${!TARGET_PRODUCT_ID[@]}]"
+	exit 1;
+}
+
 function usb_download_array() {
 	local target=""
 	local images=("${@}")	# IMAGES
@@ -54,11 +84,7 @@ function usb_download_array() {
 	get_prefix_element target "TARGET" "${images[@]}"
 
 	if [ -z "$DN_TARGET" ]; then
- 		if [ -z "$target" ]; then
-			echo -e "\033[47;31m Not find TARGET !!!\033[0m"
-			echo -e "[${images[@]}]"
-			return
-		fi
+		get_target_name target
 		DN_TARGET=$target # set DN_TARGET with config file
 	else
 		target=$DN_TARGET # overwrite target with input target parameter with '-t'
@@ -81,25 +107,36 @@ function usb_download_array() {
 			continue
 		fi
 
-		echo -e "\033[47;34m DOWNLOAD: $i \033[0m"
-		if [ $show_info == true ]; then
+		if [ $SHOW_INFO == true ]; then
 			continue
 		fi
 
 		local cmd="$(echo $i| cut -d':' -f 2)"
-		local file="$(echo $cmd| cut -d' ' -f 2)"
+		local file="$(echo $cmd | cut -d' ' -f 2)"
 
+		# reset load command with current file path
 		if [ ! -e "$file" ]; then
-			echo -e "\033[47;31m DOWNLOAD: No such file $file\033[0m"
-			exit 1
+			file=$(basename $file)
+			if [ ! -e "$file" ]; then
+				echo -e "\033[47;31m DOWNLOAD: No such file $file\033[0m"
+				exit 1
+			fi
+			local opt="$(echo $cmd | cut -d' ' -f 1)"
+			file=./$file
+			cmd="$opt $file"
 		fi
 
-		sudo $DOWNLOADER -t $target $cmd
+		if [ ! -f $DOWNLOADER_TOOL ]; then
+			DOWNLOADER_TOOL=./$USBDOWNLOADER
+		fi
+
+		echo -e "\033[47;34m DOWNLOAD: $cmd \033[0m"
+		sudo $DOWNLOADER_TOOL -t $target $cmd
 		echo -e "\033[47;32m DOWNLOAD: DONE \033[0m"
 
 		[ $? -ne 0 ] && exit 1;
 
-		sleep $sleep_sec	# wait for next connect
+		sleep $DN_SLEEP_SEC	# wait for next connect
 	done
 }
 
@@ -108,6 +145,10 @@ function usb_download_array() {
 function usb_download_files() {
 	local files=("${@}")	# IMAGES
 	local target=$DN_TARGET
+
+	if [ -z "$DN_TARGET" ]; then
+		get_target_name target
+	fi
 
 	echo "##################################################################"
 	echo -e "\033[47;34m LOAD TARGET: $target \033[0m"
@@ -129,53 +170,53 @@ function usb_download_files() {
 
 		echo -e "\033[47;34m DOWNLOAD: $i \033[0m"
 
-		sudo $DOWNLOADER -t $target -f $i
+		sudo $DOWNLOADER_TOOL -t $target -f $i
 
 		echo -e "\033[47;32m DOWNLOAD: DONE \033[0m"
 
 		[ $? -ne 0 ] && exit 1;
 
-		sleep $sleep_sec
+		sleep $DN_SLEEP_SEC
 	done
 }
 
-dn_load_objs=()
-dn_load_file=
-edit_file=false
-show_info=false
-encryted=false
-sleep_sec=2
+DN_LOAD_OBJS=()
+DN_LOAD_FILE=
+EDIT_FILE=false
+SHOW_INFO=false
+DN_ENCRYPTED=false
+DN_SLEEP_SEC=2
 
 while getopts 'hf:l:t:s:d:eip' opt
 do
         case $opt in
         f )
- 		dn_load_file=$OPTARG
+		DN_LOAD_FILE=$OPTARG
 		;;
         t )
 		DN_TARGET=$OPTARG
 		;;
         l )
-		dn_load_objs=("$OPTARG")
+		DN_LOAD_OBJS=("$OPTARG")
 		until [[ $(eval "echo \${$OPTIND}") =~ ^-.* ]] || [ -z $(eval "echo \${$OPTIND}") ]; do
-        	        dn_load_objs+=($(eval "echo \${$OPTIND}"))
+			DN_LOAD_OBJS+=($(eval "echo \${$OPTIND}"))
                 	OPTIND=$((OPTIND + 1))
 		done
 		;;
 	i )
-		show_info=true
+		SHOW_INFO=true
 		;;
 	e )
-		edit_file=true
+		EDIT_FILE=true
 		;;
 	p )
-		encryted=true
+		DN_ENCRYPTED=true
 		;;
 	s )
-		sleep_sec=$OPTARG
+		DN_SLEEP_SEC=$OPTARG
 		;;
 	d )
-		RESULT=$OPTARG
+		RESULTDIR=$OPTARG
 		;;
         h | *)
         	usage
@@ -183,32 +224,32 @@ do
 		esac
 done
 
-if [ $edit_file == true ]; then
-	if [ ! -f $dn_load_file ]; then
+if [ $EDIT_FILE == true ]; then
+	if [ ! -f $DN_LOAD_FILE ]; then
 		echo "No such file $argc"
 		exit 1
 	fi
 
-	vim $dn_load_file
+	vim $DN_LOAD_FILE
 	exit 0
 fi
 
-if [ ! -z $dn_load_file ]; then
-	if [ ! -f $dn_load_file ]; then
+if [ ! -z $DN_LOAD_FILE ]; then
+	if [ ! -f $DN_LOAD_FILE ]; then
 		echo "No such file $argc"
 		exit 1
 	fi
 
 	# include input file
-	source $dn_load_file
+	source $DN_LOAD_FILE
 
-	if [ $encryted == false ]; then
+	if [ $DN_ENCRYPTED == false ]; then
 		usb_download_array "${DN_IMAGES[@]}"
 	else
 		usb_download_array "${DN_ENC_IMAGES[@]}"
 	fi
 fi
 
-if [ ${#dn_load_objs} -ne 0 ]; then
-	usb_download_files "${dn_load_objs[@]}"
+if [ ${#DN_LOAD_OBJS} -ne 0 ]; then
+	usb_download_files "${DN_LOAD_OBJS[@]}"
 fi
