@@ -46,15 +46,25 @@ declare -A BUILD_COMMANDS=(
 )
 
 declare -A RESULT_TARGETS=(
-  	["bl1"]="bl1-nxp3220.*"
-  	["bl2"]="bl2*"
-  	["bl32"]="bl32.*"
-  	["u-boot"]="u-boot*"
+  	["bl1"]="bl1-nxp3220.bin.raw"
+  	["bl2"]="bl2.bin.raw"
+  	["bl32"]="bl32.bin.raw"
+  	["u-boot bin"]="u-boot-${MACHINE_TYPE}-1.0-r0.bin"
+  	["u-boot link"]="u-boot.bin"
+  	["u-boot image"]="u-boot.bin.raw"
   	["env"]="params_env.*"
   	["boot"]="boot/"
   	["bootimg"]="boot.img"
   	["rootfsimg"]="rootfs.img"
   	["dataimg"]="userdata.img"
+)
+
+declare -A TOOLS_FILES=(
+	["fastboot shell"]="tools/scripts/partmap_fastboot.sh"
+	["fastboot map"]="tools/files/partmap_emmc.txt"
+	["usb-down shell"]="tools/scripts/usb-down.sh"
+	["usb-down bin"]="tools/bin/linux-usbdownloader"
+	["usb-down map"]="tools/scripts/configs/udown.bootloader.sh"
 )
 
 function err() {
@@ -386,6 +396,44 @@ function copy_sdk_images () {
 	cp -a $sdk/* $dir/
 }
 
+function copy_tools_files () {
+	local result="$(echo $IMAGE_TYPE | cut -d'.' -f 1)"
+
+	RESULT_OUT=result-$MACHINE_TYPE-${result##*-}
+	result=$RESULT_DIR/$RESULT_OUT
+
+	msg "-----------------------------------------------------------------"
+	msg " TOOLS      : $deploy"
+	msg " RESULT     : $result"
+	msg "-----------------------------------------------------------------"
+
+	mkdir -p $result
+	[ $? -ne 0 ] && exit 1;
+
+	cd $ROOT_DIR
+
+	for i in "${!TOOLS_FILES[@]}"
+	do
+		local file=${TOOLS_FILES[$i]}
+		local files=$(find $file -print \
+			2> >(grep -v 'No such file or directory' >&2) | sort)
+
+		for n in $files; do
+			if [ -d "$n" ]; then
+				continue
+			fi
+
+			to=$result/$(basename $n)
+			if [ -f $to ]; then
+				ts="$(stat --printf=%y $n | cut -d. -f1)"
+				td="$(stat --printf=%y $to | cut -d. -f1)"
+				[ "${ts}" == "${td}" ] && continue;
+			fi
+			cp -a $n $to
+		done
+	done
+}
+
 function link_result_dir () {
 	link=$1
 	if [ -e $RESULT_DIR/$link ]; then
@@ -520,6 +568,7 @@ if [ $OPT_BUILD_SDK != true ]; then
 
 	if [ -z "${BB_BUILD_CMD}" ]; then
 		copy_deploy_images
+		copy_tools_files
 		link_result_dir "result"
 	fi
 else
