@@ -20,9 +20,14 @@ BUILD_STATUS_FILE=$ROOT_DIR/.build_image_type
 MACHINE_DIR=$META_DIR/conf/machine
 IMAGE_DIR=$META_DIR/recipes-core/images
 
-BB_CONF_DIR=$META_DIR/tools/configs/machines
-BB_IMAGE_DIR=$META_DIR/tools/configs/images
+TOOL_MACH_DIR=$META_DIR/tools/configs/machines
+TOOL_IMAGE_DIR=$META_DIR/tools/configs/images
+TOOL_LOCAL_CONF=$TOOL_MACH_DIR/local.conf
+TOOL_IMAGE_SDK=$TOOL_IMAGE_DIR/sdk.conf
+
 BB_BUILD_DIR=$BUILD_DIR/build-$MACHINE_TYPE
+BB_LOCAL_CONF=$BB_BUILD_DIR/conf/local.conf
+BB_BBLAYER_CONF=$BB_BUILD_DIR/conf/bblayers.conf
 
 declare -A BSP_PATH=(
 	["BSP_ROOT_DIR"]="$ROOT_DIR"
@@ -183,8 +188,8 @@ function merge_conf_file () {
 
 # overwrite to build_<machine>/conf/local.conf
 function parse_machine_confing () {
-        local cmp=$BB_CONF_DIR/$MACHINE_TYPE.conf
-	local src=$BB_CONF_DIR/local.conf dst=$BB_BUILD_DIR/conf/local.conf
+        local cmp=$TOOL_MACH_DIR/$MACHINE_TYPE.conf
+	local src=$TOOL_LOCAL_CONF dst=$BB_LOCAL_CONF
 
         cp $src $dst
 	[ $? -ne 0 ] && exit 1;
@@ -213,10 +218,10 @@ function parse_machine_confing () {
 }
 
 function parse_image_config () {
-        local dst=$BB_BUILD_DIR/conf/local.conf
+        local dst=$BB_LOCAL_CONF
 	local type=${IMAGE_TYPE##*-} conf=$OPT_IMAGE_CONF
 
-	for i in $BB_IMAGE_DIR/$type.conf $BB_IMAGE_DIR/$conf.conf
+	for i in $TOOL_IMAGE_DIR/$type.conf $TOOL_IMAGE_DIR/$conf.conf
 	do
 		[ ! -f $i ] && continue;
         	msg "-----------------------------------------------------------------"
@@ -228,8 +233,24 @@ function parse_image_config () {
         done
 }
 
+function parse_sdk_config () {
+        local cmp=$TOOL_IMAGE_SDK
+	local dst=$BB_LOCAL_CONF
+
+	if [ $OPT_BUILD_SDK != true ]; then
+		return
+	fi
+
+	msg "-----------------------------------------------------------------"
+	msg " PARSE    : $cmp"
+	msg " TO       : $dst"
+	msg "-----------------------------------------------------------------"
+
+	merge_conf_file $dst $cmp $dst
+}
+
 function parse_image_type () {
-	local dst=$BB_BUILD_DIR/conf/local.conf
+	local dst=$BB_LOCAL_CONF
 	replace="\"$IMAGE_TYPE\""
 	sed -i "s/.*INITRAMFS_IMAGE.*/INITRAMFS_IMAGE = $replace/" $dst
 }
@@ -239,22 +260,22 @@ function parse_machine_jobs () {
 		return
 	fi
 
-	local file=$BB_BUILD_DIR/conf/local.conf
+	local file=$BB_LOCAL_CONF
 	if grep -q BB_NUMBER_THREADS "$file"; then
 		replace="\"$OPT_BUILD_JOBS\""
 		sed -i "s/.*BB_NUMBER_THREADS.*/BB_NUMBER_THREADS = $replace/" $file
 	else
-		echo "" >> $BB_BUILD_DIR/conf/local.conf
+		echo "" >> $BB_LOCAL_CONF
 		echo "BB_NUMBER_THREADS = \"${OPT_BUILD_JOBS}\"" >> $file
 	fi
 }
 
 function parse_bblayer_config () {
-	local src=$BB_CONF_DIR/$MACHINE_TYPE.bblayers
-        local dst=$BB_BUILD_DIR/conf/bblayers.conf
+	local src=$TOOL_MACH_DIR/$MACHINE_TYPE.bblayers
+        local dst=$BB_BBLAYER_CONF
 
 	if [ ! -f $src ]; then
-        	src=$BB_CONF_DIR/bblayers.conf
+		src=$TOOL_MACH_DIR/bblayers.conf
         fi
 
         msg "-----------------------------------------------------------------"
@@ -282,7 +303,7 @@ function setup_bitbake_env () {
 
 function check_bitbake_env () {
         local mach=$MACHINE_TYPE
-	local conf=$BB_BUILD_DIR/conf/local.conf
+	local conf=$BB_LOCAL_CONF
 	local old_image=""
 	local new_image=${MACHINE_TYPE}_${IMAGE_TYPE}_${OPT_IMAGE_CONF}
 
@@ -290,6 +311,10 @@ function check_bitbake_env () {
                 err "Not build setup environment : '$conf' ..."
                 err "$> source poky/oe-init-build-env <build dir>/<machin type>"
 		exit 1;
+	fi
+
+	if [ $OPT_BUILD_SDK == true ]; then
+		new_image="${new_image}_SDK"
 	fi
 
 	if [ -e $BUILD_STATUS_FILE ]; then
@@ -321,7 +346,7 @@ function print_avail_lists () {
 
 	msg "MACHINE: <machine name>"
 	msg "\t:$MACHINE_DIR"
-	msg "\t:$BB_CONF_DIR"
+	msg "\t:$TOOL_MACH_DIR"
 	msg "\t----------------------------------------------------------"
 	msg "\t${MACHINE_TABLE}"
 	msg "\t----------------------------------------------------------"
@@ -333,7 +358,7 @@ function print_avail_lists () {
 	msg "\t----------------------------------------------------------"
 
 	msg "IMAGE CONFIG: '-i'"
-	msg "\t:$BB_IMAGE_DIR"
+	msg "\t:$TOOL_IMAGE_DIR"
 	msg "\t----------------------------------------------------------"
 	msg "\t ${IMAGE_CONF_TABLE}"
 	msg "\t----------------------------------------------------------"
@@ -537,8 +562,9 @@ function parse_args () {
 ###############################################################################
 get_avail_types $MACHINE_DIR "conf" MACHINE_TABLE
 get_avail_types $IMAGE_DIR "bb" IMAGE_TABLE
-get_avail_types $BB_IMAGE_DIR "conf" IMAGE_CONF_TABLE
+get_avail_types $TOOL_IMAGE_DIR "conf" IMAGE_CONF_TABLE
 
+# parsing input arguments
 parse_args $@
 
 check_machine_type $MACHINE_TYPE
@@ -553,6 +579,7 @@ if [ $NEED_PARSE == 1 ] || [ $OPT_BUILD_PARSE == true ]; then
 	parse_machine_confing
 	parse_image_config
 	parse_bblayer_config
+	parse_sdk_config
 fi
 
 parse_image_type
