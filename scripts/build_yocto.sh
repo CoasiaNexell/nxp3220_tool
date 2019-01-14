@@ -14,6 +14,7 @@ BUILD_DIR=$ROOT_DIR/yocto/build
 META_DIR=$YOCTO_DIR/meta-nexell/meta-nxp3220
 RESULT_DIR=$ROOT_DIR/yocto/out
 RESULT_OUT=
+BUILD_STATUS_FILE=$ROOT_DIR/.build_image_type
 
 # related machine
 MACHINE_DIR=$META_DIR/conf/machine
@@ -282,6 +283,8 @@ function setup_bitbake_env () {
 function check_bitbake_env () {
         local mach=$MACHINE_TYPE
 	local conf=$BB_BUILD_DIR/conf/local.conf
+	local old_image=""
+	local new_image=${MACHINE_TYPE}_${IMAGE_TYPE}_${OPT_IMAGE_CONF}
 
         if [ ! -f $conf ]; then
                 err "Not build setup environment : '$conf' ..."
@@ -289,13 +292,26 @@ function check_bitbake_env () {
 		exit 1;
 	fi
 
+	if [ -e $BUILD_STATUS_FILE ]; then
+		old_image="$(cat $BUILD_STATUS_FILE)"
+	fi
+
         v="$(echo $(find $conf -type f -exec grep -w -h 'MACHINE' {} \;) | cut -d'"' -f 2)"
         v="$(echo $v | cut -d'"' -f 1)"
         if [ "$mach" == "$v" ]; then
         	msg "PARSE: Already done '$conf'"
+
+        	if [ "$old_image" != "$new_image" ]; then
+			[ -e $BUILD_STATUS_FILE ] && rm $BUILD_STATUS_FILE;
+			echo $new_image >> $BUILD_STATUS_FILE;
+			msg "PARSE: New Image type '$new_image'"
+			return 1
+        	fi
         	return 0
         fi
-        return 1
+
+	echo $new_image >> $BUILD_STATUS_FILE;
+	return 1
 }
 
 function print_avail_lists () {
