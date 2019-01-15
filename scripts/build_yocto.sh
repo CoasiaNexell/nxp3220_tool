@@ -31,7 +31,7 @@ TOOL_IMAGE_DIR=$BSP_META_DIR/tools/configs/images
 TOOL_LOCAL_CONF=$TOOL_MACH_DIR/local.conf
 TOOL_IMAGE_SDK=$TOOL_IMAGE_DIR/sdk.conf
 
-declare -A BSP_PATH=(
+declare -A BB_LOCAL_CONF_VALUES=(
 	["BSP_ROOT_DIR"]="$BSP_ROOT_DIR"
 )
 
@@ -211,10 +211,10 @@ function parse_machine_confing () {
 	merge_conf_file $src $cmp $dst
 
 	echo "" >> $dst
-	for i in ${!BSP_PATH[@]}
+	for i in ${!BB_LOCAL_CONF_VALUES[@]}
 	do
 		prefix="$i"
-		replace="\"${BSP_PATH[$i]//\//\\/}\""
+		replace="\"${BB_LOCAL_CONF_VALUES[$i]//\//\\/}\""
 		sed -i "s/.*$prefix =.*/$prefix = $replace/" $dst
 	done
 }
@@ -484,7 +484,8 @@ function copy_tools_files () {
 
 function link_result_dir () {
 	link=$1
-	if [ -e $BSP_RESULT_DIR/$link ]; then
+	if [ -e "$BSP_RESULT_DIR/$link" ] ||
+	   [ -h "$BSP_RESULT_DIR/$link" ]; then
 		rm -f $BSP_RESULT_DIR/$link
 	fi
 
