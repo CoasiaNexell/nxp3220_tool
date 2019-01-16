@@ -4,8 +4,8 @@
 
 BSP_ROOT_DIR=`readlink -e -n "$(cd "$(dirname "$0")" && pwd)/../.."`
 
-MACHINE_TYPE=$1
-IMAGE_TYPE=$2
+MACHINE_NAME=$1
+IMAGE_NAME=$2
 
 # BSP path
 BSP_YOCTO_DIR=$BSP_ROOT_DIR/yocto
@@ -20,7 +20,7 @@ BB_MACHINE_DIR=$BSP_META_DIR/conf/machine
 BB_IMAGE_DIR=$BSP_META_DIR/recipes-core/images
 
 # related build
-BB_BUILD_DIR=$BSP_BUILD_DIR/build-$MACHINE_TYPE
+BB_BUILD_DIR=$BSP_BUILD_DIR/build-$MACHINE_NAME
 BB_LOCAL_CONF=$BB_BUILD_DIR/conf/local.conf
 BB_BBLAYER_CONF=$BB_BUILD_DIR/conf/bblayers.conf
 BB_STATUS_FILE=$BSP_ROOT_DIR/.build_image_type
@@ -57,7 +57,7 @@ declare -A RESULT_TARGETS=(
   	["bl1"]="bl1-nxp3220.bin.raw"
   	["bl2"]="bl2.bin.raw"
   	["bl32"]="bl32.bin.raw"
-  	["u-boot bin"]="u-boot-${MACHINE_TYPE}-1.0-r0.bin"
+  	["u-boot bin"]="u-boot-${MACHINE_NAME}-1.0-r0.bin"
   	["u-boot link"]="u-boot.bin"
   	["u-boot image"]="u-boot.bin.raw"
   	["env"]="params_env.*"
@@ -83,9 +83,9 @@ function msg() {
 	echo  -e "\033[0;33m $@\033[0m"
 }
 
-MACHINE_TABLE=""
-IMAGE_TABLE=""
-IMAGE_CONF_TABLE=""
+MACHINE_NAME_TABLE=""
+IMAGE_NAME_TABLE=""
+IMAGE_TYPE_TABLE=""
 
 function get_avail_types () {
 	local dir=$1 sep=$2 table=$3 val
@@ -106,46 +106,18 @@ function get_avail_types () {
 	done
 }
 
-function check_machine_type () {
-	local mach=$1
-	for i in ${MACHINE_TABLE}; do
-		if [ "${i}" == "${mach}" ]; then
+function check_avail_type () {
+	local name=$1 table=$2 msg=$3
+	[ -z $name ] && return;
+
+	for i in ${table}; do
+		if [ "${i}" == "${name}" ]; then
 			return
 		fi
 	done
 
-	err "Unknown Machine: $mach"
-	err "Availiable: ${MACHINE_TABLE}"
-	usage
-	exit 1;
-}
-
-function check_image_type () {
-	local image=$1
-	for i in ${IMAGE_TABLE}; do
-		if [ "${i}" == "${image}" ]; then
-			return
-		fi
-	done
-
-	err "Unknown Image type: $image"
-	err "Availiable: ${IMAGE_TABLE}"
-	usage
-	exit 1;
-}
-
-function check_image_config () {
-	local cfg=$1
-	[ -z $cfg ] && return;
-
-	for i in ${IMAGE_CONF_TABLE}; do
-		if [ "${i}" == "${cfg}" ]; then
-			return
-		fi
-	done
-
-	err "Unknown Image config: $cfg"
-	err "Availiable: ${IMAGE_CONF_TABLE}"
+	err "Not support $msg: $name"
+	err "Availiable: $table"
 	usage
 	exit 1;
 }
@@ -188,16 +160,15 @@ function merge_conf_file () {
         done < $cmp
 }
 
-# overwrite to build_<machine>/conf/local.conf
-function parse_machine_confing () {
-        local cmp=$TOOL_MACH_DIR/$MACHINE_TYPE.conf
+function parse_conf_machine () {
+        local cmp=$TOOL_MACH_DIR/$MACHINE_NAME.conf
 	local src=$TOOL_LOCAL_CONF dst=$BB_LOCAL_CONF
 
         cp $src $dst
 	[ $? -ne 0 ] && exit 1;
 
 	if [ ! -f $cmp ]; then
-		replace="\"$MACHINE_TYPE\""
+		replace="\"$MACHINE_NAME\""
 		sed -i "s/.*MACHINE.*/MACHINE = $replace/" $dst
 		return
 	fi
@@ -219,9 +190,9 @@ function parse_machine_confing () {
 	done
 }
 
-function parse_image_config () {
+function parse_conf_image () {
         local dst=$BB_LOCAL_CONF
-	local type=${IMAGE_TYPE##*-} conf=$OPT_IMAGE_CONF
+	local type=${IMAGE_NAME##*-} conf=$OPT_IMAGE_TYPE
 
 	for i in $TOOL_IMAGE_DIR/$type.conf $TOOL_IMAGE_DIR/$conf.conf
 	do
@@ -235,7 +206,7 @@ function parse_image_config () {
         done
 }
 
-function parse_sdk_config () {
+function parse_conf_sdk () {
         local cmp=$TOOL_IMAGE_SDK
 	local dst=$BB_LOCAL_CONF
 
@@ -251,13 +222,13 @@ function parse_sdk_config () {
 	merge_conf_file $dst $cmp $dst
 }
 
-function parse_image_type () {
+function parse_conf_ramfs () {
 	local dst=$BB_LOCAL_CONF
-	replace="\"$IMAGE_TYPE\""
+	replace="\"$IMAGE_NAME\""
 	sed -i "s/.*INITRAMFS_IMAGE.*/INITRAMFS_IMAGE = $replace/" $dst
 }
 
-function parse_machine_jobs () {
+function parse_conf_jobs () {
 	if [ -z $OPT_BUILD_JOBS ]; then
 		return
 	fi
@@ -272,8 +243,8 @@ function parse_machine_jobs () {
 	fi
 }
 
-function parse_bblayer_config () {
-	local src=$TOOL_MACH_DIR/$MACHINE_TYPE.bblayers
+function parse_conf_bblayer () {
+	local src=$TOOL_MACH_DIR/$MACHINE_NAME.bblayers
         local dst=$BB_BBLAYER_CONF
 
 	if [ ! -f $src ]; then
@@ -304,7 +275,7 @@ function setup_bitbake_env () {
 }
 
 function check_bitbake_env () {
-        local mach=$MACHINE_TYPE
+        local mach=$MACHINE_NAME
 	local conf=$BB_LOCAL_CONF
 	local old_image="" new_image=""
 
@@ -314,10 +285,10 @@ function check_bitbake_env () {
 		exit 1;
 	fi
 
-	if [ -z "$OPT_IMAGE_CONF" ]; then
-		new_image="${MACHINE_TYPE}_${IMAGE_TYPE}"
+	if [ -z "$OPT_IMAGE_TYPE" ]; then
+		new_image="${MACHINE_NAME}_${IMAGE_NAME}"
 	else
-		new_image=${MACHINE_TYPE}_${IMAGE_TYPE}_${OPT_IMAGE_CONF}
+		new_image=${MACHINE_NAME}_${IMAGE_NAME}_${OPT_IMAGE_TYPE}
 	fi
 
 	if [ $OPT_BUILD_SDK == true ]; then
@@ -336,7 +307,7 @@ function check_bitbake_env () {
         	if [ "$old_image" != "$new_image" ]; then
 			[ -e $BB_STATUS_FILE ] && rm $BB_STATUS_FILE;
 			echo $new_image >> $BB_STATUS_FILE;
-			msg "PARSE: New image type '$new_image'"
+			msg "PARSE: New image '$new_image'"
 			return 1
         	fi
         	return 0
@@ -351,23 +322,23 @@ function print_avail_lists () {
 	msg "Support Lists:"
 	msg "================================================================="
 
-	msg "MACHINE: <machine name>"
+	msg "MACHINE NAME: <machine name>"
 	msg "\t:$BB_MACHINE_DIR"
 	msg "\t:$TOOL_MACH_DIR"
 	msg "\t----------------------------------------------------------"
-	msg "\t${MACHINE_TABLE}"
+	msg "\t${MACHINE_NAME_TABLE}"
 	msg "\t----------------------------------------------------------"
 
-	msg "IMAGE TYPE: <image type>"
+	msg "IMAGE NAME: nexell-image-<image type>"
 	msg "\t:$BB_IMAGE_DIR"
 	msg "\t----------------------------------------------------------"
-	msg "\t ${IMAGE_TABLE}"
+	msg "\t ${IMAGE_NAME_TABLE}"
 	msg "\t----------------------------------------------------------"
 
-	msg "IMAGE CONFIG: '-i'"
+	msg "IMAGE TYPE: '-i'"
 	msg "\t:$TOOL_IMAGE_DIR"
 	msg "\t----------------------------------------------------------"
-	msg "\t ${IMAGE_CONF_TABLE}"
+	msg "\t ${IMAGE_TYPE_TABLE}"
 	msg "\t----------------------------------------------------------"
 
 	msg "TARGETs: '-t'"
@@ -381,15 +352,15 @@ function print_avail_lists () {
 }
 
 function copy_deploy_images () {
-	local result deploy=$BB_BUILD_DIR/tmp/deploy/images/$MACHINE_TYPE
+	local result deploy=$BB_BUILD_DIR/tmp/deploy/images/$MACHINE_NAME
 
 	if [ ! -d $deploy ]; then
 		err "No directory : $deploy"
 		exit 1
 	fi
 
-	result="$(echo $IMAGE_TYPE | cut -d'.' -f 1)"
-	BSP_RESULT_OUT=result-$MACHINE_TYPE-${result##*-}
+	result="$(echo $IMAGE_NAME | cut -d'.' -f 1)"
+	BSP_RESULT_OUT=result-$MACHINE_NAME-${result##*-}
 	result=$BSP_RESULT_DIR/$BSP_RESULT_OUT
 
 	msg "-----------------------------------------------------------------"
@@ -434,8 +405,8 @@ function copy_sdk_images () {
 		exit 1
 	fi
 
-	dir="$(echo $IMAGE_TYPE | cut -d'.' -f 1)"
-	BSP_RESULT_OUT=SDK-result-$MACHINE_TYPE-${dir##*-}
+	dir="$(echo $IMAGE_NAME | cut -d'.' -f 1)"
+	BSP_RESULT_OUT=SDK-result-$MACHINE_NAME-${dir##*-}
 	dir=$BSP_RESULT_DIR/$BSP_RESULT_OUT
 
 	mkdir -p $dir
@@ -445,9 +416,9 @@ function copy_sdk_images () {
 }
 
 function copy_tools_files () {
-	local result="$(echo $IMAGE_TYPE | cut -d'.' -f 1)"
+	local result="$(echo $IMAGE_NAME | cut -d'.' -f 1)"
 
-	BSP_RESULT_OUT=result-$MACHINE_TYPE-${result##*-}
+	BSP_RESULT_OUT=result-$MACHINE_NAME-${result##*-}
 	result=$BSP_RESULT_DIR/$BSP_RESULT_OUT
 
 	msg "-----------------------------------------------------------------"
@@ -494,15 +465,21 @@ function link_result_dir () {
 }
 
 function usage () {
-	echo "Usage: `basename $0` <machine name> <image type> [options]"
+	echo "Usage: `basename $0` <machine name> <image name> [options]"
+	echo ""
+	echo "[machine name]"
+	echo "      : located at $BB_MACHINE_DIR"
+	echo "[image name]"
+	echo "      : image name is 'nexell-image-<image type>'"
+	echo "      : located at $BB_IMAGE_DIR"
 	echo ""
 	echo "[options]"
-	echo "  -l : show available lists (machine/images/targets/commands ...)"
+	echo "  -l : show available lists (machine, images, targets, commands ...)"
 	echo "  -t : select build target"
-	echo "  -i : select image config"
+	echo "  -i : select image type"
 	echo "  -c : build commands"
 	echo "  -o : bitbake option"
-	echo "  -S : sdk create"
+	echo "  -S : build SDK for image"
 	echo "  -f : force overwrite buid confing files (local.conf/bblayers.conf)"
 	echo "  -j : determines how many tasks bitbake should run in parallel"
 	echo "  -h : help"
@@ -514,7 +491,7 @@ function usage () {
 OPT_BUILD_PARSE=false
 OPT_BUILD_OPTION=""
 OPT_BUILD_SDK=false
-OPT_IMAGE_CONF=
+OPT_IMAGE_TYPE=
 OPT_BUILD_JOBS=
 
 BB_TARGET=""
@@ -554,7 +531,7 @@ function parse_args () {
 				exit 1;
 			fi
 			;;
-		-i )	OPT_IMAGE_CONF=$2; shift 2;;
+		-i )	OPT_IMAGE_TYPE=$2; shift 2;;
 		-o )	OPT_BUILD_OPTION=$2; shift 2;;
 		-S )	OPT_BUILD_SDK=true; shift 1;;
 		-f )	OPT_BUILD_PARSE=true; shift 1;;
@@ -568,41 +545,41 @@ function parse_args () {
 ###############################################################################
 # start commands
 ###############################################################################
-get_avail_types $BB_MACHINE_DIR "conf" MACHINE_TABLE
-get_avail_types $BB_IMAGE_DIR "bb" IMAGE_TABLE
-get_avail_types $TOOL_IMAGE_DIR "conf" IMAGE_CONF_TABLE
+get_avail_types $BB_MACHINE_DIR "conf" MACHINE_NAME_TABLE
+get_avail_types $BB_IMAGE_DIR "bb" IMAGE_NAME_TABLE
+get_avail_types $TOOL_IMAGE_DIR "conf" IMAGE_TYPE_TABLE
 
 # parsing input arguments
 parse_args $@
 
-check_machine_type $MACHINE_TYPE
-check_image_type $IMAGE_TYPE
-check_image_config $OPT_IMAGE_CONF
+check_avail_type "$MACHINE_NAME" "$MACHINE_NAME_TABLE" "machine"
+check_avail_type "$IMAGE_NAME" "$IMAGE_NAME_TABLE" "image"
+check_avail_type "$OPT_IMAGE_TYPE" "$IMAGE_TYPE_TABLE" "image type"
 
 setup_bitbake_env
 check_bitbake_env
 NEED_PARSE=$?
 
 if [ $NEED_PARSE == 1 ] || [ $OPT_BUILD_PARSE == true ]; then
-	parse_machine_confing
-	parse_image_config
-	parse_bblayer_config
-	parse_sdk_config
+	parse_conf_machine
+	parse_conf_image
+	parse_conf_sdk
+	parse_conf_bblayer
 fi
 
-parse_image_type
-parse_machine_jobs
+parse_conf_ramfs
+parse_conf_jobs
 
 msg "-----------------------------------------------------------------"
-msg " MACHINE    : $MACHINE_TYPE"
-msg " IMAGE      : $IMAGE_TYPE"
-msg " IMAGE CONF : $OPT_IMAGE_CONF"
+msg " MACHINE    : $MACHINE_NAME"
+msg " IMAGE      : $IMAGE_NAME + $OPT_IMAGE_TYPE"
 msg " TARGET     : $BB_TARGET"
 msg " COMMAND    : $BB_BUILD_CMD"
 msg " OPTION     : $OPT_BUILD_OPTION"
-msg " SDK        : $OPT_BUILD_SDK ($BB_BUILD_DIR/tmp/deploy/sdk)"
+msg " SDK        : $OPT_BUILD_SDK"
 msg " BUILD DIR  : $BB_BUILD_DIR"
-msg " DEPLOY DIR : $BB_BUILD_DIR/tmp/deploy/images/$MACHINE_TYPE"
+msg " DEPLOY DIR : $BB_BUILD_DIR/tmp/deploy/images/$MACHINE_NAME"
+msg " SDK DIR    : $BB_BUILD_DIR/tmp/deploy/sdk"
 msg "-----------------------------------------------------------------"
 
 if [ $OPT_BUILD_SDK != true ]; then
@@ -613,7 +590,7 @@ if [ $OPT_BUILD_SDK != true ]; then
 		if [ "${BB_BUILD_CMD}" == "-c buildclean" ]; then
 			BB_BUILD_CMD="-c cleanall"
 		fi
-		bitbake $IMAGE_TYPE $BB_BUILD_CMD $OPT_BUILD_OPTION
+		bitbake $IMAGE_NAME $BB_BUILD_CMD $OPT_BUILD_OPTION
 		[ $? -ne 0 ] && exit 1;
 	fi
 
@@ -623,7 +600,7 @@ if [ $OPT_BUILD_SDK != true ]; then
 		link_result_dir "result"
 	fi
 else
-	bitbake -c populate_sdk $IMAGE_TYPE $OPT_BUILD_OPTION
+	bitbake -c populate_sdk $IMAGE_NAME $OPT_BUILD_OPTION
 	[ $? -ne 0 ] && exit 1;
 	copy_sdk_images
 	link_result_dir "SDK"
