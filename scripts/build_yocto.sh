@@ -31,6 +31,28 @@ TOOL_IMAGE_DIR=$BSP_META_DIR/tools/configs/images
 TOOL_LOCAL_CONF=$TOOL_MACH_DIR/local.conf
 TOOL_IMAGE_SDK=$TOOL_IMAGE_DIR/sdk.conf
 
+RESULT_TARGETS=(
+	"bl1-nxp3220.bin.raw"
+	"bl2.bin.raw"
+	"bl32.bin.raw"
+	"u-boot-${MACHINE_NAME}-1.0-r0.bin"
+	"u-boot.bin"
+	"u-boot.bin.raw"
+	"params_env.*"
+	"boot/"
+	"boot.img"
+	"rootfs.img"
+	"userdata.img"
+)
+
+TOOLS_FILES=(
+	"tools/scripts/partmap_fastboot.sh"
+	"tools/files/partmap_emmc.txt"
+	"tools/scripts/usb-down.sh"
+	"tools/bin/linux-usbdownloader"
+	"tools/scripts/configs/udown.bootloader.sh"
+)
+
 declare -A BB_LOCAL_CONF_VALUES=(
 	["BSP_ROOT_DIR"]="$BSP_ROOT_DIR"
 )
@@ -51,28 +73,6 @@ declare -A BUILD_COMMANDS=(
   	["cleanall"]="cleanall"		# clean download files
   	["menuconfig"]="menuconfig"
   	["savedefconfig"]="savedefconfig"
-)
-
-declare -A RESULT_TARGETS=(
-  	["bl1"]="bl1-nxp3220.bin.raw"
-  	["bl2"]="bl2.bin.raw"
-  	["bl32"]="bl32.bin.raw"
-  	["u-boot bin"]="u-boot-${MACHINE_NAME}-1.0-r0.bin"
-  	["u-boot link"]="u-boot.bin"
-  	["u-boot image"]="u-boot.bin.raw"
-  	["env"]="params_env.*"
-  	["boot"]="boot/"
-  	["bootimg"]="boot.img"
-  	["rootfsimg"]="rootfs.img"
-  	["dataimg"]="userdata.img"
-)
-
-declare -A TOOLS_FILES=(
-	["fastboot shell"]="tools/scripts/partmap_fastboot.sh"
-	["fastboot map"]="tools/files/partmap_emmc.txt"
-	["usb-down shell"]="tools/scripts/usb-down.sh"
-	["usb-down bin"]="tools/bin/linux-usbdownloader"
-	["usb-down map"]="tools/scripts/configs/udown.bootloader.sh"
 )
 
 function err() {
@@ -373,9 +373,8 @@ function copy_deploy_images () {
 
 	cd $deploy
 
-	for i in "${!RESULT_TARGETS[@]}"
+	for file in "${RESULT_TARGETS[@]}"
 	do
-		local file=${RESULT_TARGETS[$i]}
 		local files=$(find $file -print \
 			2> >(grep -v 'No such file or directory' >&2) | sort)
 
@@ -431,9 +430,8 @@ function copy_tools_files () {
 
 	cd $BSP_ROOT_DIR
 
-	for i in "${!TOOLS_FILES[@]}"
+	for file in "${TOOLS_FILES[@]}"
 	do
-		local file=${TOOLS_FILES[$i]}
 		local files=$(find $file -print \
 			2> >(grep -v 'No such file or directory' >&2) | sort)
 
@@ -543,7 +541,7 @@ function parse_args () {
 }
 
 ###############################################################################
-# start commands
+# start shell commands
 ###############################################################################
 get_avail_types $BB_MACHINE_DIR "conf" MACHINE_NAME_TABLE
 get_avail_types $BB_IMAGE_DIR "bb" IMAGE_NAME_TABLE
