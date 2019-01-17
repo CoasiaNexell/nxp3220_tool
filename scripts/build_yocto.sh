@@ -108,7 +108,10 @@ function get_avail_types () {
 
 function check_avail_type () {
 	local name=$1 table=$2 msg=$3
-	[ -z $name ] && return;
+
+	if [ "$msg" != "machine" ] && [ "$msg" != "image" ]; then
+		[ -z $name ] && return;
+	fi
 
 	for i in ${table}; do
 		if [ "${i}" == "${name}" ]; then
