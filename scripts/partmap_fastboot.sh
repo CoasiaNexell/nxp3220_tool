@@ -115,7 +115,6 @@ case "$1" in
 			do
 				if [ "$i" == "$3" ]; then
 					PARTMAP_TARGETS+=("$i");
-					((counts+=1))
 					shift 1
 					break
 				fi
