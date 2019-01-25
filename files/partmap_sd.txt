@@ -1,0 +1,9 @@
+flash=mmc,2:bl1:raw:0x4400,0x10000:bl1-nxp3220.bin.raw;
+flash=mmc,2:bl2:raw:0x14400,0x10000:bl2.bin.raw;
+flash=mmc,2:bl32:raw:0x2c400,0x200000:bl32.bin.raw;
+flash=mmc,2:bootloader:raw:0x22c400,0x100000:u-boot.bin.raw;
+flash=mmc,2:env:raw:0x32c400,0x4000:params_env.bin;
+flash=mmc,2:boot:gpt:0x400000,0x2000000:boot.img;
+flash=mmc,2:modules:gpt:0x2400000,0x2000000:modules.img;
+flash=mmc,2:rootfs:gpt:0x4400000,0x40000000:rootfs.img;
+flash=mmc,2:user:gpt:0x44400000,0:userdata.img;
