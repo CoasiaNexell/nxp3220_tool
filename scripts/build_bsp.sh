@@ -367,6 +367,10 @@ function fn_make_target() {
 		cmd=${TARGET_COMPONENTS["IMAGE"]}
 	fi
 
+	echo -e "\n\033[0;33m------------------------------------------------------------------ \033[0m"
+	echo -e "make -C $path ARCH=$arch CROSS_COMPILE=$tool $cmd $option $jobs"
+	echo -e "\033[0;33m------------------------------------------------------------------ \033[0m"
+
 	make -C $path ARCH=$arch CROSS_COMPILE=$tool $cmd $option $jobs
 }
 
