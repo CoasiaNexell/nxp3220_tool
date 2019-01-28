@@ -170,6 +170,10 @@ function usb_download_files() {
 
 		echo -e "\033[47;34m DOWNLOAD: $i \033[0m"
 
+		if [ ! -f $DOWNLOADER_TOOL ]; then
+			DOWNLOADER_TOOL=./$USBDOWNLOADER
+		fi
+
 		sudo $DOWNLOADER_TOOL -t $target -f $i
 
 		echo -e "\033[47;32m DOWNLOAD: DONE \033[0m"
