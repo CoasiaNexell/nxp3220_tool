@@ -273,7 +273,7 @@ int main(int argc, char *argv[])
 	const char *pers = "nexell trust sign";
 	size_t olen = 0;
 
-	unsigned char *obuf, *tbuf;
+	unsigned char *obuf = NULL, *tbuf;
 	unsigned int csize;
 
 	unsigned int param_opt = 0;
