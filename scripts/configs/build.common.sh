@@ -16,6 +16,7 @@ UBOOT_NSIH="$FILES_DIR/nsih_uboot.txt"
 BOOT_KEY="$FILES_DIR/bootkey"
 USER_KEY="$FILES_DIR/userkey"
 BINGEN_EXE="$BIN_DIR/bingen"
+LOGO_BMP="$FILES_DIR/logo.bmp"
 
 # BL2 BUILD
 BL2_DIR=$BASEDIR/firmwares/bl2-nxp3220
@@ -56,8 +57,10 @@ KERNEL_POSTCMD="mkdir -p $RESULT/boot; \
 		cp -a $RESULT/zImage $RESULT/boot;"
 DTB_POSTCMD="mkdir -p $RESULT/boot; \
 		cp -a $RESULT/${TARGET_KERNEL_DTB}.dtb $RESULT/boot;"
+LOGO_POSTCMD="mkdir -p $RESULT/boot; \
+		cp -a $LOGO_BMP $RESULT/boot;"
 
-MAKE_BOOTIMG="$KERNEL_POSTCMD $DTB_POSTCMD
+MAKE_BOOTIMG="$KERNEL_POSTCMD $DTB_POSTCMD $LOGO_POSTCMD
 		$EXT4FS_EXE -b 4096 -L boot -l ${BOOT_IMAGE_SIZE} $RESULT/boot.img $RESULT/boot/"
 MAKE_ROOTIMG="$EXT4FS_EXE -b 4096 -L rootfs -l ${ROOT_IMAGE_SIZE} $RESULT/rootfs.img $RESULT/rootfs"
 
