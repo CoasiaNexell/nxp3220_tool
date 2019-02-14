@@ -33,8 +33,10 @@ TOOL_IMAGE_SDK=$TOOL_IMAGE_DIR/sdk.conf
 
 RESULT_TARGETS=(
 	"bl1-nxp3220.bin.raw"
+	"bl1-nxp3220.bin.enc.raw"
 	"bl2.bin.raw"
 	"bl32.bin.raw"
+	"bl32.bin.enc.raw"
 	"u-boot-${MACHINE_NAME}-1.0-r0.bin"
 	"u-boot.bin"
 	"u-boot.bin.raw"
