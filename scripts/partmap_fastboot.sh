@@ -12,20 +12,21 @@ PARTMAP_TARGETS=()
 function usage () {
 	echo "usage: `basename $0` -f [partmap file] <targets> <options>"
 	echo ""
-	echo "Partmap struct"
-	echo -e "\t\"fash=<device>,<device number>:<target name>:<device area>:<start address:hex>,<size:hex>:<download image>\""
-	echo -e "\t<device>      : support 'mmc'"
-	echo -e "\t<device area> : support for 'mmc': 'bootsector', 'raw', 'partition'"
-	echo ""
-	echo "Fastboot command"
-	echo -e "\t1. sudo fastboot flash partmap <partmap.txt>"
-	echo -e "\t2. sudo fastboot flash <target> <image>"
-	echo ""
-	echo "[options]"
-	echo "  -d : download image path for fastboot, default: `readlink -e -n $RESULTDIR`"
+	echo "[OPTIONS]"
+	echo "  -d : image path for fastboot, default: `readlink -e -n $RESULTDIR`"
 	echo "  -i : partmap info"
 	echo "  -l : listup target in partmap list"
 	echo "  -r : send reboot command after end of fastboot"
+	echo ""
+	echo "Partmap struct:"
+	echo "  fash=<device>,<device number>:<target>:<device area>:<start:hex>,<size:hex>:<image>\""
+	echo "  device      : support 'mmc','spi'"
+	echo "  device area : for 'mmc' = 'bootsector', 'raw', 'partition', 'gpt', 'mbr'"
+	echo "              : for 'spi' = 'raw'"
+	echo ""
+	echo "Fastboot command:"
+	echo "  1. sudo fastboot flash partmap <partmap.txt>"
+	echo "  2. sudo fastboot flash <target> <image>"
 	echo ""
 }
 
@@ -41,7 +42,7 @@ function parse_targets () {
 	done
 }
 
-function update_fastboot () {
+function do_fastboot () {
 	partmap_images=()
 
 	for i in "${PARTMAP_TARGETS[@]}"
@@ -182,7 +183,7 @@ case "$1" in
 			PARTMAP_TARGETS=(${partmap_lists[@]})
 		fi
 
-		update_fastboot
+		do_fastboot
 		;;
 	-r )
 		SEND_REBOOT=true; shift 1;;
