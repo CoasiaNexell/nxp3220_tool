@@ -23,8 +23,6 @@ declare -A BUILD_ENVIRONMENT=(
   	["RESULT"]=" "
 )
 
-BUILD_TARGETS=()
-
 declare -A TARGET_COMPONENTS=(
   	["PATH"]=" "	# build path
   	["CONFIG"]=" "	# build default condig (defconfig)
@@ -38,20 +36,22 @@ declare -A TARGET_COMPONENTS=(
   	["JOBS"]=" "	# build jobs number (-j n)
 )
 
+BUILD_TARGETS=()
+
 function usage() {
-	echo -n "Usage: `basename $0` [-f file name]"
+	echo -n "Usage: `basename $0` [-f file]"
 	for i in "${BUILD_TARGETS[@]}"
 	do
 		echo -n "[$i]";
 	done
 	echo -e " [options] [command]";
 	echo "[options]"
-	echo "  -i : build info with -f file name"
-	echo "  -l : listup build targets"
+	echo "  -i : show build command info in file"
+	echo "  -l : listup build target in file"
 	echo "  -j : set build jobs"
-	echo "  -b : only run build command, run make"
-	echo "  -r : only run pre command, run before build (related with PRECMD)"
-	echo "  -s : only run post command, run after copy done (related with POSTCMD)"
+	echo "  -m : only run make"
+	echo "  -p : only run pre command, before make (related with PRECMD)"
+	echo "  -s : only run post command, after done (related with POSTCMD)"
 	echo "  -c : only run copy to result (related with COPY)"
 	echo "  -e : open file with vim"
 	echo ""
@@ -65,7 +65,7 @@ function usage() {
 	echo " ...          : build command supported by target"
 }
 
-function parse_build_env() {
+function get_build_env() {
 	local value=$1	# $1 = store the prefix's value
 	local params=("${@}")
 	local prefix=("${params[1]}")		# $2 = search prefix
@@ -84,7 +84,7 @@ function parse_build_env() {
 	done
 }
 
-function parse_build_targets() {
+function get_build_targets() {
 	local value=$1	# $1 = store the value
 	local params=("${@}")
 	local separator=("${params[1]}") # $2 = search separator
@@ -114,7 +114,7 @@ function parse_build_targets() {
 	done
 }
 
-function parse_prefix_target() {
+function get_target_prefix() {
 	local value=$1	# $1 = store the value
 	local params=("${@}")
 	local prefix=("${params[1]}")	 # $2 = search prefix
@@ -139,7 +139,7 @@ function parse_prefix_target() {
 	done
 }
 
-function parse_target_comp() {
+function get_target_comp() {
 	local value=$1	# $1 = store the value
 	local prefix=$2
 	local separator=$3
@@ -175,7 +175,7 @@ function parse_environment() {
 	for key in ${!BUILD_ENVIRONMENT[@]}
 	do
 		local val=""
-  		parse_build_env val "$key" "=" "${images[@]}"
+		get_build_env val "$key" "=" "${images[@]}"
 		BUILD_ENVIRONMENT[$key]=$val
 	done
 }
@@ -224,7 +224,7 @@ function print_components() {
 	echo -e "\033[0;33m================================================================== \033[0m"
 }
 
-function fn_copy_target() {
+function copy_target() {
 	local out=$2 src=$1/$out
 	local dir=$3 dst=$4
 
@@ -279,18 +279,18 @@ function fn_copy_target() {
 	fi
 }
 
-function fn_parse_target() {
+function parse_target() {
 	local params=("${@}")
 	local prefix=("${params[0]}")	# $0 = target name for search
 	local images=("${params[@]:1}")	# $1 = search array
 	local target
 
-	parse_prefix_target target "$prefix" "=" "${images[@]}"
+	get_target_prefix target "$prefix" "=" "${images[@]}"
 
 	for key in ${!TARGET_COMPONENTS[@]}
 	do
 		local comp=""
-  		parse_target_comp comp "$key" ":" "$target"
+		get_target_comp comp "$key" ":" "$target"
 		TARGET_COMPONENTS[$key]=$comp
 
 		if [ "$key" == "PRECMD" ] || [ "$key" == "POSTCMD" ] ||
@@ -307,7 +307,7 @@ function fn_parse_target() {
 	done
 }
 
-function fn_make_target() {
+function make_target() {
 	local target=$1 cmd=$2
 	local tool=${TARGET_COMPONENTS["TOOL"]}
 	local path=${TARGET_COMPONENTS["PATH"]}
@@ -374,48 +374,48 @@ function fn_make_target() {
 	make -C $path ARCH=$arch CROSS_COMPILE=$tool $cmd $option $jobs
 }
 
-function fn_build_target() {
+function build_target() {
 	local target=$1 command=$2
 
-	fn_parse_target "$target" "${BUILD_IMAGES[@]}"
+	parse_target "$target" "${BUILD_IMAGES[@]}"
 
 	if [ -z ${TARGET_COMPONENTS["TOOL"]} ]; then
 		TARGET_COMPONENTS["TOOL"]=${BUILD_ENVIRONMENT["TOOL"]}
 	fi
 
 	if [ -z ${TARGET_COMPONENTS["JOBS"]} ]; then
-		TARGET_COMPONENTS["JOBS"]=$build_jobs
+		TARGET_COMPONENTS["JOBS"]=$build_opt_jobs
 	fi
 
 	print_components $target
 
-	if [ $show_info == true ]; then
+	if [ $build_opt_info == true ]; then
 		return
 	fi
 
-	if [ $run_prev_cmd == true ] && [ ! -z "${TARGET_COMPONENTS["PRECMD"]}" ]; then
+	if [ $build_opt_precmd == true ] && [ ! -z "${TARGET_COMPONENTS["PRECMD"]}" ]; then
 		echo -e "\033[47;34m PRECMD : ${TARGET_COMPONENTS["PRECMD"]} \033[0m"
 		bash -c "${TARGET_COMPONENTS["PRECMD"]}"
 		[ $? -ne 0 ] && exit 1;
 		echo -e "\033[47;34m PRECMD : DONE \033[0m"
 	fi
 
-	if [ $run_make_cmd == true ]; then
-		fn_make_target "$target" "$command"
+	if [ $build_opt_make == true ]; then
+		make_target "$target" "$command"
 		[ $? -ne 0 ] && exit 1;
 	fi
 
-	if [ $run_copy_ret == true ]; then
+	if [ $build_opt_copy == true ]; then
 		local path=${TARGET_COMPONENTS["PATH"]} out=${TARGET_COMPONENTS["OUTPUT"]}
 		local dir=${BUILD_ENVIRONMENT["RESULT"]} ret=${TARGET_COMPONENTS["COPY"]}
 
 		if [ ! -z "$out" ]; then
-			fn_copy_target "$path" "$out" "$dir" "$ret"
+			copy_target "$path" "$out" "$dir" "$ret"
 			[ $? -ne 0 ] && exit 1;
 		fi
 	fi
 
-	if [ $run_post_cmd == true ] && [ ! -z "${TARGET_COMPONENTS["POSTCMD"]}" ]; then
+	if [ $build_opt_postcmd == true ] && [ ! -z "${TARGET_COMPONENTS["POSTCMD"]}" ]; then
 		echo -e "\033[47;34m POSTCMD: ${TARGET_COMPONENTS["POSTCMD"]} \033[0m"
 		bash -c "${TARGET_COMPONENTS["POSTCMD"]}"
 		[ $? -ne 0 ] && exit 1;
@@ -423,38 +423,37 @@ function fn_build_target() {
 	fi
 }
 
+build_opt_jobs=`grep processor /proc/cpuinfo | wc -l`
+build_opt_info=false
+build_opt_make=false
+build_opt_precmd=false
+build_opt_postcmd=false
+build_opt_copy=false
+
 case "$1" in
 	-f )
-		build_file=$2
-		build_targets=()
-		build_command=""
-		build_jobs=`grep processor /proc/cpuinfo | wc -l`
+		bsp_file=$2
+		bsp_targets=()
+		command=""
+		dump_lists=false
 
-		show_target=false
-		show_info=false
-
-		run_make_cmd=false
-		run_prev_cmd=false
-		run_post_cmd=false
-		run_copy_ret=false
-
-		if [ ! -f $build_file ]; then
-			echo "No such file to build config: $build_file"
-			echo -e "\033[47;31m No such to build config: $build_file \033[0m"
+		if [ ! -f $bsp_file ]; then
+			echo "No such file to build config: $bsp_file"
+			echo -e "\033[47;31m No such to build config: $bsp_file \033[0m"
 			exit 1;
 		fi
 
 		# include input file
-		source $build_file
+		source $bsp_file
 
-		parse_build_targets BUILD_TARGETS "=" "${BUILD_IMAGES[@]}"
+		get_build_targets BUILD_TARGETS "=" "${BUILD_IMAGES[@]}"
 
 		while [ "$#" -gt 2 ]; do
 			count=0
 			while true
 			do
 				if [ "${BUILD_TARGETS[$count]}" == "$3" ]; then
-					build_targets+=("${BUILD_TARGETS[$count]}");
+					bsp_targets+=("${BUILD_TARGETS[$count]}");
 					((count=0))
 					shift 1
 					continue
@@ -464,27 +463,27 @@ case "$1" in
 			done
 
 			case "$3" in
-			-j )	build_jobs=$4; shift 2;; # get jobs
-			-l )	show_target=true; shift 2;; # get jobs
-			-i ) 	show_info=true; shift 1;;
-			-b )	run_make_cmd=true; shift 1;;
-			-r ) 	run_prev_cmd=true; shift 1;;
-			-s ) 	run_post_cmd=true; shift 1;;
-			-c )	run_copy_ret=true; shift 1;;
+			-l )	dump_lists=true; shift 2;;
+			-j )	build_opt_jobs=$4; shift 2;;
+			-i ) 	build_opt_info=true; shift 1;;
+			-m )	build_opt_make=true; shift 1;;
+			-p ) 	build_opt_precmd=true; shift 1;;
+			-s ) 	build_opt_postcmd=true; shift 1;;
+			-c )	build_opt_copy=true; shift 1;;
 			-e )
-				vim $build_file
+				vim $bsp_file
 				exit 0;;
 			-h )	usage;	exit 1;;
-			*)	[ ! -z $3 ] && build_command=$3;
+			*)	[ ! -z $3 ] && command=$3;
 				shift;;
 			esac
 		done
 
-		if [ ${#build_targets[@]} -eq 0 ] && [ ! -z $build_command ]; then
-			if [ "$build_command" != "clean" ] &&
-			   [ "$build_command" != "cleanbuild" ] &&
-			   [ "$build_command" != "rebuild" ]; then
-				echo -e "\033[47;31m Unknown target or command: $build_command ... \033[0m"
+		if [ ${#bsp_targets[@]} -eq 0 ] && [ ! -z $command ]; then
+			if [ "$command" != "clean" ] &&
+			   [ "$command" != "cleanbuild" ] &&
+			   [ "$command" != "rebuild" ]; then
+				echo -e "\033[47;31m Unknown target or command: $command ... \033[0m"
 				echo -e " Check command : clean, cleanbuild, rebuild"
 				echo -en " Check targets : "
 				for i in "${BUILD_TARGETS[@]}"
@@ -496,26 +495,26 @@ case "$1" in
 			fi
 		fi
 
-		if [ $run_make_cmd == false ] &&
-		   [ $run_copy_ret == false ] &&
-		   [ $run_prev_cmd == false ] &&
-		   [ $run_post_cmd == false ]; then
-			run_make_cmd=true
-			run_copy_ret=true
-			run_prev_cmd=true
-			run_post_cmd=true
+		if [ $build_opt_make == false ] &&
+		   [ $build_opt_copy == false ] &&
+		   [ $build_opt_precmd == false ] &&
+		   [ $build_opt_postcmd == false ]; then
+			build_opt_make=true
+			build_opt_copy=true
+			build_opt_precmd=true
+			build_opt_postcmd=true
 		fi
 
 		# build all
-		if [ ${#build_targets[@]} -eq 0 ]; then
-			build_targets=(${BUILD_TARGETS[@]})
+		if [ ${#bsp_targets[@]} -eq 0 ]; then
+			bsp_targets=(${BUILD_TARGETS[@]})
 		fi
 
 		# parse environment
 		parse_environment "${BUILD_IMAGES[@]}"
 		setup_environment ${BUILD_ENVIRONMENT["TOOL"]}
 
-		if [ $show_target == true ]; then
+		if [ $dump_lists == true ]; then
 			echo -e "\033[0;33m------------------------------------------------------------------ \033[0m"
 			echo -en "\033[47;30m Build targets: \033[0m"
 			for i in "${BUILD_TARGETS[@]}"
@@ -526,15 +525,14 @@ case "$1" in
 			exit 0;
 		fi
 
-		if [ $show_info == true ]; then
+		if [ $build_opt_info == true ]; then
 			print_environments
 		fi
 
 		# build
-		for i in "${build_targets[@]}"
+		for i in "${bsp_targets[@]}"
 		do
-			build_target=$i
-			fn_build_target "$build_target" "$build_command"
+			build_target "$i" "$command"
 		done
 		;;
 
