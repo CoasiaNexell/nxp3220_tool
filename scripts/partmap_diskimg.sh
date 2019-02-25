@@ -103,22 +103,6 @@ function create_disk_image () {
 		echo -e "\033[0;33m LOOP: $disk\033[0m"
 	fi
 
-	echo -e "\033[0;33m------------------------------------------------------------------ \033[0m"
-	for i in ${DISK_DATA_IMAGE[@]}
-	do
-		seek=$(echo $i| cut -d':' -f 3)
-		size=$(echo $i| cut -d':' -f 4)
-		file=$(echo $i| cut -d':' -f 5)
-
-		printf " DATA :"
-		[ ! -z "$seek" ] && printf " %6d KB:" $(($seek / $SZ_KB));
-		[ ! -z "$size" ] && printf " %6d KB:" $(($size / $SZ_KB))
-		[ ! -z "$file" ] && printf " %s\n" $file
-
-		dd_push_image "$disk" "$seek" "$size" "$file" "conv=notrunc"
-	done
-	echo -e "\033[0;33m------------------------------------------------------------------ \033[0m"
-
 	# make partition table type
 	case $DISK_PART_TYPE in
 	gpt ) sudo parted $disk --script -- unit s mklabel gpt;;
@@ -165,11 +149,28 @@ function create_disk_image () {
 		fi
 	done
 
+	echo -e "\033[0;33m------------------------------------------------------------------ \033[0m"
+	for i in ${DISK_DATA_IMAGE[@]}
+	do
+		seek=$(echo $i| cut -d':' -f 3)
+		size=$(echo $i| cut -d':' -f 4)
+		file=$(echo $i| cut -d':' -f 5)
+
+		printf " DATA :"
+		[ ! -z "$seek" ] && printf " %6d KB:" $(($seek / $SZ_KB));
+		[ ! -z "$size" ] && printf " %6d KB:" $(($size / $SZ_KB))
+		[ ! -z "$file" ] && printf " %s\n" $file
+
+		dd_push_image "$disk" "$seek" "$size" "$file" "conv=notrunc"
+	done
+	echo -e "\033[0;33m------------------------------------------------------------------ \033[0m"
+
 	[[ -n $LOOP_DEVICE ]] && sudo losetup -d $LOOP_DEVICE
 
 	echo -e "\033[0;33m------------------------------------------------------------------ \033[0m"
 	echo -e "\033[0;33m RET  : `readlink -e -n $image`\033[0m"
 	echo -e "\033[0;33m------------------------------------------------------------------ \033[0m"
+	echo -e "\033[0;33m $> lsblk\033[0m"
 	echo -e "\033[0;33m $> sudo dd if=`readlink -e -n $image` of=/dev/sd? bs=1M\033[0m"
 	echo -e "\033[0;33m $> sync\033[0m"
 	echo -e "\033[0;33m------------------------------------------------------------------ \033[0m"
