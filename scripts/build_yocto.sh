@@ -49,10 +49,11 @@ RESULT_TARGETS=(
 
 TOOLS_FILES=(
 	"tools/scripts/partmap_fastboot.sh"
-	"tools/files/partmap_emmc.txt"
+	"tools/scripts/partmap_diskimg.sh"
 	"tools/scripts/usb-down.sh"
-	"tools/bin/linux-usbdownloader"
 	"tools/scripts/configs/udown.bootloader.sh"
+	"tools/bin/linux-usbdownloader"
+	"tools/files/partmap_*.txt"
 )
 
 declare -A BB_LOCAL_CONF_VALUES=(
