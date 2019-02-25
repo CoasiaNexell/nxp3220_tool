@@ -1,0 +1,35 @@
+;**************************************************
+;* Pyrope CortexA7MPCore
+;* Init Script for TRACE32
+;**************************************************
+
+sys.res
+SYStem.CPU CortexA7MPCore
+
+SYStem.JtagClock 10Mhz
+SYStem.Option ResBreak OFF
+SYStem.Option waitreset on
+SYStem.Option EnReset ON
+
+sys.config.COREBASE 0x80010000
+
+tronchip.set DABORT off
+tronchip.set PABORT off
+;tronchip.set RESET off
+tronchip.set UNDEF off
+
+sys.mode.a
+
+term.reset
+if !window.name("Term")
+(
+	TERM.SCROLL ON
+	TERM.SIZE 80 120
+;	TERM.GATE
+)
+
+map.DenyAccess 0xFFFE0000++0xFFFF
+
+if run()
+	break
+enddo
