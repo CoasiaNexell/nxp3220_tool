@@ -22,6 +22,13 @@ BLOCK_UNIT=$((512)) # FIX
 DISK_RESERVED=$((500 * $SZ_MB))
 DISK_SIZE=$((8 * $SZ_GB))
 
+INVALID_DISK=(
+	"/dev/sr"
+	"/dev/sda"
+	"/dev/sdb"
+)
+UPDATE_DISK=""
+
 LOOP_DEVICE=
 LOSETUP_LOOP_DEV=false
 
@@ -34,12 +41,17 @@ function usage () {
 	echo "  -l : listup target in partmap list"
 	echo "  -s : disk size: n GB (default $(($DISK_SIZE / $SZ_GB)) GB)"
 	echo "  -r : reserved size: n MB (default $(($DISK_RESERVED / $SZ_MB)) MB)"
+	echo "  -u : device/image name to write <targets> image"
+	echo "  -n : disk image name (default $DISK_NAME)"
 	echo "  -t : 'dd' with losetup loop device to mount image"
-	echo "  -n : set disk image name (default $DISK_NAME)"
 	echo ""
 	echo "Partmap struct:"
 	echo "  fash=<>,<>:<>:<partition>:<start:hex>,<size:hex>"
 	echo "  part   : gpt or mbr else ..."
+	echo ""
+	echo "DISK update:"
+	echo "  $> sudo dd if=<path>/<image> of=/dev/sd? bs=1M"
+	echo "  $> sync"
 	echo ""
 	echo "DISK mount: with '-t' option"
 	echo "  $> sudo losetup -f"
@@ -83,15 +95,32 @@ function create_disk_image () {
 	local disk="$RESULTDIR/$DISK_NAME"
 	local image=$disk
 
+	if [[ -n $UPDATE_DISK ]]; then
+		disk=$UPDATE_DISK
+		image=$disk
+		LOSETUP_LOOP_DEV=false # not support
+	fi
+
 	echo -e "\033[0;33m------------------------------------------------------------------ \033[0m"
 	echo -e "\033[0;33m DISK : $(basename $disk)\033[0m"
-	echo -e "\033[0;33m SIZE : $(($DISK_SIZE / $SZ_MB)) MB - $(($DISK_RESERVED / $SZ_MB)) MB\033[0m"
-	echo -e "\033[0;33m PART : $(echo $DISK_PART_TYPE | tr 'a-z' 'A-Z')\033[0m"
+	if [[ ! -n $UPDATE_DISK ]]; then
+		echo -e "\033[0;33m SIZE : $(($DISK_SIZE / $SZ_MB)) MB - $(($DISK_RESERVED / $SZ_MB)) MB\033[0m"
+		echo -e "\033[0;33m PART : $(echo $DISK_PART_TYPE | tr 'a-z' 'A-Z')\033[0m"
+	else
+		echo -ne "\033[0;33m IMG  : \033[0m"
+		for i in ${DISK_TARGET_NAME[@]}
+		do
+			echo -ne "\033[0;33m$i \033[0m"
+		done
+		echo -e "\033[0;33m \033[0m"
+	fi
 	echo -e "\033[0;33m------------------------------------------------------------------ \033[0m"
 
 	# create disk image with DD
-	sudo dd if=/dev/zero of=$disk bs=1 count=0 seek=$(($DISK_SIZE)) status=none
-	[ $? -ne 0 ] && exit 1;
+	if [[ ! -n $UPDATE_DISK ]]; then
+		sudo dd if=/dev/zero of=$disk bs=1 count=0 seek=$(($DISK_SIZE)) status=none
+		[ $? -ne 0 ] && exit 1;
+	fi
 
 	if [ $LOSETUP_LOOP_DEV == true ]; then
 		LOOP_DEVICE=$(sudo losetup -f)
@@ -100,7 +129,7 @@ function create_disk_image () {
 
 		# Change disk name
 		disk=$LOOP_DEVICE
-		echo -e "\033[0;33m LOOP: $disk\033[0m"
+		echo -e "\033[0;33m LOOP : $disk\033[0m"
 	fi
 
 	# make partition table type
@@ -115,7 +144,6 @@ function create_disk_image () {
 	 	exit 1;
 	fi
 
-	echo -e "\033[0;33m------------------------------------------------------------------ \033[0m"
 	for i in ${DISK_PART_IMAGE[@]}
 	do
 		tmpf=
@@ -130,10 +158,10 @@ function create_disk_image () {
 			tmpf=$file
 		fi
 
-		printf " %s  :" $(echo $DISK_PART_TYPE | tr 'a-z' 'A-Z');
-		[ ! -z "$seek" ] && printf " %6d MB:" $(($seek / $SZ_MB));
-		[ ! -z "$size" ] && printf " %6d MB:" $(($size / $SZ_MB))
-		[ ! -z "$file" ] && printf " %s " $file
+		printf " PART :"
+		[ ! -z "$seek" ] && printf "%6d MB:" $(($seek / $SZ_MB));
+		[ ! -z "$size" ] && printf "%6d MB:" $(($size / $SZ_MB))
+		[ ! -z "$file" ] && printf " %s " `readlink -e -n $file`
 
 		if [[ -n $tmpf ]]; then
 			printf "(UNPACK)\n"
@@ -148,8 +176,9 @@ function create_disk_image () {
 			rm $tmpf
 		fi
 	done
-
+	[ ${#DISK_PART_IMAGE[@]} -ne 0 ] &&
 	echo -e "\033[0;33m------------------------------------------------------------------ \033[0m"
+
 	for i in ${DISK_DATA_IMAGE[@]}
 	do
 		seek=$(echo $i| cut -d':' -f 3)
@@ -157,23 +186,27 @@ function create_disk_image () {
 		file=$(echo $i| cut -d':' -f 5)
 
 		printf " DATA :"
-		[ ! -z "$seek" ] && printf " %6d KB:" $(($seek / $SZ_KB));
-		[ ! -z "$size" ] && printf " %6d KB:" $(($size / $SZ_KB))
-		[ ! -z "$file" ] && printf " %s\n" $file
+		[ ! -z "$seek" ] && printf "%6d KB:" $(($seek / $SZ_KB));
+		[ ! -z "$size" ] && printf "%6d KB:" $(($size / $SZ_KB))
+		[ ! -z "$file" ] && printf " %s\n" `readlink -e -n $file`
 
 		dd_push_image "$disk" "$seek" "$size" "$file" "conv=notrunc"
 	done
+
+	[ ${#DISK_DATA_IMAGE[@]} -ne 0 ] &&
 	echo -e "\033[0;33m------------------------------------------------------------------ \033[0m"
 
 	[[ -n $LOOP_DEVICE ]] && sudo losetup -d $LOOP_DEVICE
 
+	echo -e "\033[0;33m RET : `readlink -e -n $image`\033[0m"
 	echo -e "\033[0;33m------------------------------------------------------------------ \033[0m"
-	echo -e "\033[0;33m RET  : `readlink -e -n $image`\033[0m"
-	echo -e "\033[0;33m------------------------------------------------------------------ \033[0m"
-	echo -e "\033[0;33m $> lsblk\033[0m"
-	echo -e "\033[0;33m $> sudo dd if=`readlink -e -n $image` of=/dev/sd? bs=1M\033[0m"
-	echo -e "\033[0;33m $> sync\033[0m"
-	echo -e "\033[0;33m------------------------------------------------------------------ \033[0m"
+	if [[ -z "$(echo $disk | grep '/dev/sd')" ]]; then
+		echo -e "\033[0;33m $> sudo dd if=`readlink -e -n $image` of=/dev/sd? bs=1M\033[0m"
+		echo -e "\033[0;33m $> sync\033[0m"
+		echo -e "\033[0;33m------------------------------------------------------------------ \033[0m"
+	fi
+
+	sync
 }
 
 function parse_images () {
@@ -281,6 +314,22 @@ case "$1" in
 			-s )	DISK_SIZE=$(($4 * $SZ_GB)); ((options+=2)); shift 2;;
 			-r )	DISK_RESERVED=$(($4 * $SZ_MB)); ((options+=2)); shift 2;;
 			-n )	DISK_NAME=$4; ((options+=2)); shift 2;;
+			-u )	UPDATE_DISK=$4; ((options+=2));
+				if [[ ! -e $UPDATE_DISK ]]; then
+					echo -e "\033[47;31m No such file or disk : $UPDATE_DISK \033[0m"
+					exit 1;
+				fi
+				for i in ${INVALID_DISK[@]}
+				do
+					if [[ ! -z "$(echo $UPDATE_DISK | grep "$i" -m ${#UPDATE_DISK})" ]]; then
+						echo -ne "\033[47;31m Can be 'SYSTEM' region: $UPDATE_DISK, continue y/n ?> \033[0m"
+						read input
+						if [ $input != 'y' ]; then
+							exit 1
+						fi
+					fi
+				done
+				shift 2;;
 			-l )
 				echo -e "\033[0;33m------------------------------------------------------------------ \033[0m"
 				echo -en " Partmap targets: "
