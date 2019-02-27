@@ -5,11 +5,23 @@
 BASEDIR="$(cd "$(dirname "$0")" && pwd)"
 RESULTDIR="$BASEDIR/../../result"
 
-DISK_NAME="disk.img"
+DISK_IMAGE_NAME="disk.img"
+DISK_UPDATE_DEV=""
+
+declare -A DISK_PARTITION=(
+	["mbr"]="msdos"
+	["gpt"]="gpt"
+)
+
+DISK_CHECK_SYSTEM=(
+	"/dev/sr"
+	"/dev/sda"
+	"/dev/sdb"
+	"/dev/sdc"
+)
 
 DISK_TARGET_CONTEXT=()
 DISK_TARGET_NAME=()
-
 DISK_PART_IMAGE=()
 DISK_DATA_IMAGE=()
 DISK_PART_TYPE=
@@ -21,13 +33,6 @@ SZ_GB=$(($SZ_MB * 1024))
 BLOCK_UNIT=$((512)) # FIX
 DISK_RESERVED=$((500 * $SZ_MB))
 DISK_SIZE=$((8 * $SZ_GB))
-
-INVALID_DISK=(
-	"/dev/sr"
-	"/dev/sda"
-	"/dev/sdb"
-)
-UPDATE_DISK=""
 
 LOOP_DEVICE=
 LOSETUP_LOOP_DEV=false
@@ -42,7 +47,7 @@ function usage () {
 	echo "  -s : disk size: n GB (default $(($DISK_SIZE / $SZ_GB)) GB)"
 	echo "  -r : reserved size: n MB (default $(($DISK_RESERVED / $SZ_MB)) MB)"
 	echo "  -u : device/image name to write <targets> image"
-	echo "  -n : disk image name (default $DISK_NAME)"
+	echo "  -n : disk image name (default $DISK_IMAGE_NAME)"
 	echo "  -t : 'dd' with losetup loop device to mount image"
 	echo ""
 	echo "Partmap struct:"
@@ -92,21 +97,22 @@ function dd_push_image () {
 }
 
 function create_disk_image () {
-	local disk="$RESULTDIR/$DISK_NAME"
+	local disk="$RESULTDIR/$DISK_IMAGE_NAME"
 	local image=$disk
 
-	if [[ -n $UPDATE_DISK ]]; then
-		disk=$UPDATE_DISK
+	if [[ -n $DISK_UPDATE_DEV ]]; then
+		disk=$DISK_UPDATE_DEV
 		image=$disk
 		LOSETUP_LOOP_DEV=false # not support
 	fi
 
 	echo -e "\033[0;33m------------------------------------------------------------------ \033[0m"
-	echo -e "\033[0;33m DISK : $(basename $disk)\033[0m"
-	if [[ ! -n $UPDATE_DISK ]]; then
+	if [[ ! -n $DISK_UPDATE_DEV ]]; then
+		echo -e "\033[0;33m DISK : $(basename $disk)\033[0m"
 		echo -e "\033[0;33m SIZE : $(($DISK_SIZE / $SZ_MB)) MB - $(($DISK_RESERVED / $SZ_MB)) MB\033[0m"
 		echo -e "\033[0;33m PART : $(echo $DISK_PART_TYPE | tr 'a-z' 'A-Z')\033[0m"
 	else
+		echo -e "\033[0;33m DISK : $disk\033[0m"
 		echo -ne "\033[0;33m IMG  : \033[0m"
 		for i in ${DISK_TARGET_NAME[@]}
 		do
@@ -117,7 +123,7 @@ function create_disk_image () {
 	echo -e "\033[0;33m------------------------------------------------------------------ \033[0m"
 
 	# create disk image with DD
-	if [[ ! -n $UPDATE_DISK ]]; then
+	if [[ ! -n $DISK_UPDATE_DEV ]]; then
 		sudo dd if=/dev/zero of=$disk bs=1 count=0 seek=$(($DISK_SIZE)) status=none
 		[ $? -ne 0 ] && exit 1;
 	fi
@@ -132,12 +138,10 @@ function create_disk_image () {
 		echo -e "\033[0;33m LOOP : $disk\033[0m"
 	fi
 
-	# make partition table type
-	case $DISK_PART_TYPE in
-	gpt ) sudo parted $disk --script -- unit s mklabel gpt;;
-	mbr ) sudo parted $disk --script -- unit s mklabel msdos;;
-	--) ;;
-	esac
+	# make partition table type (gpt/msdos)
+	if [[ -n $DISK_PART_TYPE ]]; then
+		sudo parted $disk --script -- unit s mklabel $DISK_PART_TYPE
+	fi
 
 	if [ $? -ne 0 ]; then
 		[[ -n $LOOP_DEVICE ]] && sudo losetup -d $LOOP_DEVICE
@@ -229,11 +233,12 @@ function parse_images () {
 
 		# get partition type: gpt/mbr
 		local part=
-		case "$type" in
-		gpt ) part=$type;;
-		mbr ) part=$type;;
-		--) ;;
-		esac
+		for i in "${!DISK_PARTITION[@]}"; do
+			if [[ $i == $type ]]; then
+				part=${DISK_PARTITION[$i]};
+				break;
+			fi
+		done
 
 		[ $(($seek)) -gt $(($offset)) ] && offset=$(($seek));
 		[ $(($size)) -eq 0 ] && size=$(($DISK_SIZE - $DISK_RESERVED - $offset));
@@ -313,16 +318,16 @@ case "$1" in
 			-d )	RESULTDIR=$4; ((options+=2)); shift 2;;
 			-s )	DISK_SIZE=$(($4 * $SZ_GB)); ((options+=2)); shift 2;;
 			-r )	DISK_RESERVED=$(($4 * $SZ_MB)); ((options+=2)); shift 2;;
-			-n )	DISK_NAME=$4; ((options+=2)); shift 2;;
-			-u )	UPDATE_DISK=$4; ((options+=2));
-				if [[ ! -e $UPDATE_DISK ]]; then
-					echo -e "\033[47;31m No such file or disk : $UPDATE_DISK \033[0m"
+			-n )	DISK_IMAGE_NAME=$4; ((options+=2)); shift 2;;
+			-u )	DISK_UPDATE_DEV=$4; ((options+=2));
+				if [[ ! -e $DISK_UPDATE_DEV ]]; then
+					echo -e "\033[47;31m No such file or disk : $DISK_UPDATE_DEV \033[0m"
 					exit 1;
 				fi
-				for i in ${INVALID_DISK[@]}
+				for i in ${DISK_CHECK_SYSTEM[@]}
 				do
-					if [[ ! -z "$(echo $UPDATE_DISK | grep "$i" -m ${#UPDATE_DISK})" ]]; then
-						echo -ne "\033[47;31m Can be 'SYSTEM' region: $UPDATE_DISK, continue y/n ?> \033[0m"
+					if [[ ! -z "$(echo $DISK_UPDATE_DEV | grep "$i" -m ${#DISK_UPDATE_DEV})" ]]; then
+						echo -ne "\033[47;31m Can be 'SYSTEM' region: $DISK_UPDATE_DEV, continue y/n ?> \033[0m"
 						read input
 						if [ $input != 'y' ]; then
 							exit 1
