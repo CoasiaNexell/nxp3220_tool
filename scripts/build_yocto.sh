@@ -80,7 +80,6 @@ META_IMAGE_DIR=$META_DIR/recipes-core/images
 # Related build: fixed
 LOCAL_CONF=$BUILD_DIR/conf/local.conf
 BBLAYER_CONF=$BUILD_DIR/conf/bblayers.conf
-BUILD_INFO=$BSP_YOCTO_DIR/.build_image_type
 
 # Availiable tables
 MACHINE_AVAIL_TABLE=""
@@ -318,6 +317,7 @@ function setup_bitbake_env () {
 function check_bitbake_env () {
         local mach=$MACHINE_NAME
 	local conf=$LOCAL_CONF
+	local file=$BUILD_DIR/.build_image_type
 	local old="" new=""
 
         if [ ! -f $conf ]; then
@@ -336,8 +336,8 @@ function check_bitbake_env () {
 		new="${new}_SDK"
 	fi
 
-	if [ -e $BUILD_INFO ]; then
-		old="$(cat $BUILD_INFO)"
+	if [ -e $file ]; then
+		old="$(cat $file)"
 	fi
 
         v="$(echo $(find $conf -type f -exec grep -w -h 'MACHINE' {} \;) | cut -d'"' -f 2)"
@@ -346,15 +346,15 @@ function check_bitbake_env () {
         	msg "PARSE: Already done '$conf'"
 
 		if [ "$old" != "$new" ]; then
-			[ -e $BUILD_INFO ] && rm $BUILD_INFO;
-			echo $new >> $BUILD_INFO;
+			[ -e $file ] && rm $file;
+			echo $new >> $file;
 			msg "PARSE: New image '$new'"
 			return 1
         	fi
         	return 0
         fi
 
-	echo $new >> $BUILD_INFO;
+	echo $new >> $file;
 	return 1
 }
 
