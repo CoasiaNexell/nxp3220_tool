@@ -1,36 +1,34 @@
 #!/bin/bash
 # Copyright (c) 2018 Nexell Co., Ltd.
 # Author: Junghyun, Kim <jhkim@nexell.co.kr>
+#
+# $> build_yocto.sh <machine> <image> [options]
+#
 
 BSP_ROOT_DIR=`readlink -e -n "$(cd "$(dirname "$0")" && pwd)/../.."`
+BSP_YOCTO_DIR=$BSP_ROOT_DIR/yocto
 
+# set with input arguments
 MACHINE_NAME=$1
 IMAGE_NAME=$2
 
-# BSP path
-BSP_YOCTO_DIR=$BSP_ROOT_DIR/yocto
-BSP_POKY_DIR=$BSP_ROOT_DIR/yocto/poky
-BSP_BUILD_DIR=$BSP_ROOT_DIR/yocto/build
-BSP_META_DIR=$BSP_YOCTO_DIR/meta-nexell/meta-nxp3220
-BSP_RESULT_DIR=$BSP_ROOT_DIR/yocto/out
-BSP_RESULT_OUT=
+# Yocto path
+POKY_DIR=$BSP_YOCTO_DIR/poky
+META_DIR=$BSP_YOCTO_DIR/meta-nexell/meta-nxp3220
+BUILD_DIR=$BSP_YOCTO_DIR/build/build-$MACHINE_NAME
+RESULT_DIR=$BSP_YOCTO_DIR/out
+RESULT_OUT=
 
-# related machine
-BB_MACHINE_DIR=$BSP_META_DIR/conf/machine
-BB_IMAGE_DIR=$BSP_META_DIR/recipes-core/images
+# Configured directory with available lists
+CONF_MACHINE_DIR=$META_DIR/tools/configs/machines
+CONF_IMAGE_DIR=$META_DIR/tools/configs/images
 
-# related build
-BB_BUILD_DIR=$BSP_BUILD_DIR/build-$MACHINE_NAME
-BB_LOCAL_CONF=$BB_BUILD_DIR/conf/local.conf
-BB_BBLAYER_CONF=$BB_BUILD_DIR/conf/bblayers.conf
-BB_STATUS_FILE=$BSP_ROOT_DIR/.build_image_type
+# Parse to local.conf
+declare -A LOCAL_CONF_VALUES=(
+	["BSP_ROOT_DIR"]="$BSP_ROOT_DIR"
+)
 
-# related config
-TOOL_MACH_DIR=$BSP_META_DIR/tools/configs/machines
-TOOL_IMAGE_DIR=$BSP_META_DIR/tools/configs/images
-TOOL_LOCAL_CONF=$TOOL_MACH_DIR/local.conf
-TOOL_IMAGE_SDK=$TOOL_IMAGE_DIR/sdk.conf
-
+# 'deploy file' lists to copy to result dir
 RESULT_TARGETS=(
 	"bl1-nxp3220.bin.raw"
 	"bl1-nxp3220.bin.enc.raw"
@@ -47,6 +45,7 @@ RESULT_TARGETS=(
 	"userdata.img"
 )
 
+# 'tool file' lists to copy to result dir
 TOOLS_FILES=(
 	"tools/scripts/partmap_fastboot.sh"
 	"tools/scripts/partmap_diskimg.sh"
@@ -54,10 +53,6 @@ TOOLS_FILES=(
 	"tools/scripts/configs/udown.bootloader.sh"
 	"tools/bin/linux-usbdownloader"
 	"tools/files/partmap_*.txt"
-)
-
-declare -A BB_LOCAL_CONF_VALUES=(
-	["BSP_ROOT_DIR"]="$BSP_ROOT_DIR"
 )
 
 declare -A BUILD_TARGETS=(
@@ -78,6 +73,20 @@ declare -A BUILD_COMMANDS=(
   	["savedefconfig"]="savedefconfig"
 )
 
+# Related machine/image: fixed
+META_MACHINE_DIR=$META_DIR/conf/machine
+META_IMAGE_DIR=$META_DIR/recipes-core/images
+
+# Related build: fixed
+LOCAL_CONF=$BUILD_DIR/conf/local.conf
+BBLAYER_CONF=$BUILD_DIR/conf/bblayers.conf
+BUILD_INFO=$BSP_YOCTO_DIR/.build_image_type
+
+# Availiable tables
+MACHINE_AVAIL_TABLE=""
+IMAGE_AVAIL_TABLE=""
+IMAGE_TYPE_TABLE=""
+
 function err() {
 	echo  -e "\033[0;31m $@\033[0m"
 }
@@ -85,10 +94,6 @@ function err() {
 function msg() {
 	echo  -e "\033[0;33m $@\033[0m"
 }
-
-MACHINE_NAME_TABLE=""
-IMAGE_NAME_TABLE=""
-IMAGE_TYPE_TABLE=""
 
 function get_avail_types () {
 	local dir=$1 sep=$2 table=$3 val
@@ -167,8 +172,14 @@ function merge_conf_file () {
 }
 
 function parse_conf_machine () {
-        local cmp=$TOOL_MACH_DIR/$MACHINE_NAME.conf
-	local src=$TOOL_LOCAL_CONF dst=$BB_LOCAL_CONF
+        local cmp=$CONF_MACHINE_DIR/$MACHINE_NAME.conf
+	local src=$CONF_MACHINE_DIR/local.conf
+	local dst=$LOCAL_CONF
+
+        msg "-----------------------------------------------------------------"
+	msg " COPY     : $src"
+	msg " TO       : $dst"
+        msg "-----------------------------------------------------------------"
 
         cp $src $dst
 	[ $? -ne 0 ] && exit 1;
@@ -180,27 +191,26 @@ function parse_conf_machine () {
 	fi
 
         msg "-----------------------------------------------------------------"
-	msg " PARSE    : $src"
-	msg " PATCH    : $cmp"
+	msg " PARSE    : $cmp"
 	msg " TO       : $dst"
         msg "-----------------------------------------------------------------"
 
 	merge_conf_file $src $cmp $dst
 
 	echo "" >> $dst
-	for i in ${!BB_LOCAL_CONF_VALUES[@]}
+	for i in ${!LOCAL_CONF_VALUES[@]}
 	do
 		prefix="$i"
-		replace="\"${BB_LOCAL_CONF_VALUES[$i]//\//\\/}\""
+		replace="\"${LOCAL_CONF_VALUES[$i]//\//\\/}\""
 		sed -i "s/.*$prefix =.*/$prefix = $replace/" $dst
 	done
 }
 
 function parse_conf_image () {
-        local dst=$BB_LOCAL_CONF
+        local dst=$LOCAL_CONF
 	local type=${IMAGE_NAME##*-} conf=$OPT_IMAGE_TYPE
 
-	for i in $TOOL_IMAGE_DIR/$type.conf $TOOL_IMAGE_DIR/$conf.conf
+	for i in $CONF_IMAGE_DIR/$type.conf $CONF_IMAGE_DIR/$conf.conf
 	do
 		[ ! -f $i ] && continue;
         	msg "-----------------------------------------------------------------"
@@ -213,8 +223,8 @@ function parse_conf_image () {
 }
 
 function parse_conf_sdk () {
-        local cmp=$TOOL_IMAGE_SDK
-	local dst=$BB_LOCAL_CONF
+        local cmp=$CONF_IMAGE_DIR/sdk.conf
+	local dst=$LOCAL_CONF
 
 	if [ $OPT_BUILD_SDK != true ]; then
 		return
@@ -229,7 +239,7 @@ function parse_conf_sdk () {
 }
 
 function parse_conf_ramfs () {
-	local dst=$BB_LOCAL_CONF
+	local dst=$LOCAL_CONF
 	replace="\"$IMAGE_NAME\""
 	sed -i "s/.*INITRAMFS_IMAGE.*/INITRAMFS_IMAGE = $replace/" $dst
 }
@@ -239,22 +249,22 @@ function parse_conf_jobs () {
 		return
 	fi
 
-	local file=$BB_LOCAL_CONF
+	local file=$LOCAL_CONF
 	if grep -q BB_NUMBER_THREADS "$file"; then
 		replace="\"$OPT_BUILD_JOBS\""
 		sed -i "s/.*BB_NUMBER_THREADS.*/BB_NUMBER_THREADS = $replace/" $file
 	else
-		echo "" >> $BB_LOCAL_CONF
+		echo "" >> $LOCAL_CONF
 		echo "BB_NUMBER_THREADS = \"${OPT_BUILD_JOBS}\"" >> $file
 	fi
 }
 
 function parse_conf_bblayer () {
-	local src=$TOOL_MACH_DIR/$MACHINE_NAME.bblayers
-        local dst=$BB_BBLAYER_CONF
+	local src=$CONF_MACHINE_DIR/$MACHINE_NAME.bblayers
+        local dst=$BBLAYER_CONF
 
 	if [ ! -f $src ]; then
-		src=$TOOL_MACH_DIR/bblayers.conf
+		src=$CONF_MACHINE_DIR/bblayers.conf
         fi
 
         msg "-----------------------------------------------------------------"
@@ -270,20 +280,20 @@ function parse_conf_bblayer () {
 }
 
 function setup_bitbake_env () {
-	mkdir -p $BSP_BUILD_DIR
+	mkdir -p $(dirname $BUILD_DIR)
 
 	# run oe-init-build-env
-	source $BSP_POKY_DIR/oe-init-build-env $BB_BUILD_DIR >/dev/null 2>&1
+	source $POKY_DIR/oe-init-build-env $BUILD_DIR >/dev/null 2>&1
 	msg "-----------------------------------------------------------------"
 	msg " bitbake environment set up command:"
-	msg " $> source $BSP_POKY_DIR/oe-init-build-env $BB_BUILD_DIR"
+	msg " $> source $POKY_DIR/oe-init-build-env $BUILD_DIR"
 	msg "-----------------------------------------------------------------"
 }
 
 function check_bitbake_env () {
         local mach=$MACHINE_NAME
-	local conf=$BB_LOCAL_CONF
-	local old_image="" new_image=""
+	local conf=$LOCAL_CONF
+	local old="" new=""
 
         if [ ! -f $conf ]; then
                 err "Not build setup environment : '$conf' ..."
@@ -292,17 +302,17 @@ function check_bitbake_env () {
 	fi
 
 	if [ -z "$OPT_IMAGE_TYPE" ]; then
-		new_image="${MACHINE_NAME}_${IMAGE_NAME}"
+		new="${MACHINE_NAME}_${IMAGE_NAME}"
 	else
-		new_image=${MACHINE_NAME}_${IMAGE_NAME}_${OPT_IMAGE_TYPE}
+		new=${MACHINE_NAME}_${IMAGE_NAME}_${OPT_IMAGE_TYPE}
 	fi
 
 	if [ $OPT_BUILD_SDK == true ]; then
-		new_image="${new_image}_SDK"
+		new="${new}_SDK"
 	fi
 
-	if [ -e $BB_STATUS_FILE ]; then
-		old_image="$(cat $BB_STATUS_FILE)"
+	if [ -e $BUILD_INFO ]; then
+		old="$(cat $BUILD_INFO)"
 	fi
 
         v="$(echo $(find $conf -type f -exec grep -w -h 'MACHINE' {} \;) | cut -d'"' -f 2)"
@@ -310,55 +320,51 @@ function check_bitbake_env () {
         if [ "$mach" == "$v" ]; then
         	msg "PARSE: Already done '$conf'"
 
-        	if [ "$old_image" != "$new_image" ]; then
-			[ -e $BB_STATUS_FILE ] && rm $BB_STATUS_FILE;
-			echo $new_image >> $BB_STATUS_FILE;
-			msg "PARSE: New image '$new_image'"
+		if [ "$old" != "$new" ]; then
+			[ -e $BUILD_INFO ] && rm $BUILD_INFO;
+			echo $new >> $BUILD_INFO;
+			msg "PARSE: New image '$new'"
 			return 1
         	fi
         	return 0
         fi
 
-	echo $new_image >> $BB_STATUS_FILE;
+	echo $new >> $BUILD_INFO;
 	return 1
 }
 
 function print_avail_lists () {
 	msg "================================================================="
-	msg "Support Lists:"
+	msg "Support:"
 	msg "================================================================="
 
-	msg "MACHINE NAME: <machine name>"
-	msg "\t:$BB_MACHINE_DIR"
-	msg "\t:$TOOL_MACH_DIR"
+	msg "MACHINE: <machine>"
+	msg "\t: '$(echo $META_MACHINE_DIR | sed 's|'$BSP_ROOT_DIR'/||')'"
 	msg "\t----------------------------------------------------------"
-	msg "\t${MACHINE_NAME_TABLE}"
-	msg "\t----------------------------------------------------------"
-
-	msg "IMAGE NAME: nexell-image-<image type>"
-	msg "\t:$BB_IMAGE_DIR"
-	msg "\t----------------------------------------------------------"
-	msg "\t ${IMAGE_NAME_TABLE}"
+	msg "\t${MACHINE_AVAIL_TABLE}"
 	msg "\t----------------------------------------------------------"
 
-	msg "IMAGE TYPE: '-i'"
-	msg "\t:$TOOL_IMAGE_DIR"
+	msg "IMAGE: nexell-image-<image>"
+	msg "\t: '$(echo $META_IMAGE_DIR | sed 's|'$BSP_ROOT_DIR'/||')'"
 	msg "\t----------------------------------------------------------"
-	msg "\t ${IMAGE_TYPE_TABLE}"
+	msg "\t ${IMAGE_AVAIL_TABLE}"
 	msg "\t----------------------------------------------------------"
 
-	msg "TARGETs: '-t'"
+	msg ""
+	msg "TARGET: '-t'"
 	for i in "${!BUILD_TARGETS[@]}"; do
 		msg "\t$i (${BUILD_TARGETS[$i]})"
 	done
-	msg "COMMANDs: '-c'"
+	msg ""
+	msg "COMMAND: '-c'"
 	for i in "${!BUILD_COMMANDS[@]}"; do
 		msg "\t$i (${BUILD_COMMANDS[$i]})"
 	done
+	msg ""
 }
 
 function copy_deploy_images () {
-	local result deploy=$BB_BUILD_DIR/tmp/deploy/images/$MACHINE_NAME
+	local result deploy=$BUILD_DIR/tmp/deploy/images/$MACHINE_NAME
 
 	if [ ! -d $deploy ]; then
 		err "No directory : $deploy"
@@ -366,8 +372,8 @@ function copy_deploy_images () {
 	fi
 
 	result="$(echo $IMAGE_NAME | cut -d'.' -f 1)"
-	BSP_RESULT_OUT=result-$MACHINE_NAME-${result##*-}
-	result=$BSP_RESULT_DIR/$BSP_RESULT_OUT
+	RESULT_OUT=result-$MACHINE_NAME-${result##*-}
+	result=$RESULT_DIR/$RESULT_OUT
 
 	msg "-----------------------------------------------------------------"
 	msg " DEPLOY     : $deploy"
@@ -403,7 +409,7 @@ function copy_deploy_images () {
 }
 
 function copy_sdk_images () {
-	local dir sdk=$BB_BUILD_DIR/tmp/deploy/sdk
+	local dir sdk=$BUILD_DIR/tmp/deploy/sdk
 
 	if [ ! -d $sdk ]; then
 		err "No directory : $sdk"
@@ -411,8 +417,8 @@ function copy_sdk_images () {
 	fi
 
 	dir="$(echo $IMAGE_NAME | cut -d'.' -f 1)"
-	BSP_RESULT_OUT=SDK-result-$MACHINE_NAME-${dir##*-}
-	dir=$BSP_RESULT_DIR/$BSP_RESULT_OUT
+	RESULT_OUT=SDK-result-$MACHINE_NAME-${dir##*-}
+	dir=$RESULT_DIR/$RESULT_OUT
 
 	mkdir -p $dir
 	[ $? -ne 0 ] && exit 1;
@@ -423,8 +429,8 @@ function copy_sdk_images () {
 function copy_tools_files () {
 	local result="$(echo $IMAGE_NAME | cut -d'.' -f 1)"
 
-	BSP_RESULT_OUT=result-$MACHINE_NAME-${result##*-}
-	result=$BSP_RESULT_DIR/$BSP_RESULT_OUT
+	RESULT_OUT=result-$MACHINE_NAME-${result##*-}
+	result=$RESULT_DIR/$RESULT_OUT
 
 	msg "-----------------------------------------------------------------"
 	msg " TOOLS      : $deploy"
@@ -459,32 +465,33 @@ function copy_tools_files () {
 
 function link_result_dir () {
 	link=$1
-	if [ -e "$BSP_RESULT_DIR/$link" ] ||
-	   [ -h "$BSP_RESULT_DIR/$link" ]; then
-		rm -f $BSP_RESULT_DIR/$link
+	if [ -e "$RESULT_DIR/$link" ] ||
+	   [ -h "$RESULT_DIR/$link" ]; then
+		rm -f $RESULT_DIR/$link
 	fi
 
-	cd $BSP_RESULT_DIR
-	ln -s $BSP_RESULT_OUT $link
+	cd $RESULT_DIR
+	ln -s $RESULT_OUT $link
 }
 
 function usage () {
-	echo "Usage: `basename $0` <machine name> <image name> [options]"
 	echo ""
-	echo "[machine name]"
-	echo "      : located at $BB_MACHINE_DIR"
-	echo "[image name]"
-	echo "      : image name is 'nexell-image-<image type>'"
-	echo "      : located at $BB_IMAGE_DIR"
+	echo "Usage: `basename $0` <machine> <image> [options]"
 	echo ""
-	echo "[options]"
+	echo " [machine]"
+	echo "      : located at '$(echo $META_MACHINE_DIR | sed 's|'$BSP_ROOT_DIR'/||')'"
+	echo " [image]"
+	echo "      : located at '$(echo $META_IMAGE_DIR | sed 's|'$BSP_ROOT_DIR'/||')'"
+	echo "      : The image must be 'nexell-image-<image>'"
+	echo ""
+	echo " [options]"
 	echo "  -l : show available lists (machine, images, targets, commands ...)"
 	echo "  -t : select build target"
 	echo "  -i : select image type"
 	echo "  -c : build commands"
 	echo "  -o : bitbake option"
 	echo "  -S : build SDK for image"
-	echo "  -f : force overwrite buid confing files (local.conf/bblayers.conf)"
+	echo "  -f : force overwrite buid confing files ('local.conf' and 'bblayers.conf')"
 	echo "  -j : determines how many tasks bitbake should run in parallel"
 	echo "  -h : help"
 	echo ""
@@ -549,15 +556,15 @@ function parse_args () {
 ###############################################################################
 # start shell commands
 ###############################################################################
-get_avail_types $BB_MACHINE_DIR "conf" MACHINE_NAME_TABLE
-get_avail_types $BB_IMAGE_DIR "bb" IMAGE_NAME_TABLE
-get_avail_types $TOOL_IMAGE_DIR "conf" IMAGE_TYPE_TABLE
+get_avail_types $META_MACHINE_DIR "conf" MACHINE_AVAIL_TABLE
+get_avail_types $META_IMAGE_DIR "bb" IMAGE_AVAIL_TABLE
+get_avail_types $CONF_IMAGE_DIR "conf" IMAGE_TYPE_TABLE
 
 # parsing input arguments
 parse_args $@
 
-check_avail_type "$MACHINE_NAME" "$MACHINE_NAME_TABLE" "machine"
-check_avail_type "$IMAGE_NAME" "$IMAGE_NAME_TABLE" "image"
+check_avail_type "$MACHINE_NAME" "$MACHINE_AVAIL_TABLE" "machine"
+check_avail_type "$IMAGE_NAME" "$IMAGE_AVAIL_TABLE" "image"
 check_avail_type "$OPT_IMAGE_TYPE" "$IMAGE_TYPE_TABLE" "image type"
 
 setup_bitbake_env
@@ -581,9 +588,9 @@ msg " TARGET     : $BB_TARGET"
 msg " COMMAND    : $BB_BUILD_CMD"
 msg " OPTION     : $OPT_BUILD_OPTION"
 msg " SDK        : $OPT_BUILD_SDK"
-msg " BUILD DIR  : $BB_BUILD_DIR"
-msg " DEPLOY DIR : $BB_BUILD_DIR/tmp/deploy/images/$MACHINE_NAME"
-msg " SDK DIR    : $BB_BUILD_DIR/tmp/deploy/sdk"
+msg " BUILD DIR  : $BUILD_DIR"
+msg " DEPLOY DIR : $BUILD_DIR/tmp/deploy/images/$MACHINE_NAME"
+msg " SDK DIR    : $BUILD_DIR/tmp/deploy/sdk"
 msg "-----------------------------------------------------------------"
 
 if [ $OPT_BUILD_SDK != true ]; then
@@ -611,12 +618,9 @@ else
 fi
 
 msg "-----------------------------------------------------------------"
-msg " RESULT DIR : $BSP_RESULT_OUT"
+msg " RESULT DIR : $RESULT_OUT"
 msg "-----------------------------------------------------------------"
 msg "-----------------------------------------------------------------"
-msg " Sparse image to ext4 image:"
-msg " $> simg2img <img>.img <img>.ext4"
-msg ""
 msg " Bitbake environment set up command:"
-msg " $> source $BSP_POKY_DIR/oe-init-build-env $BB_BUILD_DIR"
+msg " $> source $POKY_DIR/oe-init-build-env $BUILD_DIR"
 msg "-----------------------------------------------------------------"
