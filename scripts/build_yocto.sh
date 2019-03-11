@@ -87,6 +87,31 @@ MACHINE_AVAIL_TABLE=""
 IMAGE_AVAIL_TABLE=""
 IMAGE_TYPE_TABLE=""
 
+function usage () {
+	echo ""
+	echo "Usage: `basename $0` <machine> <image> [options]"
+	echo ""
+	echo " [machine]"
+	echo "      : located at '$(echo $META_MACHINE_DIR | sed 's|'$BSP_ROOT_DIR'/||')'"
+	echo " [image]"
+	echo "      : located at '$(echo $META_IMAGE_DIR | sed 's|'$BSP_ROOT_DIR'/||')'"
+	echo "      : The image must be 'nexell-image-<image>'"
+	echo ""
+	echo " [options]"
+	echo "  -l : show available lists (machine, images, targets, commands ...)"
+	echo "  -t : select build target"
+	echo "  -i : select image type"
+	echo "  -c : build commands"
+	echo "  -o : bitbake option"
+	echo "  -S : build SDK for image"
+	echo "  -f : force overwrite buid confing files ('local.conf' and 'bblayers.conf')"
+	echo "  -j : determines how many tasks bitbake should run in parallel"
+	echo "  -h : help"
+	echo ""
+	print_avail_lists
+	exit 1;
+}
+
 function err() {
 	echo  -e "\033[0;31m $@\033[0m"
 }
@@ -472,31 +497,6 @@ function link_result_dir () {
 
 	cd $RESULT_DIR
 	ln -s $RESULT_OUT $link
-}
-
-function usage () {
-	echo ""
-	echo "Usage: `basename $0` <machine> <image> [options]"
-	echo ""
-	echo " [machine]"
-	echo "      : located at '$(echo $META_MACHINE_DIR | sed 's|'$BSP_ROOT_DIR'/||')'"
-	echo " [image]"
-	echo "      : located at '$(echo $META_IMAGE_DIR | sed 's|'$BSP_ROOT_DIR'/||')'"
-	echo "      : The image must be 'nexell-image-<image>'"
-	echo ""
-	echo " [options]"
-	echo "  -l : show available lists (machine, images, targets, commands ...)"
-	echo "  -t : select build target"
-	echo "  -i : select image type"
-	echo "  -c : build commands"
-	echo "  -o : bitbake option"
-	echo "  -S : build SDK for image"
-	echo "  -f : force overwrite buid confing files ('local.conf' and 'bblayers.conf')"
-	echo "  -j : determines how many tasks bitbake should run in parallel"
-	echo "  -h : help"
-	echo ""
-	print_avail_lists
-	exit 1;
 }
 
 OPT_BUILD_PARSE=false
