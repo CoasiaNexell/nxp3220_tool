@@ -8,6 +8,7 @@ DOWNLOADER_TOOL=$BASEDIR/../bin/$USBDOWNLOADER
 RESULTDIR="$BASEDIR/../../result"
 USBVENDOR="Digit"
 DN_TARGET=
+USB_WAIT_TIME=	# sec
 
 declare -A TARGET_PRODUCT_ID=(
 	["3220"]="nxp3220"
@@ -28,6 +29,7 @@ function usage() {
 	echo "       EX> `basename $0` -t <target> -l <path>/file1 <path>/file2"
 	echo ""
 	echo "  -s : wait sec for next download"
+	echo "  -w : wait sec for usb connect"
 	echo "  -i : usb down info with -f file name"
 	echo "  -e : open file with vim"
 	echo "  -p : encryted file transfer"
@@ -56,10 +58,30 @@ function get_prefix_element() {
 
 function get_target_name() {
 	local value=$1			# $1 = store the prefix's value
+	local counter=0
 	local id="$(lsusb | grep $USBVENDOR | cut -d ':' -f 3 | cut -d ' ' -f 1)"
 
+	if [[ -n $USB_WAIT_TIME ]]; then
+		[ -z "$id" ] &&	echo -e "\033[47;31m Wait $USB_WAIT_TIME sec $USBVENDOR connect\033[0m";
+
+		while true; do
+			id="$(lsusb | grep $USBVENDOR | cut -d ':' -f 3 | cut -d ' ' -f 1)"
+			if [ -z "$id" ]; then
+				counter=$((counter+1))
+				sleep 1
+			else
+				break
+			fi
+
+			if [[ "$counter" -ge "$USB_WAIT_TIME" ]]; then
+				echo -e "\033[47;31m Not find usb vendor: $USBVENDOR !!!\033[0m";
+				exit 1
+			fi
+		done
+	fi
+
 	if [ -z "$id" ]; then
-		echo -e "\033[47;31m Not find vendor: $USBVENDOR !!!\033[0m"
+		echo -e "\033[47;31m Not find usb vendor: $USBVENDOR !!!\033[0m"
 		exit 1;
 	fi
 
@@ -191,7 +213,7 @@ SHOW_INFO=false
 DN_ENCRYPTED=false
 DN_SLEEP_SEC=2
 
-while getopts 'hf:l:t:s:d:eip' opt
+while getopts 'hf:l:t:s:d:w:eip' opt
 do
         case $opt in
         f )
@@ -218,6 +240,9 @@ do
 		;;
 	s )
 		DN_SLEEP_SEC=$OPTARG
+		;;
+	w )
+		USB_WAIT_TIME=$OPTARG
 		;;
 	d )
 		RESULTDIR=$OPTARG
