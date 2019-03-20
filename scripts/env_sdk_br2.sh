@@ -21,12 +21,12 @@ function usage() {
 
 if [ "$#" -ne 1 ]; then
 	echo  -e "\033[0;31m Set SDK PATH !!!\033[0m"
-	usage
+	usage;
 	return 1
 fi
 
 if [[ $1 == "-h" ]]; then
-	usage
+	usage;
 	return 1
 fi
 
