@@ -38,11 +38,11 @@ fi
 
 SDK_CROSS_COMPILE_PREFIX=arm-linux-gnueabihf
 SDK_TARGET_OPTION="-march=armv7ve -mfpu=neon -mfloat-abi=hard -mcpu=cortex-a7"
-SDK_SYSROOT=`${CROSS_COMPILE}gcc -print-sysroot`
 
 export PATH=$SDK_PATH/usr/bin:$PATH
+
 export TARGET_PREFIX=$SDK_CROSS_COMPILE_PREFIX-
-export SDKTARGETSYSROOT=$SDK_SYSROOT
+export SDKTARGETSYSROOT=`${TARGET_PREFIX}gcc -print-sysroot`
 export CPATH=$SDKTARGETSYSROOT/usr/include:$CPATH
 export PKG_CONFIG_SYSROOT_DIR=$SDKTARGETSYSROOT
 export PKG_CONFIG_PATH=$SDKTARGETSYSROOT/usr/lib/pkgconfig
