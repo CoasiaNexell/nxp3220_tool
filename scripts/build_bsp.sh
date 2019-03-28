@@ -219,7 +219,11 @@ function print_components() {
 		if [ -z "${TARGET_COMPONENTS[$key]}" ]; then
 			continue
 		fi
-  		echo -e "$key\t: ${TARGET_COMPONENTS[$key]}"
+		if [ $key == "PATH" ]; then
+			echo -e "$key\t: `realpath ${TARGET_COMPONENTS[$key]}`"
+		else
+			echo -e "$key\t: ${TARGET_COMPONENTS[$key]}"
+		fi
 	done
 	echo -e "\033[0;33m================================================================== \033[0m"
 }
@@ -258,8 +262,8 @@ function copy_target() {
 	fi
 
 	echo -e "\n\033[2;32m ----------------------------------------------------------------- \033[0m"
-	echo -e " COPY     : $src"
-	echo -e " TO       : $dst"
+	echo -e " COPY     : `realpath $src`"
+	echo -e " TO       : `realpath $dst`"
 	echo -e "\033[1;32m ----------------------------------------------------------------- \033[0m"
 
 	mkdir -p $dir
@@ -310,7 +314,7 @@ function parse_target() {
 function make_target() {
 	local target=$1 cmd=$2
 	local tool=${TARGET_COMPONENTS["TOOL"]}
-	local path=${TARGET_COMPONENTS["PATH"]}
+	local path=`realpath ${TARGET_COMPONENTS["PATH"]}`
 	local image=${TARGET_COMPONENTS["IMAGE"]}
 	local defconfig=${TARGET_COMPONENTS["CONFIG"]}
 	local jobs="-j ${TARGET_COMPONENTS["JOBS"]}"
