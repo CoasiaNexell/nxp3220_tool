@@ -474,7 +474,7 @@ case "$1" in
 				vim $bsp_file
 				exit 0;;
 			-h )	usage;	exit 1;;
-			*)	[ ! -z $3 ] && command=$3;
+			*)	[[ ! -z $3 ]] && command=$3;
 				shift;;
 			esac
 		done
