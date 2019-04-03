@@ -19,6 +19,34 @@ declare -A SDK_SYSROOT_APPEND_TARGET=(
 	["$KERNEL_DIR/include/uapi/drm/nexell_drm.h"]="/usr/include/nexell"
 )
 
+function help() {
+	echo  -e "\033[0;33m  \033[0m"
+	echo  -e "\033[0;33m Setup SDK: \033[0m"
+	echo  -e "\033[0;33m  $> cp $RESULTDIR/${BUILDROOT_SDK}.tar.gz to <SDK PATH>\033[0m"
+	echo  -e "\033[0;33m  $> cd <SDK PATH> \033[0m"
+	echo  -e "\033[0;33m  $> tar zxf ${BUILDROOT_SDK}.tar.gz\033[0m"
+	echo  -e "\033[0;33m  $> ${BUILDROOT_SDK}/relocate-sdk.sh\033[0m"
+	echo  -e "\033[0;33m  \033[0m"
+	echo  -e "\033[0;33m Setup Environments: \033[0m"
+	echo  -e "\033[0;33m  $> source ${BASEDIR}/tools/scripts/env_setup_br2_sdk.sh <SDK PATH>\033[0m"
+	echo  -e "\033[0;33m  \033[0m"
+}
+
+function usage() {
+	echo  -e "\033[0;33m usage:\033[0m"
+	echo  -e "\033[0;33m  $> build_br2_sdk.sh [SDK PATH]\033[0m"
+	help;
+	exit 1;
+}
+
+if [ "$#" -ne 0 ]; then
+	usage;
+fi
+
+if [[ $1 == "-h" ]]; then
+	usage;
+fi
+
 BUILDROOT_TARGET_PREFIX=arm-linux-gnueabihf
 BUILDROOT_SDK_TOP=$BUILDROOT_DIR/output/images
 
@@ -88,13 +116,4 @@ sync
 echo  -e "\033[0;33m Result: $RESULTDIR/${BUILDROOT_SDK}.tar.gz\033[0m"
 cp ${BUILDROOT_SDK}.tar.gz $RESULTDIR
 
-echo  -e "\033[0;33m  \033[0m"
-echo  -e "\033[0;33m Setup SDK: \033[0m"
-echo  -e "\033[0;33m  $> cp $RESULTDIR/${BUILDROOT_SDK}.tar.gz to <SDK PATH>\033[0m"
-echo  -e "\033[0;33m  $> cd <SDK PATH> \033[0m"
-echo  -e "\033[0;33m  $> tar zxf ${BUILDROOT_SDK}.tar.gz\033[0m"
-echo  -e "\033[0;33m  $> ${BUILDROOT_SDK}/relocate-sdk.sh\033[0m"
-echo  -e "\033[0;33m  \033[0m"
-echo  -e "\033[0;33m Setup Environments: \033[0m"
-echo  -e "\033[0;33m  $> source ${BASEDIR}/tools/scripts/env_setup_br2_sdk.sh <SDK PATH>\033[0m"
-echo  -e "\033[0;33m  \033[0m"
+help;
