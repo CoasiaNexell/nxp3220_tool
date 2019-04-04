@@ -314,17 +314,18 @@ function parse_target() {
 function make_target() {
 	local target=$1 cmd=$2
 	local tool=${TARGET_COMPONENTS["TOOL"]}
-	local path=`realpath ${TARGET_COMPONENTS["PATH"]}`
+	local path=${TARGET_COMPONENTS["PATH"]}
 	local image=${TARGET_COMPONENTS["IMAGE"]}
 	local defconfig=${TARGET_COMPONENTS["CONFIG"]}
 	local jobs="-j ${TARGET_COMPONENTS["JOBS"]}"
 	local option=${TARGET_COMPONENTS["OPTION"]}
 
-	if [ -z $path ]; then
+	if [[ -z $path ]]; then
 		return
 	fi
 
-	if [ ! -d $path ]; then
+	path=`realpath ${TARGET_COMPONENTS["PATH"]}`
+	if [[ ! -d $path ]]; then
 		echo -e "\033[47;31m No such to build $target: '$path' ... \033[0m"
 		exit 1;
 	fi
