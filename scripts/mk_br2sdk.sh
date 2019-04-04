@@ -8,16 +8,10 @@ RESULTDIR="$BASEDIR/result"
 
 BUILDROOT_DIR=$BASEDIR/buildroot
 KERNEL_DIR=$BASEDIR/kernel-4.14
-APPLICATION_DIR=$BASEDIR/apps
 BUILDROOT_SDK=nxp3220-arm-gnueabihf_sdk-buildroot # BR2_SDK_PREFIX
 
-SDK_SYSROOT_APPEND_DIR=(
-	"/usr/include/nexell"
-)
-
-declare -A SDK_SYSROOT_APPEND_TARGET=(
-	["$KERNEL_DIR/include/uapi/drm/nexell_drm.h"]="/usr/include/nexell"
-)
+SDK_SYSROOT_APPEND_DIR=()
+declare -A SDK_SYSROOT_APPEND_TARGET=()
 
 function help() {
 	echo  -e "\033[0;33m  \033[0m"
