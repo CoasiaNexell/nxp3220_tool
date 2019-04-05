@@ -56,7 +56,7 @@ fi
 # build sdk
 echo  -e "\033[0;33m Build: cd `readlink -e -n $BUILDROOT_DIR`\033[0m"
 echo  -e "\033[0;33m Build: make sdk BR2_SDK_PREFIX=$BUILDROOT_SDK\033[0m"
-make sdk BR2_SDK_PREFIX=$BUILDROOT_SDK >/dev/null 2>&1
+make sdk BR2_SDK_PREFIX=$BUILDROOT_SDK
 [ $? -ne 0 ] && exit 1;
 
 # decompress sdk tar file
