@@ -102,6 +102,7 @@ function usage () {
 	echo "  -i : select image type"
 	echo "  -c : build commands"
 	echo "  -o : bitbake option"
+	echo "  -v : set bitbake '-v' option"
 	echo "  -S : build SDK for image"
 	echo "  -f : force overwrite buid confing files ('local.conf' and 'bblayers.conf')"
 	echo "  -j : determines how many tasks bitbake should run in parallel"
@@ -501,6 +502,7 @@ function link_result_dir () {
 
 OPT_BUILD_PARSE=false
 OPT_BUILD_OPTION=""
+OPT_BUILD_VERBOSE=""
 OPT_BUILD_SDK=false
 OPT_IMAGE_TYPE=
 OPT_BUILD_JOBS=
@@ -509,7 +511,7 @@ BB_TARGET=""
 BB_BUILD_CMD=""
 
 function parse_args () {
-    	ARGS=$(getopt -o lSfht:i:c:o:j: -- "$@");
+	ARGS=$(getopt -o lSfht:i:c:o:j:v -- "$@");
     	eval set -- "$ARGS";
 
     	while true; do
@@ -547,6 +549,7 @@ function parse_args () {
 		-S )	OPT_BUILD_SDK=true; shift 1;;
 		-f )	OPT_BUILD_PARSE=true; shift 1;;
 		-j )	OPT_BUILD_JOBS=$2; shift 2;;
+		-v )	OPT_BUILD_VERBOSE="-v"; shift 1;;
 		-h )	usage;	exit 1;;
 		-- ) 	break ;;
 		esac
@@ -586,7 +589,7 @@ msg " MACHINE    : $MACHINE_NAME"
 msg " IMAGE      : $IMAGE_NAME + $OPT_IMAGE_TYPE"
 msg " TARGET     : $BB_TARGET"
 msg " COMMAND    : $BB_BUILD_CMD"
-msg " OPTION     : $OPT_BUILD_OPTION"
+msg " OPTION     : $OPT_BUILD_OPTION $OPT_BUILD_VERBOSE"
 msg " SDK        : $OPT_BUILD_SDK"
 msg " BUILD DIR  : $BUILD_DIR"
 msg " DEPLOY DIR : $BUILD_DIR/tmp/deploy/images/$MACHINE_NAME"
@@ -595,13 +598,13 @@ msg "-----------------------------------------------------------------"
 
 if [ $OPT_BUILD_SDK != true ]; then
 	if [ ! -z $BB_TARGET ]; then
-		bitbake $BB_TARGET $BB_BUILD_CMD $OPT_BUILD_OPTION
+		bitbake $BB_TARGET $BB_BUILD_CMD $OPT_BUILD_OPTION $OPT_BUILD_VERBOSE
 	else
 		# not support buildclean for image type
 		if [ "${BB_BUILD_CMD}" == "-c buildclean" ]; then
 			BB_BUILD_CMD="-c cleanall"
 		fi
-		bitbake $IMAGE_NAME $BB_BUILD_CMD $OPT_BUILD_OPTION
+		bitbake $IMAGE_NAME $BB_BUILD_CMD $OPT_BUILD_OPTION $OPT_BUILD_VERBOSE
 		[ $? -ne 0 ] && exit 1;
 	fi
 
@@ -611,7 +614,7 @@ if [ $OPT_BUILD_SDK != true ]; then
 		link_result_dir "result"
 	fi
 else
-	bitbake -c populate_sdk $IMAGE_NAME $OPT_BUILD_OPTION
+	bitbake -c populate_sdk $IMAGE_NAME $OPT_BUILD_OPTION $OPT_BUILD_VERBOSE
 	[ $? -ne 0 ] && exit 1;
 	copy_sdk_images
 	link_result_dir "SDK"
