@@ -1,0 +1,37 @@
+#!/bin/bash
+
+BASEDIR="$(cd "$(dirname "$0")" && pwd)/../.."
+RESULT="$BASEDIR/result"
+
+TARGET_BL1_NAME=nxp3220
+
+TARGET_BL2_CHIP=nxp3220
+TARGET_BL2_BOARD=vtk
+TARGET_BL2_PMIC=nxe1500
+TARGET_BL2_NSIH=nsih_vtk_ddr3_800Mhz
+
+TARGET_BL32_LOADADDRESS=0x5F000000
+TARGET_BL32_LAUNCHADDRESS=0x5F000000
+
+TARGET_KERNEL_DEFCONFIG=nxp3220_vtk_nand_defconfig
+TARGET_KERNEL_DTB=nxp3220-vtk-nand
+
+TARGET_UBOOT_DEFCONFIG=nxp3220_vtk_nand_defconfig
+
+TARGET_BR2_DEFCONFIG=nxp3220_sysv_defconfig
+
+# nand info
+PAGE_SIZE=2048
+BLOCK_SIZE=128
+CHIP_SIZE=256
+[[ $PAGE_SIZE -gt 512 ]] && PSIZE=1024 || PSIZE=512
+
+BOOT_IMAGE_SIZE=32
+ROOT_IMAGE_SIZE=59
+
+BOOT_UBI_CFG=ubi.boot.ini
+ROOTFS_UBI_CFG=ubi.rootfs.ini
+
+CONFIGDIR="$(cd "$(dirname "$0")" && pwd)"/configs
+
+source $CONFIGDIR/build.common-nand.sh
