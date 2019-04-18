@@ -8,34 +8,38 @@
 BSP_ROOT_DIR=`readlink -e -n "$(cd "$(dirname "$0")" && pwd)/../.."`
 BSP_YOCTO_DIR=$BSP_ROOT_DIR/yocto
 
-# set with input arguments
+# Get input arguments
 MACHINE_NAME=$1
 IMAGE_NAME=$2
+MACHINE_TARGET=${MACHINE_NAME%-*}
 
-# Yocto path
+# Set path
 POKY_DIR=$BSP_YOCTO_DIR/poky
-META_DIR=$BSP_YOCTO_DIR/meta-nexell/meta-nxp3220
+MACHINE_DIR=$BSP_YOCTO_DIR/meta-nexell/meta-nxp3220
+IMAGE_DIR=$MACHINE_DIR/recipes-core/images
 BUILD_DIR=$BSP_YOCTO_DIR/build/build-$MACHINE_NAME
 RESULT_DIR=$BSP_YOCTO_DIR/out
 RESULT_OUT=
 
-# Configured directory with available lists
-CONF_MACHINE_DIR=$META_DIR/tools/configs/machines
-CONF_IMAGE_DIR=$META_DIR/tools/configs/images
+MACHINE_SUPPORT=( "nxp3220" )
+
+# Configure file path for available lists
+MACHINE_CONF_DIR=$MACHINE_DIR/tools/configs/machines
+IMAGE_CONF_DIR=$MACHINE_DIR/tools/configs/images
 
 # Parse to local.conf
 declare -A LOCAL_CONF_VALUES=(
 	["BSP_ROOT_DIR"]="$BSP_ROOT_DIR"
 )
 
-# 'deploy file' lists to copy to result dir
+# Copy from deploy to result dir
 RESULT_TARGETS=(
 	"bl1-nxp3220.bin.raw"
 	"bl1-nxp3220.bin.enc.raw"
 	"bl2.bin.raw"
 	"bl32.bin.raw"
 	"bl32.bin.enc.raw"
-	"u-boot-${MACHINE_NAME}-1.0-r0.bin"
+	"u-boot-${MACHINE_TARGET}-1.0-r0.bin"
 	"u-boot.bin"
 	"u-boot.bin.raw"
 	"params_env.*"
@@ -45,7 +49,7 @@ RESULT_TARGETS=(
 	"userdata.img"
 )
 
-# 'tool file' lists to copy to result dir
+# Copy from BSP tools to result dir
 TOOLS_FILES=(
 	"tools/scripts/partmap_fastboot.sh"
 	"tools/scripts/partmap_diskimg.sh"
@@ -55,7 +59,7 @@ TOOLS_FILES=(
 	"tools/files/partmap_*.txt"
 )
 
-declare -A BUILD_TARGETS=(
+declare -A BUILD_RECIPES=(
   	["bl1"]="bl1-nxp3220"
   	["bl2"]="bl2-nxp3220"
   	["bl32"]="bl32-nxp3220"
@@ -68,20 +72,15 @@ declare -A BUILD_TARGETS=(
 declare -A BUILD_COMMANDS=(
   	["clean"]="buildclean"
   	["distclean"]="cleansstate"
-  	["cleanall"]="cleanall"		# clean download files
+	["cleanall"]="cleanall"		# clean and remove download files
   	["menuconfig"]="menuconfig"
   	["savedefconfig"]="savedefconfig"
 )
 
-# Related machine/image: fixed
-META_MACHINE_DIR=$META_DIR/conf/machine
-META_IMAGE_DIR=$META_DIR/recipes-core/images
+# Fixed
+BB_LOCAL_CONF=$BUILD_DIR/conf/local.conf
+BB_BBLAYER_CONF=$BUILD_DIR/conf/bblayers.conf
 
-# Related build: fixed
-LOCAL_CONF=$BUILD_DIR/conf/local.conf
-BBLAYER_CONF=$BUILD_DIR/conf/bblayers.conf
-
-# Availiable tables
 MACHINE_AVAIL_TABLE=""
 IMAGE_AVAIL_TABLE=""
 IMAGE_TYPE_TABLE=""
@@ -91,15 +90,15 @@ function usage () {
 	echo "Usage: `basename $0` <machine> <image> [options]"
 	echo ""
 	echo " [machine]"
-	echo "      : located at '$(echo $META_MACHINE_DIR | sed 's|'$BSP_ROOT_DIR'/||')'"
+	echo "      : located at '$(echo $MACHINE_CONF_DIR | sed 's|'$BSP_ROOT_DIR'/||')'"
 	echo " [image]"
-	echo "      : located at '$(echo $META_IMAGE_DIR | sed 's|'$BSP_ROOT_DIR'/||')'"
+	echo "      : located at '$(echo $IMAGE_DIR | sed 's|'$BSP_ROOT_DIR'/||')'"
 	echo "      : The image must be 'nexell-image-<image>'"
 	echo ""
 	echo " [options]"
 	echo "  -l : show available lists (machine, images, targets, commands ...)"
 	echo "  -t : select build target"
-	echo "  -i : select image type"
+	echo "  -i : select image type to merge with <image>"
 	echo "  -c : build commands"
 	echo "  -o : bitbake option"
 	echo "  -v : set bitbake '-v' option"
@@ -122,6 +121,8 @@ function msg() {
 
 function get_avail_types () {
 	local dir=$1 sep=$2 table=$3 val
+	[[ $4 ]] && declare -n filter=$4;
+
 	[ ! -d $dir ] && return;
 
 	cd $dir
@@ -134,6 +135,26 @@ function get_avail_types () {
 		if [ ! -z $(echo "$i" | awk -F".${sep}" '{print $2}') ]; then
 			continue
 		fi
+
+		if [ $i == *local.conf* ] || [ $i == *bblayers.conf* ]; then
+			continue
+		fi
+
+		local match=false
+		if [ ${#filter[@]} -ne 0 ]; then
+			for n in "${filter[@]}"
+			do
+				if [[ $i == *$n* ]]; then
+					match=true
+					break;
+				fi
+			done
+		else
+			match=true
+		fi
+
+		[ $match != true ] && continue;
+
 		val="${val} $(echo "$i" | awk -F".${sep}" '{print $1}')"
 		eval "$table=(\"${val}\")"
 	done
@@ -142,12 +163,12 @@ function get_avail_types () {
 function check_avail_type () {
 	local name=$1 table=$2 msg=$3
 
-	if [ "$msg" != "machine" ] && [ "$msg" != "image" ]; then
+	if [[ $msg != "machine" ]] && [[ $msg != "image" ]]; then
 		[ -z $name ] && return;
 	fi
 
 	for i in ${table}; do
-		if [ "${i}" == "${name}" ]; then
+		if [[ ${i} == ${name} ]]; then
 			return
 		fi
 	done
@@ -160,148 +181,151 @@ function check_avail_type () {
 
 function merge_conf_file () {
 	local src=$1 cmp=$2 dst=$3
-	while IFS=$'\t' read -r i;
+
+	while IFS='' read i;
         do
-                merged=false
-                while IFS=$'\t' read -r n;
+                merge=true
+                while IFS='' read n;
                 do
-			if [ -z "$n" ]; then
-				break;
-			fi
+			[[ -z $i ]] && break;
+			[[ $i == *BBMASK* ]] || [[ $i == *_append* ]] && break;
+			[[ $i == *+=* ]] && break;
+			[[ ${i:0:1} = "#" ]] && break;
 
-			if [ "${i:0:1}" = "#" ]; then
-				merged=true
-				break;
-			fi
+			[[ -z $n ]] && continue;
+			[[ $n == *BBMASK* ]] || [[ $n == *_append* ]] && continue;
+			[[ $n == *+=* ]] && continue;
+			[[ ${n:0:1} = "#" ]] && continue;
 
-			case "$i" in
-				*BBMASK* | *_append*)
-					break;;
-				--)
-					;;
-			esac
+			ti=${i%=*} ti=${ti% *}
+			tn=${n%=*} tn=${tn% *}
 
-			vi="$(echo "$(echo $i | cut -d'=' -f 1)" | cut -d' ' -f 1)"
-			vn="$(echo "$(echo $n | cut -d'=' -f 1)" | cut -d' ' -f 1)"
-                        if [ "$vi" == "$vn" ]; then
+			# replace
+                        if [[ $ti == $tn ]]; then
+				i=$(echo "$i" | sed -e "s/[[:space:]]\+/ /g")
+				n=$(echo "$n" | sed -e "s/[[:space:]]\+/ /g")
                                 sed -i "s/$n/$i/" $dst
-                                merged=true
+                                merge=false
                                 break;
                         fi
                 done < $src
 
-                if [ $merged == false ] && [ "${i:0:1}" != "#" ]; then
+		# merge
+                if [ $merge == true ] && [[ ${i:0:1} != "#" ]]; then
+			i=$(echo "$i" | sed -e "s/[[:space:]]\+/ /g")
                 	echo "$i" >> $dst;
                 fi
-        done < $cmp
+	done < $cmp
 }
 
 function parse_conf_machine () {
-        local cmp=$CONF_MACHINE_DIR/$MACHINE_NAME.conf
-	local src=$CONF_MACHINE_DIR/local.conf
-	local dst=$LOCAL_CONF
+	local conf=$BB_LOCAL_CONF
+        local base=$MACHINE_CONF_DIR/local.conf
+	local machine=$MACHINE_CONF_DIR/$MACHINE_NAME.conf
 
-        msg "-----------------------------------------------------------------"
-	msg " COPY     : $src"
-	msg " TO       : $dst"
-        msg "-----------------------------------------------------------------"
+	msg "---------------------------------------------------------------------------"
+	msg " COPY     : $base"
+	msg " TO       : $conf"
+	msg "---------------------------------------------------------------------------"
 
-        cp $src $dst
+	cp $base $conf
 	[ $? -ne 0 ] && exit 1;
 
-	if [ ! -f $cmp ]; then
-		replace="\"$MACHINE_NAME\""
-		sed -i "s/.*MACHINE.*/MACHINE = $replace/" $dst
-		return
-	fi
+	replace="\"$MACHINE_TARGET\""
+	sed -i "s/.*MACHINE.*/MACHINE = $replace/" $conf
+	[ $? -ne 0 ] && exit 1;
 
-        msg "-----------------------------------------------------------------"
-	msg " PARSE    : $cmp"
-	msg " TO       : $dst"
-        msg "-----------------------------------------------------------------"
+	msg "---------------------------------------------------------------------------"
+	msg " PARSE    : $machine"
+	msg " TO       : $conf"
+	msg "---------------------------------------------------------------------------"
 
-	merge_conf_file $src $cmp $dst
+	echo "" >> $conf
+	echo "# PARSING: $machine" >> $conf
+	merge_conf_file $base $machine $conf
 
-	echo "" >> $dst
 	for i in ${!LOCAL_CONF_VALUES[@]}
 	do
 		prefix="$i"
 		replace="\"${LOCAL_CONF_VALUES[$i]//\//\\/}\""
-		sed -i "s/.*$prefix =.*/$prefix = $replace/" $dst
+		sed -i "s/.*$prefix =.*/$prefix = $replace/" $conf
 	done
+	echo "# PARSING DONE" >> $conf
 }
 
 function parse_conf_image () {
-        local dst=$LOCAL_CONF
-	local type=${IMAGE_NAME##*-} conf=$OPT_IMAGE_TYPE
+        local conf=$BB_LOCAL_CONF
+	local base=${IMAGE_NAME##*-} type=$OPT_IMAGE_TYPE
 
-	for i in $CONF_IMAGE_DIR/$type.conf $CONF_IMAGE_DIR/$conf.conf
+	for i in $IMAGE_CONF_DIR/$base.conf $IMAGE_CONF_DIR/$type.conf
 	do
 		[ ! -f $i ] && continue;
-        	msg "-----------------------------------------------------------------"
+		msg "---------------------------------------------------------------------------"
 		msg " PARSE    : $i"
-		msg " TO       : $dst"
-        	msg "-----------------------------------------------------------------"
+		msg " TO       : $conf"
+		msg "---------------------------------------------------------------------------"
 
-		merge_conf_file $dst $i $dst
+		echo "" >> $conf
+		echo "# PARSING: $i" >> $conf
+		merge_conf_file $conf $i $conf
+		echo "# PARSING DONE" >> $conf
         done
 }
 
 function parse_conf_sdk () {
-        local cmp=$CONF_IMAGE_DIR/sdk.conf
-	local dst=$LOCAL_CONF
+        local sdk=$IMAGE_CONF_DIR/sdk.conf
+	local conf=$BB_LOCAL_CONF
 
 	if [ $OPT_BUILD_SDK != true ]; then
 		return
 	fi
 
-	msg "-----------------------------------------------------------------"
-	msg " PARSE    : $cmp"
-	msg " TO       : $dst"
-	msg "-----------------------------------------------------------------"
+	msg "---------------------------------------------------------------------------"
+	msg " PARSE    : $sdk"
+	msg " TO       : $conf"
+	msg "---------------------------------------------------------------------------"
 
-	merge_conf_file $dst $cmp $dst
+	echo "" >> $conf
+	echo "# PARSING: $sdk" >> $conf
+	merge_conf_file $conf $sdk $conf
+	echo "# PARSING DONE" >> $conf
 }
 
 function parse_conf_ramfs () {
-	local dst=$LOCAL_CONF
+	local conf=$BB_LOCAL_CONF
 	replace="\"$IMAGE_NAME\""
-	sed -i "s/.*INITRAMFS_IMAGE.*/INITRAMFS_IMAGE = $replace/" $dst
+	sed -i "s/.*INITRAMFS_IMAGE.*/INITRAMFS_IMAGE = $replace/" $conf
 }
 
-function parse_conf_jobs () {
-	if [ -z $OPT_BUILD_JOBS ]; then
+function parse_conf_tasks () {
+	if [ -z $OPT_BUILD_TASKS ]; then
 		return
 	fi
 
-	local file=$LOCAL_CONF
+	local file=$BB_LOCAL_CONF
 	if grep -q BB_NUMBER_THREADS "$file"; then
-		replace="\"$OPT_BUILD_JOBS\""
+		replace="\"$OPT_BUILD_TASKS\""
 		sed -i "s/.*BB_NUMBER_THREADS.*/BB_NUMBER_THREADS = $replace/" $file
 	else
-		echo "" >> $LOCAL_CONF
-		echo "BB_NUMBER_THREADS = \"${OPT_BUILD_JOBS}\"" >> $file
+		echo "" >> $BB_LOCAL_CONF
+		echo "BB_NUMBER_THREADS = \"${OPT_BUILD_TASKS}\"" >> $file
 	fi
 }
 
 function parse_conf_bblayer () {
-	local src=$CONF_MACHINE_DIR/$MACHINE_NAME.bblayers
-        local dst=$BBLAYER_CONF
+	local bblayer=$MACHINE_CONF_DIR/bblayers.conf
+        local conf=$BB_BBLAYER_CONF
 
-	if [ ! -f $src ]; then
-		src=$CONF_MACHINE_DIR/bblayers.conf
-        fi
+	msg "---------------------------------------------------------------------------"
+	msg " COPY     : $bblayer"
+	msg " TO       : $conf"
+	msg "---------------------------------------------------------------------------"
 
-        msg "-----------------------------------------------------------------"
-	msg " COPY     : $src"
-	msg " TO       : $dst"
-        msg "-----------------------------------------------------------------"
-
-        cp $src $dst
+        cp $bblayer $conf
 	[ $? -ne 0 ] && exit 1;
 
 	replace="\"${BSP_YOCTO_DIR//\//\\/}\""
-	sed -i "s/.*BSPPATH :=.*/BSPPATH := $replace/" $dst
+	sed -i "s/.*BSPPATH :=.*/BSPPATH := $replace/" $conf
 }
 
 function setup_bitbake_env () {
@@ -309,15 +333,15 @@ function setup_bitbake_env () {
 
 	# run oe-init-build-env
 	source $POKY_DIR/oe-init-build-env $BUILD_DIR >/dev/null 2>&1
-	msg "-----------------------------------------------------------------"
+	msg "---------------------------------------------------------------------------"
 	msg " bitbake environment set up command:"
 	msg " $> source $POKY_DIR/oe-init-build-env $BUILD_DIR"
-	msg "-----------------------------------------------------------------"
+	msg "---------------------------------------------------------------------------"
 }
 
 function check_bitbake_env () {
         local mach=$MACHINE_NAME
-	local conf=$LOCAL_CONF
+	local conf=$BB_LOCAL_CONF
 	local file=$BUILD_DIR/.build_image_type
 	local old="" new=""
 
@@ -342,11 +366,11 @@ function check_bitbake_env () {
 	fi
 
         v="$(echo $(find $conf -type f -exec grep -w -h 'MACHINE' {} \;) | cut -d'"' -f 2)"
-        v="$(echo $v | cut -d'"' -f 1)"
-        if [ "$mach" == "$v" ]; then
-        	msg "PARSE: Already done '$conf'"
+        v="$(echo $v | cut -d'"' -f 1)-${mach##*-}"
 
-		if [ "$old" != "$new" ]; then
+        if [[ $mach == $v ]]; then
+		msg "PARSE: Already '$(echo $conf | sed 's|'$BSP_ROOT_DIR'/||')'"
+		if [[ $old != $new ]]; then
 			[ -e $file ] && rm $file;
 			echo $new >> $file;
 			msg "PARSE: New image '$new'"
@@ -360,26 +384,32 @@ function check_bitbake_env () {
 }
 
 function print_avail_lists () {
-	msg "================================================================="
+	msg "=================================================================================="
 	msg "Support:"
-	msg "================================================================="
+	msg "=================================================================================="
 
 	msg "MACHINE: <machine>"
-	msg "\t: '$(echo $META_MACHINE_DIR | sed 's|'$BSP_ROOT_DIR'/||')'"
-	msg "\t----------------------------------------------------------"
+	msg "\t: '$(echo $MACHINE_CONF_DIR | sed 's|'$BSP_ROOT_DIR'/||')'"
+	msg "\t---------------------------------------------------------------------------"
 	msg "\t${MACHINE_AVAIL_TABLE}"
-	msg "\t----------------------------------------------------------"
+	msg "\t---------------------------------------------------------------------------"
 
 	msg "IMAGE: nexell-image-<image>"
-	msg "\t: '$(echo $META_IMAGE_DIR | sed 's|'$BSP_ROOT_DIR'/||')'"
-	msg "\t----------------------------------------------------------"
+	msg "\t: '$(echo $IMAGE_DIR | sed 's|'$BSP_ROOT_DIR'/||')'"
+	msg "\t---------------------------------------------------------------------------"
 	msg "\t ${IMAGE_AVAIL_TABLE}"
-	msg "\t----------------------------------------------------------"
+	msg "\t---------------------------------------------------------------------------"
+
+	msg "IMAGE-TYPE: -i <image>"
+	msg "\t: '$(echo $IMAGE_CONF_DIR | sed 's|'$BSP_ROOT_DIR'/||')'"
+	msg "\t---------------------------------------------------------------------------"
+	msg "\t ${IMAGE_TYPE_TABLE}"
+	msg "\t---------------------------------------------------------------------------"
 
 	msg ""
 	msg "TARGET: '-t'"
-	for i in "${!BUILD_TARGETS[@]}"; do
-		msg "\t$i (${BUILD_TARGETS[$i]})"
+	for i in "${!BUILD_RECIPES[@]}"; do
+		msg "\t$i (${BUILD_RECIPES[$i]})"
 	done
 	msg ""
 	msg "COMMAND: '-c'"
@@ -390,7 +420,7 @@ function print_avail_lists () {
 }
 
 function copy_deploy_images () {
-	local result deploy=$BUILD_DIR/tmp/deploy/images/$MACHINE_NAME
+	local result deploy=$BUILD_DIR/tmp/deploy/images/$MACHINE_TARGET
 
 	if [ ! -d $deploy ]; then
 		err "No directory : $deploy"
@@ -401,10 +431,10 @@ function copy_deploy_images () {
 	RESULT_OUT=result-$MACHINE_NAME-${result##*-}
 	result=$RESULT_DIR/$RESULT_OUT
 
-	msg "-----------------------------------------------------------------"
+	msg "---------------------------------------------------------------------------"
 	msg " DEPLOY     : $deploy"
 	msg " RESULT     : $result"
-	msg "-----------------------------------------------------------------"
+	msg "---------------------------------------------------------------------------"
 
 	mkdir -p $result
 	[ $? -ne 0 ] && exit 1;
@@ -419,7 +449,7 @@ function copy_deploy_images () {
 		for n in $files; do
 			to=$result/$n
 
-			if [ -d "$n" ]; then
+			if [[ -d $n ]]; then
 				mkdir -p $to
 				continue
 			fi
@@ -437,7 +467,7 @@ function copy_deploy_images () {
 function copy_sdk_images () {
 	local dir sdk=$BUILD_DIR/tmp/deploy/sdk
 
-	if [ ! -d $sdk ]; then
+	if [[ ! -d $sdk ]]; then
 		err "No directory : $sdk"
 		exit 1
 	fi
@@ -458,10 +488,10 @@ function copy_tools_files () {
 	RESULT_OUT=result-$MACHINE_NAME-${result##*-}
 	result=$RESULT_DIR/$RESULT_OUT
 
-	msg "-----------------------------------------------------------------"
+	msg "---------------------------------------------------------------------------"
 	msg " TOOLS      : $deploy"
 	msg " RESULT     : $result"
-	msg "-----------------------------------------------------------------"
+	msg "---------------------------------------------------------------------------"
 
 	mkdir -p $result
 	[ $? -ne 0 ] && exit 1;
@@ -474,7 +504,7 @@ function copy_tools_files () {
 			2> >(grep -v 'No such file or directory' >&2) | sort)
 
 		for n in $files; do
-			if [ -d "$n" ]; then
+			if [[ -d $n ]]; then
 				continue
 			fi
 
@@ -491,8 +521,8 @@ function copy_tools_files () {
 
 function link_result_dir () {
 	link=$1
-	if [ -e "$RESULT_DIR/$link" ] ||
-	   [ -h "$RESULT_DIR/$link" ]; then
+	if [[ -e $RESULT_DIR/$link ]] ||
+	   [[ -h $RESULT_DIR/$link ]]; then
 		rm -f $RESULT_DIR/$link
 	fi
 
@@ -505,9 +535,9 @@ OPT_BUILD_OPTION=""
 OPT_BUILD_VERBOSE=""
 OPT_BUILD_SDK=false
 OPT_IMAGE_TYPE=
-OPT_BUILD_JOBS=
+OPT_BUILD_TASKS=
 
-BB_TARGET=""
+BB_RECIPES=""
 BB_BUILD_CMD=""
 
 function parse_args () {
@@ -519,14 +549,14 @@ function parse_args () {
 		-l )
 			print_avail_lists; exit 0;;
 		-t )
-			for i in ${!BUILD_TARGETS[@]}; do
+			for i in ${!BUILD_RECIPES[@]}; do
 				[ $i != $2 ] && continue;
-				BB_TARGET=${BUILD_TARGETS[$i]}; shift 2; break;
+				BB_RECIPES=${BUILD_RECIPES[$i]}; shift 2; break;
 			done
-			if [ -z $BB_TARGET ]; then
+			if [ -z $BB_RECIPES ]; then
 				err "Available Targets:"
-				for i in "${!BUILD_TARGETS[@]}"; do
-					err "\t$i\t: ${BUILD_TARGETS[$i]}"
+				for i in "${!BUILD_RECIPES[@]}"; do
+					err "\t$i\t: ${BUILD_RECIPES[$i]}"
 				done
 				exit 1;
 			fi
@@ -548,7 +578,7 @@ function parse_args () {
 		-o )	OPT_BUILD_OPTION=$2; shift 2;;
 		-S )	OPT_BUILD_SDK=true; shift 1;;
 		-f )	OPT_BUILD_PARSE=true; shift 1;;
-		-j )	OPT_BUILD_JOBS=$2; shift 2;;
+		-j )	OPT_BUILD_TASKS=$2; shift 2;;
 		-v )	OPT_BUILD_VERBOSE="-v"; shift 1;;
 		-h )	usage;	exit 1;;
 		-- ) 	break ;;
@@ -559,9 +589,10 @@ function parse_args () {
 ###############################################################################
 # start shell commands
 ###############################################################################
-get_avail_types $META_MACHINE_DIR "conf" MACHINE_AVAIL_TABLE
-get_avail_types $META_IMAGE_DIR "bb" IMAGE_AVAIL_TABLE
-get_avail_types $CONF_IMAGE_DIR "conf" IMAGE_TYPE_TABLE
+#get_avail_types $MACHINE_CONF_DIR "conf" MACHINE_AVAIL_TABLE "${MACHINE_SUPPORT[@]}" 
+get_avail_types $MACHINE_CONF_DIR "conf" MACHINE_AVAIL_TABLE MACHINE_SUPPORT 
+get_avail_types $IMAGE_DIR "bb" IMAGE_AVAIL_TABLE
+get_avail_types $IMAGE_CONF_DIR "conf" IMAGE_TYPE_TABLE
 
 # parsing input arguments
 parse_args $@
@@ -582,23 +613,23 @@ if [ $NEED_PARSE == 1 ] || [ $OPT_BUILD_PARSE == true ]; then
 fi
 
 parse_conf_ramfs
-parse_conf_jobs
+parse_conf_tasks
 
-msg "-----------------------------------------------------------------"
+msg "---------------------------------------------------------------------------"
 msg " MACHINE    : $MACHINE_NAME"
 msg " IMAGE      : $IMAGE_NAME + $OPT_IMAGE_TYPE"
-msg " TARGET     : $BB_TARGET"
+msg " TARGET     : $BB_RECIPES"
 msg " COMMAND    : $BB_BUILD_CMD"
 msg " OPTION     : $OPT_BUILD_OPTION $OPT_BUILD_VERBOSE"
 msg " SDK        : $OPT_BUILD_SDK"
 msg " BUILD DIR  : $BUILD_DIR"
-msg " DEPLOY DIR : $BUILD_DIR/tmp/deploy/images/$MACHINE_NAME"
+msg " DEPLOY DIR : $BUILD_DIR/tmp/deploy/images/$MACHINE_TARGET"
 msg " SDK DIR    : $BUILD_DIR/tmp/deploy/sdk"
-msg "-----------------------------------------------------------------"
+msg "---------------------------------------------------------------------------"
 
 if [ $OPT_BUILD_SDK != true ]; then
-	if [ ! -z $BB_TARGET ]; then
-		bitbake $BB_TARGET $BB_BUILD_CMD $OPT_BUILD_OPTION $OPT_BUILD_VERBOSE
+	if [ ! -z $BB_RECIPES ]; then
+		bitbake $BB_RECIPES $BB_BUILD_CMD $OPT_BUILD_OPTION $OPT_BUILD_VERBOSE
 	else
 		# not support buildclean for image type
 		if [ "${BB_BUILD_CMD}" == "-c buildclean" ]; then
@@ -620,10 +651,9 @@ else
 	link_result_dir "SDK"
 fi
 
-msg "-----------------------------------------------------------------"
-msg " RESULT DIR : $RESULT_OUT"
-msg "-----------------------------------------------------------------"
-msg "-----------------------------------------------------------------"
+msg "---------------------------------------------------------------------------"
+msg " RESULT DIR : $RESULT_DIR/$RESULT_OUT"
+msg "---------------------------------------------------------------------------"
 msg " Bitbake environment set up command:"
 msg " $> source $POKY_DIR/oe-init-build-env $BUILD_DIR"
-msg "-----------------------------------------------------------------"
+msg "---------------------------------------------------------------------------"
