@@ -120,8 +120,8 @@ function msg() {
 }
 
 function get_avail_types () {
-	local dir=$1 sep=$2 table=$3 val
-	[[ $4 ]] && declare -n filter=$4;
+	local dir=$1 sep=$2 table=$3 val # store the value
+	[[ $4 ]] && declare -n avail=$4;
 
 	[ ! -d $dir ] && return;
 
@@ -141,8 +141,8 @@ function get_avail_types () {
 		fi
 
 		local match=false
-		if [ ${#filter[@]} -ne 0 ]; then
-			for n in "${filter[@]}"
+		if [ ${#avail[@]} -ne 0 ]; then
+			for n in "${avail[@]}"
 			do
 				if [[ $i == *$n* ]]; then
 					match=true
@@ -273,7 +273,7 @@ function parse_conf_image () {
 }
 
 function parse_conf_sdk () {
-        local sdk=$IMAGE_CONF_DIR/sdk.conf
+        local base=$IMAGE_CONF_DIR/sdk.conf
 	local conf=$BB_LOCAL_CONF
 
 	if [ $OPT_BUILD_SDK != true ]; then
@@ -281,19 +281,20 @@ function parse_conf_sdk () {
 	fi
 
 	msg "---------------------------------------------------------------------------"
-	msg " PARSE    : $sdk"
+	msg " PARSE    : $base"
 	msg " TO       : $conf"
 	msg "---------------------------------------------------------------------------"
 
 	echo "" >> $conf
-	echo "# PARSING: $sdk" >> $conf
-	merge_conf_file $conf $sdk $conf
+	echo "# PARSING: $base" >> $conf
+	merge_conf_file $conf $base $conf
 	echo "# PARSING DONE" >> $conf
 }
 
 function parse_conf_ramfs () {
 	local conf=$BB_LOCAL_CONF
-	replace="\"$IMAGE_NAME\""
+	local replace="\"$IMAGE_NAME\""
+
 	sed -i "s/.*INITRAMFS_IMAGE.*/INITRAMFS_IMAGE = $replace/" $conf
 }
 
@@ -313,18 +314,18 @@ function parse_conf_tasks () {
 }
 
 function parse_conf_bblayer () {
-	local bblayer=$TARGET_CONF_DIR/bblayers.conf
+	local base=$TARGET_CONF_DIR/bblayers.conf
         local conf=$BB_BBLAYER_CONF
 
 	msg "---------------------------------------------------------------------------"
-	msg " COPY     : $bblayer"
+	msg " COPY     : $base"
 	msg " TO       : $conf"
 	msg "---------------------------------------------------------------------------"
 
-        cp $bblayer $conf
+        cp $base $conf
 	[ $? -ne 0 ] && exit 1;
 
-	replace="\"${BSP_YOCTO_DIR//\//\\/}\""
+	local replace="\"${BSP_YOCTO_DIR//\//\\/}\""
 	sed -i "s/.*BSPPATH :=.*/BSPPATH := $replace/" $conf
 }
 
@@ -420,7 +421,8 @@ function print_avail_lists () {
 }
 
 function copy_deploy_images () {
-	local result deploy=$BUILD_DIR/tmp/deploy/images/$MACHINE_NAME
+	local deploy=$BUILD_DIR/tmp/deploy/images/$MACHINE_NAME
+	local result
 
 	if [ ! -d $deploy ]; then
 		err "No directory : $deploy"
