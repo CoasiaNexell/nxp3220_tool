@@ -16,10 +16,8 @@ declare -A SDK_SYSROOT_APPEND_TARGET=()
 function help() {
 	echo  -e "\033[0;33m  \033[0m"
 	echo  -e "\033[0;33m Setup SDK: \033[0m"
-	echo  -e "\033[0;33m  $> cp $RESULTDIR/${BUILDROOT_SDK}.tar.gz to <SDK PATH>\033[0m"
-	echo  -e "\033[0;33m  $> cd <SDK PATH> \033[0m"
-	echo  -e "\033[0;33m  $> tar zxf ${BUILDROOT_SDK}.tar.gz\033[0m"
-	echo  -e "\033[0;33m  $> ${BUILDROOT_SDK}/relocate-sdk.sh\033[0m"
+	echo  -e "\033[0;33m  $> tar zxf $RESULTDIR/${BUILDROOT_SDK}.tar.gz -C <SDK PATH>\033[0m"
+	echo  -e "\033[0;33m  $> <SDK PATH>/$BUILDROOT_SDK$BUILDROOT_SDK$BUILDROOT_SDK///relocate-sdk.sh\033[0m"
 	echo  -e "\033[0;33m  \033[0m"
 	echo  -e "\033[0;33m Setup Environments: \033[0m"
 	echo  -e "\033[0;33m  $> source ${BASEDIR}/tools/scripts/env_setup_br2_sdk.sh <SDK PATH>\033[0m"
