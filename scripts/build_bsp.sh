@@ -345,6 +345,11 @@ function make_target() {
 		fi
 	fi
 
+	# exit after excute default build commands
+	if [ "$cmd" == "distclean" ] || [ "$cmd" == "clean" ]; then
+		exit 1; # Exit to skip next build step
+	fi
+
 	local mach=${BUILD_ENVIRONMENT["MACHINE"]}
 	local arch=${BUILD_ENVIRONMENT["ARCH"]}
 
