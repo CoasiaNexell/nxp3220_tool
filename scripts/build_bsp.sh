@@ -180,23 +180,6 @@ function parse_environment() {
 	done
 }
 
-function setup_environment() {
-	local tool=$1
-
-	if [ -z $tool ]; then
-		return
-	fi
-
-	local tool_path=`readlink -e -n "$(dirname "$tool")"`
-	if [ -z $tool_path ]; then
-		echo -e "\033[47;31m No such 'TOOL': $(dirname "$tool") \033[0m"
-		exit 1
-	fi
-
-	tool=$(basename $tool)
-	export PATH=$tool_path:$PATH
-}
-
 function print_environments() {
 	echo -e "\n\033[0;33m++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ \033[0m"
 	for key in ${!BUILD_ENVIRONMENT[@]}
@@ -226,6 +209,23 @@ function print_components() {
 		fi
 	done
 	echo -e "\033[0;33m================================================================== \033[0m"
+}
+
+function setup_path() {
+	local tool=$1
+
+	if [[ -z $tool ]]; then
+		return
+	fi
+
+	local path=`readlink -e -n "$(dirname "$tool")"`
+	if [[ -z $path ]]; then
+		echo -e "\033[47;31m No such 'TOOL': $(dirname "$tool") \033[0m"
+		exit 1
+	fi
+
+	tool=$(basename $tool)
+	export PATH=$path:$PATH
 }
 
 function copy_target() {
@@ -354,6 +354,9 @@ function make_target() {
 	local arch=${BUILD_ENVIRONMENT["ARCH"]}
 
 	if [ ! -z $defconfig ]; then
+
+		setup_path $tool
+
 		if [ "$cmd" == "defconfig" ] || [ ! -f "$path/.config" ]; then
 			make -C $path ARCH=$arch CROSS_COMPILE=$tool $defconfig
 			[ $? -ne 0 ] && exit 1;
@@ -522,7 +525,7 @@ case "$1" in
 
 		# parse environment
 		parse_environment "${BUILD_IMAGES[@]}"
-		setup_environment ${BUILD_ENVIRONMENT["TOOL"]}
+		setup_path ${BUILD_ENVIRONMENT["TOOL"]}
 
 		if [ $dump_lists == true ]; then
 			echo -e "\033[0;33m------------------------------------------------------------------ \033[0m"
