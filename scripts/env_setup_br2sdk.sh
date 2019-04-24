@@ -4,13 +4,16 @@
 
 function usage() {
 	echo  -e "\033[0;33m usage:\033[0m"
-	echo  -e "\033[0;33m  $> source env_sdk_br2.sh [SDK PATH]\033[0m"
+	echo  -e "\033[0;33m  $> source env_setup_br2sdk.sh <SDK PATH>\033[0m"
+	echo  -e ""
 	echo  -e "\033[0;33m--------------------------------------------------- \033[0m"
-	echo  -e "\033[0;33m Build SDK:\033[0m"
+	echo  -e "\033[0;33m Setup Buildroot SDK before env_setup_br2sdk.sh !!!\033[0m"
+	echo  -e "\033[0;33m--------------------------------------------------- \033[0m"
+	echo  -e "\033[0;33m Build Buildroot SDK:\033[0m"
 	echo  -e "\033[0;33m  $> cd <buildroot> \033[0m"
 	echo  -e "\033[0;33m  $> make sdk \033[0m"
 	echo  -e "\033[0;33m \033[0m"
-	echo  -e "\033[0;33m Install SDK:\033[0m"
+	echo  -e "\033[0;33m Install Buildroot SDK:\033[0m"
 	echo  -e "\033[0;33m  $> cp <buildroot>/output/images/arm-buildroot-linux-gnueabihf_sdk-buildroot.tar.gz to <SDK PATH>\033[0m"
 	echo  -e "\033[0;33m  $> cd <SDK PATH> \033[0m"
 	echo  -e "\033[0;33m  $> tar zxvf arm-buildroot-linux-gnueabihf_sdk-buildroot.tar.gz\033[0m"
@@ -21,6 +24,7 @@ function usage() {
 
 if [ "$#" -ne 1 ]; then
 	echo  -e "\033[0;31m Set SDK PATH !!!\033[0m"
+	echo  -e ""
 	usage;
 	return 1
 fi
