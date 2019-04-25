@@ -9,15 +9,15 @@ BSP_ROOT_DIR=`readlink -e -n "$(cd "$(dirname "$0")" && pwd)/../.."`
 BSP_YOCTO_DIR=$BSP_ROOT_DIR/yocto
 
 # Input arguments
-TARGET_NAME=$1
+TARGET_MACHINE=$1
 IMAGE_NAME=$2
-MACHINE_NAME=${TARGET_NAME%-*}
+MACHINE_NAME=${TARGET_MACHINE%-*}
 
 # Set path
 POKY_DIR=$BSP_YOCTO_DIR/poky
 META_DIR=$BSP_YOCTO_DIR/meta-nexell/meta-nxp3220
 IMAGE_DIR=$META_DIR/recipes-core/images
-BUILD_DIR=$BSP_YOCTO_DIR/build/build-$TARGET_NAME
+BUILD_DIR=$BSP_YOCTO_DIR/build/build-$TARGET_MACHINE
 RESULT_DIR=$BSP_YOCTO_DIR/out
 RESULT_OUT=
 
@@ -30,6 +30,7 @@ IMAGE_CONF_DIR=$META_DIR/tools/configs/images
 # Parse to local.conf
 declare -A LOCAL_CONF_VALUES=(
 	["BSP_ROOT_DIR"]="$BSP_ROOT_DIR"
+	["BSP_TARGET_MACHINE"]="$TARGET_MACHINE"
 )
 
 # Copy from deploy to result dir
@@ -221,7 +222,7 @@ function merge_conf_file () {
 function parse_conf_machine () {
 	local conf=$BB_LOCAL_CONF
         local base=$TARGET_CONF_DIR/local.conf
-	local target=$TARGET_CONF_DIR/$TARGET_NAME.conf
+	local target=$TARGET_CONF_DIR/$TARGET_MACHINE.conf
 
 	msg "---------------------------------------------------------------------------"
 	msg " COPY     : $base"
@@ -232,7 +233,7 @@ function parse_conf_machine () {
 	[ $? -ne 0 ] && exit 1;
 
 	replace="\"$MACHINE_NAME\""
-	sed -i "s/.*MACHINE.*/MACHINE = $replace/" $conf
+	sed -i "s/^MACHINE.*/MACHINE = $replace/" $conf
 	[ $? -ne 0 ] && exit 1;
 
 	msg "---------------------------------------------------------------------------"
@@ -248,7 +249,7 @@ function parse_conf_machine () {
 	do
 		prefix="$i"
 		replace="\"${LOCAL_CONF_VALUES[$i]//\//\\/}\""
-		sed -i "s/.*$prefix =.*/$prefix = $replace/" $conf
+		sed -i "s/^$prefix =.*/$prefix = $replace/" $conf
 	done
 	echo "# PARSING DONE" >> $conf
 }
@@ -295,7 +296,7 @@ function parse_conf_ramfs () {
 	local conf=$BB_LOCAL_CONF
 	local replace="\"$IMAGE_NAME\""
 
-	sed -i "s/.*INITRAMFS_IMAGE.*/INITRAMFS_IMAGE = $replace/" $conf
+	sed -i "s/^INITRAMFS_IMAGE.*/INITRAMFS_IMAGE = $replace/" $conf
 }
 
 function parse_conf_tasks () {
@@ -306,7 +307,7 @@ function parse_conf_tasks () {
 	local file=$BB_LOCAL_CONF
 	if grep -q BB_NUMBER_THREADS "$file"; then
 		replace="\"$OPT_BUILD_TASKS\""
-		sed -i "s/.*BB_NUMBER_THREADS.*/BB_NUMBER_THREADS = $replace/" $file
+		sed -i "s/^BB_NUMBER_THREADS.*/BB_NUMBER_THREADS = $replace/" $file
 	else
 		echo "" >> $BB_LOCAL_CONF
 		echo "BB_NUMBER_THREADS = \"${OPT_BUILD_TASKS}\"" >> $file
@@ -326,7 +327,7 @@ function parse_conf_bblayer () {
 	[ $? -ne 0 ] && exit 1;
 
 	local replace="\"${BSP_YOCTO_DIR//\//\\/}\""
-	sed -i "s/.*BSPPATH :=.*/BSPPATH := $replace/" $conf
+	sed -i "s/^BSPPATH :=.*/BSPPATH := $replace/" $conf
 }
 
 function setup_bitbake_env () {
@@ -341,7 +342,7 @@ function setup_bitbake_env () {
 }
 
 function check_bitbake_env () {
-        local mach=$TARGET_NAME
+        local mach=$TARGET_MACHINE
 	local conf=$BB_LOCAL_CONF
 	local file=$BUILD_DIR/.build_image_type
 	local old="" new=""
@@ -353,9 +354,9 @@ function check_bitbake_env () {
 	fi
 
 	if [ -z "$OPT_IMAGE_TYPE" ]; then
-		new="${TARGET_NAME}_${IMAGE_NAME}"
+		new="${TARGET_MACHINE}_${IMAGE_NAME}"
 	else
-		new=${TARGET_NAME}_${IMAGE_NAME}_${OPT_IMAGE_TYPE}
+		new=${TARGET_MACHINE}_${IMAGE_NAME}_${OPT_IMAGE_TYPE}
 	fi
 
 	if [ $OPT_BUILD_SDK == true ]; then
@@ -430,7 +431,7 @@ function copy_deploy_images () {
 	fi
 
 	result="$(echo $IMAGE_NAME | cut -d'.' -f 1)"
-	RESULT_OUT=result-$TARGET_NAME-${result##*-}
+	RESULT_OUT=result-$TARGET_MACHINE-${result##*-}
 	result=$RESULT_DIR/$RESULT_OUT
 
 	msg "---------------------------------------------------------------------------"
@@ -475,7 +476,7 @@ function copy_sdk_images () {
 	fi
 
 	dir="$(echo $IMAGE_NAME | cut -d'.' -f 1)"
-	RESULT_OUT=SDK-result-$TARGET_NAME-${dir##*-}
+	RESULT_OUT=SDK-result-$TARGET_MACHINE-${dir##*-}
 	dir=$RESULT_DIR/$RESULT_OUT
 
 	mkdir -p $dir
@@ -487,7 +488,7 @@ function copy_sdk_images () {
 function copy_tools_files () {
 	local result="$(echo $IMAGE_NAME | cut -d'.' -f 1)"
 
-	RESULT_OUT=result-$TARGET_NAME-${result##*-}
+	RESULT_OUT=result-$TARGET_MACHINE-${result##*-}
 	result=$RESULT_DIR/$RESULT_OUT
 
 	msg "---------------------------------------------------------------------------"
@@ -591,14 +592,14 @@ function parse_args () {
 ###############################################################################
 # start shell commands
 ###############################################################################
-get_avail_types $TARGET_CONF_DIR "conf" TARGET_AVAIL_TABLE MACHINE_SUPPORT 
+get_avail_types $TARGET_CONF_DIR "conf" TARGET_AVAIL_TABLE MACHINE_SUPPORT
 get_avail_types $IMAGE_DIR "bb" IMAGE_AVAIL_TABLE
 get_avail_types $IMAGE_CONF_DIR "conf" IMAGE_TYPE_TABLE
 
 # parsing input arguments
 parse_args $@
 
-check_avail_type "$TARGET_NAME" "$TARGET_AVAIL_TABLE" "target"
+check_avail_type "$TARGET_MACHINE" "$TARGET_AVAIL_TABLE" "target"
 check_avail_type "$IMAGE_NAME" "$IMAGE_AVAIL_TABLE" "image"
 check_avail_type "$OPT_IMAGE_TYPE" "$IMAGE_TYPE_TABLE" "image type"
 
@@ -617,7 +618,7 @@ parse_conf_ramfs
 parse_conf_tasks
 
 msg "---------------------------------------------------------------------------"
-msg " TARGET     : $TARGET_NAME"
+msg " TARGET     : $TARGET_MACHINE"
 msg " IMAGE      : $IMAGE_NAME + $OPT_IMAGE_TYPE"
 msg " RECIPE     : $BB_RECIPE"
 msg " COMMAND    : $BB_BUILD_CMD"
