@@ -174,7 +174,8 @@ function check_avail_type () {
 	done
 
 	arr=($name)
-	if [ ${#arr[@]} == ${#comp[@]} ]; then
+	if [ ${#comp[@]} -ne 0 ] &&
+	   [ ${#arr[@]} == ${#comp[@]} ]; then
 		return
 	fi
 
