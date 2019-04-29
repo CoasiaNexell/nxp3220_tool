@@ -143,8 +143,7 @@ function get_avail_types () {
 
 		local match=false
 		if [ ${#avail[@]} -ne 0 ]; then
-			for n in "${avail[@]}"
-			do
+			for n in "${avail[@]}"; do
 				if [[ $i == *$n* ]]; then
 					match=true
 					break;
@@ -255,8 +254,7 @@ function parse_conf_machine () {
 	echo "# PARSING: $target" >> $dst
 	merge_conf_file $src $target $dst
 
-	for i in ${!LOCAL_CONF_VALUES[@]}
-	do
+	for i in ${!LOCAL_CONF_VALUES[@]}; do
 		prefix="$i"
 		replace="\"${LOCAL_CONF_VALUES[$i]//\//\\/}\""
 		sed -i "s/^$prefix =.*/$prefix = $replace/" $dst
@@ -273,8 +271,7 @@ function parse_conf_image () {
 		src+=( $IMAGE_CONF_DIR/$i.conf )
 	done
 
-	for i in "${src[@]}"
-	do
+	for i in "${src[@]}"; do
 		[ ! -f $i ] && continue;
 		msg "---------------------------------------------------------------------------"
 		msg " PARSE    : $i"
@@ -460,8 +457,7 @@ function copy_deploy_images () {
 
 	cd $deploy
 
-	for file in "${RESULT_FILES[@]}"
-	do
+	for file in "${RESULT_FILES[@]}"; do
 		local files=$(find $file -print \
 			2> >(grep -v 'No such file or directory' >&2) | sort)
 
@@ -517,8 +513,7 @@ function copy_tools_files () {
 
 	cd $BSP_ROOT_DIR
 
-	for file in "${TOOLS_FILES[@]}"
-	do
+	for file in "${TOOLS_FILES[@]}"; do
 		local files=$(find $file -print \
 			2> >(grep -v 'No such file or directory' >&2) | sort)
 
