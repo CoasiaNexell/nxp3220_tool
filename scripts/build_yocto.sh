@@ -94,12 +94,12 @@ function usage () {
 	echo "      : located at '$(echo $TARGET_CONF_DIR | sed 's|'$BSP_ROOT_DIR'/||')'"
 	echo " [image]"
 	echo "      : located at '$(echo $IMAGE_DIR | sed 's|'$BSP_ROOT_DIR'/||')'"
-	echo "      : The image must be 'nexell-image-<image>'"
+	echo "      : The image name is must be 'nexell-image-<image>'"
 	echo ""
 	echo " [options]"
 	echo "  -l : show available lists (machine-board, images, recipes, commands ...)"
-	echo "  -t : select build recipe"
-	echo "  -i : select image type to merge with <image>"
+	echo "  -t : set build recipe"
+	echo "  -i : set image type to build with <image>, ex> -i A,B,..."
 	echo "  -c : build commands"
 	echo "  -o : bitbake option"
 	echo "  -v : set bitbake '-v' option"
@@ -163,16 +163,20 @@ function get_avail_types () {
 
 function check_avail_type () {
 	local name=$1 table=$2 msg=$3
-
-	if [[ $msg != "target" ]] && [[ $msg != "image" ]]; then
-		[ -z $name ] && return;
-	fi
+	local comp=()
 
 	for i in ${table}; do
-		if [[ ${i} == ${name} ]]; then
-			return
-		fi
+		for n in ${name}; do
+			if [[ ${i} == ${n} ]]; then
+				comp+=($i)
+			fi
+		done
 	done
+
+	arr=($name)
+	if [ ${#arr[@]} == ${#comp[@]} ]; then
+		return
+	fi
 
 	err "Not support $msg: $name"
 	err "Availiable: $table"
@@ -220,83 +224,88 @@ function merge_conf_file () {
 }
 
 function parse_conf_machine () {
-	local conf=$BB_LOCAL_CONF
-        local base=$TARGET_CONF_DIR/local.conf
+	local dst=$BB_LOCAL_CONF
+        local src=$TARGET_CONF_DIR/local.conf
 	local target=$TARGET_CONF_DIR/$TARGET_MACHINE.conf
 
 	msg "---------------------------------------------------------------------------"
-	msg " COPY     : $base"
-	msg " TO       : $conf"
+	msg " COPY     : $src"
+	msg " TO       : $dst"
 	msg "---------------------------------------------------------------------------"
 
-	cp $base $conf
+	cp $src $dst
 	[ $? -ne 0 ] && exit 1;
 
 	replace="\"$MACHINE_NAME\""
-	sed -i "s/^MACHINE.*/MACHINE = $replace/" $conf
+	sed -i "s/^MACHINE.*/MACHINE = $replace/" $dst
 	[ $? -ne 0 ] && exit 1;
 
 	msg "---------------------------------------------------------------------------"
 	msg " PARSE    : $target"
-	msg " TO       : $conf"
+	msg " TO       : $dst"
 	msg "---------------------------------------------------------------------------"
 
-	echo "" >> $conf
-	echo "# PARSING: $target" >> $conf
-	merge_conf_file $base $target $conf
+	echo "" >> $dst
+	echo "# PARSING: $target" >> $dst
+	merge_conf_file $src $target $dst
 
 	for i in ${!LOCAL_CONF_VALUES[@]}
 	do
 		prefix="$i"
 		replace="\"${LOCAL_CONF_VALUES[$i]//\//\\/}\""
-		sed -i "s/^$prefix =.*/$prefix = $replace/" $conf
+		sed -i "s/^$prefix =.*/$prefix = $replace/" $dst
 	done
-	echo "# PARSING DONE" >> $conf
+	echo "# PARSING DONE" >> $dst
 }
 
 function parse_conf_image () {
-        local conf=$BB_LOCAL_CONF
-	local base=${IMAGE_NAME##*-} type=$OPT_IMAGE_TYPE
+        local dst=$BB_LOCAL_CONF
+	local src=( $IMAGE_CONF_DIR/${IMAGE_NAME##*-}.conf )
+	local type=$OPT_IMAGE_TYPE
 
-	for i in $IMAGE_CONF_DIR/$base.conf $IMAGE_CONF_DIR/$type.conf
+	for i in $type; do
+		src+=( $IMAGE_CONF_DIR/$i.conf )
+	done
+
+	for i in "${src[@]}"
 	do
 		[ ! -f $i ] && continue;
 		msg "---------------------------------------------------------------------------"
 		msg " PARSE    : $i"
-		msg " TO       : $conf"
+		msg " TO       : $dst"
 		msg "---------------------------------------------------------------------------"
 
-		echo "" >> $conf
-		echo "# PARSING: $i" >> $conf
-		merge_conf_file $conf $i $conf
-		echo "# PARSING DONE" >> $conf
+		echo "" >> $dst
+		echo "# PARSING: $i" >> $dst
+		merge_conf_file $dst $i $dst
+		echo "# PARSING DONE" >> $dst
         done
 }
 
 function parse_conf_sdk () {
-        local base=$IMAGE_CONF_DIR/sdk.conf
-	local conf=$BB_LOCAL_CONF
+	local dst=$BB_LOCAL_CONF
+        local src=$IMAGE_CONF_DIR/sdk.conf
 
 	if [ $OPT_BUILD_SDK != true ]; then
 		return
 	fi
 
 	msg "---------------------------------------------------------------------------"
-	msg " PARSE    : $base"
-	msg " TO       : $conf"
+	msg " PARSE    : $src"
+	msg " TO       : $dst"
 	msg "---------------------------------------------------------------------------"
 
-	echo "" >> $conf
-	echo "# PARSING: $base" >> $conf
-	merge_conf_file $conf $base $conf
-	echo "# PARSING DONE" >> $conf
+	echo "" >> $dst
+	echo "# PARSING: $src" >> $dst
+	merge_conf_file $dst $src $dst
+	echo "# PARSING DONE" >> $dst
 }
 
 function parse_conf_ramfs () {
-	local conf=$BB_LOCAL_CONF
+	local dst=$BB_LOCAL_CONF
 	local replace="\"$IMAGE_NAME\""
 
-	sed -i "s/^INITRAMFS_IMAGE.*/INITRAMFS_IMAGE = $replace/" $conf
+	sed -i "s/^INITRAMFS_IMAGE.*/INITRAMFS_IMAGE = $replace/" $dst
 }
 
 function parse_conf_tasks () {
@@ -315,19 +324,19 @@ function parse_conf_tasks () {
 }
 
 function parse_conf_bblayer () {
-	local base=$TARGET_CONF_DIR/bblayers.conf
-        local conf=$BB_BBLAYER_CONF
+        local dst=$BB_BBLAYER_CONF
+	local src=$TARGET_CONF_DIR/bblayers.conf
 
 	msg "---------------------------------------------------------------------------"
-	msg " COPY     : $base"
-	msg " TO       : $conf"
+	msg " COPY     : $src"
+	msg " TO       : $dst"
 	msg "---------------------------------------------------------------------------"
 
-        cp $base $conf
+        cp $src $dst
 	[ $? -ne 0 ] && exit 1;
 
 	local replace="\"${BSP_YOCTO_DIR//\//\\/}\""
-	sed -i "s/^BSPPATH :=.*/BSPPATH := $replace/" $conf
+	sed -i "s/^BSPPATH :=.*/BSPPATH := $replace/" $dst
 }
 
 function setup_bitbake_env () {
@@ -345,7 +354,8 @@ function check_bitbake_env () {
         local mach=$TARGET_MACHINE
 	local conf=$BB_LOCAL_CONF
 	local file=$BUILD_DIR/.build_image_type
-	local old="" new=""
+	local new=${TARGET_MACHINE}_${IMAGE_NAME}
+	local old=""
 
         if [ ! -f $conf ]; then
                 err "Not build setup environment : '$conf' ..."
@@ -353,10 +363,11 @@ function check_bitbake_env () {
 		exit 1;
 	fi
 
-	if [ -z "$OPT_IMAGE_TYPE" ]; then
-		new="${TARGET_MACHINE}_${IMAGE_NAME}"
-	else
-		new=${TARGET_MACHINE}_${IMAGE_NAME}_${OPT_IMAGE_TYPE}
+	if [[ ! -z $OPT_IMAGE_TYPE ]]; then
+		for i in $OPT_IMAGE_TYPE; do
+			echo "[$new]:$OPT_IMAGE_TYPE"
+			new="$new"_"$i"
+		done
 	fi
 
 	if [ $OPT_BUILD_SDK == true ]; then
@@ -577,7 +588,12 @@ function parse_args () {
 				exit 1;
 			fi
 			;;
-		-i )	OPT_IMAGE_TYPE=$2; shift 2;;
+		-i )	OPT_IMAGE_TYPE="";
+			local arr=(${2//,/ })
+			for i in "${arr[@]}"; do
+				OPT_IMAGE_TYPE="$OPT_IMAGE_TYPE $i"
+			done
+			shift 2;;
 		-o )	OPT_BUILD_OPTION=$2; shift 2;;
 		-S )	OPT_BUILD_SDK=true; shift 1;;
 		-f )	OPT_BUILD_PARSE=true; shift 1;;
