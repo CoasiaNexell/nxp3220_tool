@@ -165,6 +165,11 @@ function check_avail_type () {
 	local name=$1 table=$2 msg=$3
 	local comp=()
 
+	if [[ -z $name ]] &&
+	   [[ $msg == "image type" ]]; then
+		return
+	fi
+
 	for i in ${table}; do
 		for n in ${name}; do
 			if [[ ${i} == ${n} ]]; then
@@ -366,7 +371,6 @@ function check_bitbake_env () {
 
 	if [[ ! -z $OPT_IMAGE_TYPE ]]; then
 		for i in $OPT_IMAGE_TYPE; do
-			echo "[$new]:$OPT_IMAGE_TYPE"
 			new="$new"_"$i"
 		done
 	fi
