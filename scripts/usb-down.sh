@@ -11,8 +11,9 @@ DN_TARGET=
 USB_WAIT_TIME=	# sec
 
 declare -A TARGET_PRODUCT_ID=(
-	["3220"]="nxp3220"
-	["3225"]="nxp3225"
+	["3220"]="nxp3220"	# VID 0x2375
+	["3225"]="nxp3225"	# VID 0x2375
+	["1234"]="artik310"	# VID 0x04e8
 )
 
 function usage() {
