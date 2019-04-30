@@ -415,7 +415,7 @@ function print_avail_lists () {
 	msg "\t ${IMAGE_AVAIL_TABLE}"
 	msg "\t---------------------------------------------------------------------------"
 
-	msg "IMAGE-TYPE: -i <image>"
+	msg "IMAGE-TYPE: -i <image>,<image>,..."
 	msg "\t: '$(echo $IMAGE_CONF_DIR | sed 's|'$BSP_ROOT_DIR'/||')'"
 	msg "\t---------------------------------------------------------------------------"
 	msg "\t ${IMAGE_TYPE_TABLE}"
