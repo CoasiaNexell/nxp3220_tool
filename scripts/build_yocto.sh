@@ -503,11 +503,6 @@ function copy_tools_files () {
 	RESULT_OUT=result-$TARGET_MACHINE-${result##*-}
 	result=$RESULT_DIR/$RESULT_OUT
 
-	msg "---------------------------------------------------------------------------"
-	msg " TOOLS      : $deploy"
-	msg " RESULT     : $result"
-	msg "---------------------------------------------------------------------------"
-
 	mkdir -p $result
 	[ $? -ne 0 ] && exit 1;
 
