@@ -11,7 +11,7 @@ BSP_YOCTO_DIR=$BSP_ROOT_DIR/yocto
 # Input arguments
 TARGET_MACHINE=$1
 IMAGE_NAME=$2
-MACHINE_NAME=${TARGET_MACHINE%-*}
+MACHINE_NAME="$(echo $TARGET_MACHINE | cut -d'-' -f 1)"
 
 # Set path
 POKY_DIR=$BSP_YOCTO_DIR/poky
