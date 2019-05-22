@@ -354,11 +354,10 @@ function setup_bitbake_env () {
 }
 
 function check_bitbake_env () {
-        local mach=$TARGET_MACHINE
+        local mach="$(echo $TARGET_MACHINE | cut -d'-' -f 1)"
 	local conf=$BB_LOCAL_CONF
 	local file=$BUILD_DIR/.build_image_type
-	local new=${TARGET_MACHINE}_${IMAGE_NAME}
-	local old=""
+	local new=${TARGET_MACHINE}_${IMAGE_NAME} old=""
 
         if [ ! -f $conf ]; then
                 err "Not build setup environment : '$conf' ..."
@@ -380,10 +379,9 @@ function check_bitbake_env () {
 		old="$(cat $file)"
 	fi
 
-        v="$(echo $(find $conf -type f -exec grep -w -h 'MACHINE' {} \;) | cut -d'"' -f 2)"
-        v="$(echo $v | cut -d'"' -f 1)-${mach##*-}"
+	local build_mach="$(echo $(find $conf -type f -exec grep -w -h 'MACHINE' {} \;) | cut -d'"' -f 2)"
 
-        if [[ $mach == $v ]]; then
+        if [[ $mach == $build_mach ]]; then
 		msg "PARSE: Already '$(echo $conf | sed 's|'$BSP_ROOT_DIR'/||')'"
 		if [[ $old != $new ]]; then
 			[ -e $file ] && rm $file;
@@ -395,6 +393,7 @@ function check_bitbake_env () {
         fi
 
 	echo $new >> $file;
+
 	return 1
 }
 
