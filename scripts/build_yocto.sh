@@ -37,12 +37,18 @@ declare -A LOCAL_CONF_VALUES=(
 RESULT_FILES=(
 	"bl1-nxp3220.bin.raw"
 	"bl1-nxp3220.bin.enc.raw"
+	"bl1-nxp3220.bin.raw.ecc"
+	"bl1-nxp3220.bin.enc.raw.ecc"
 	"bl2.bin.raw"
+	"bl2.bin.raw.ecc"
 	"bl32.bin.raw"
 	"bl32.bin.enc.raw"
+	"bl32.bin.raw.ecc"
+	"bl32.bin.enc.raw.ecc"
 	"u-boot-${MACHINE_NAME}-1.0-r0.bin"
 	"u-boot.bin"
 	"u-boot.bin.raw"
+	"u-boot.bin.raw.ecc"
 	"params_env.*"
 	"boot/"
 	"boot.img"
@@ -379,9 +385,10 @@ function check_bitbake_env () {
 		old="$(cat $file)"
 	fi
 
-	local build_mach="$(echo $(find $conf -type f -exec grep -w -h 'MACHINE' {} \;) | cut -d'"' -f 2)"
+	local vmach="$(echo $(echo $(find $conf -type f -exec grep -w -h 'MACHINE' {} \;) | \
+		cut -d'"' -f 2) | cut -d'"' -f 1)"
 
-        if [[ $mach == $build_mach ]]; then
+        if [[ $mach == $vmach ]]; then
 		msg "PARSE: Already '$(echo $conf | sed 's|'$BSP_ROOT_DIR'/||')'"
 		if [[ $old != $new ]]; then
 			[ -e $file ] && rm $file;
