@@ -4,392 +4,174 @@
 
 # command-line settable variables
 
-FS_ROOT_PATH=
-FS_COPY_PATH=
-FS_MAKE_DEVNODE=n
-MKDEV_EXT_SH_PATH=
-MK_DEBUG_MSG=n
-
-# UBIFS Parameters
-FS_NAME=ubi.img
-
-FS_EXEC_PATH=
-
-PAGE_SIZE=8192
-SUB_PAGE_SIZE=$PAGE_SIZE
-PHYS_BL_SIZE=1024				# KiB
-FS_SIZE=4096					# MiB
-TOTAL_CHIP_SIZE=4096			# MiB
-
-UFS_VOLUME_NAME=
-UFS_INI_PATH=./ubi.ini
-UFS_BUILD_IMAGE=y
-UFS_COMPRESS_TYPE=lzo
-
-#########################
-# Get build options
-#########################
 function usage()
 {
 	echo "usage: `basename $0`"
-	echo "  -r rootfs path to build ubi image		 					 	"
-	echo "  -c copy to directory (default .)		 					 	"
-	echo "  -n ubi image name  (default fs.ubi.img/ubi.img)				 	"
-	echo "  -v ubi volume name  (default root)					 	 	 	"
-	echo "  -d build device node (default no)	 						 	"
-	echo "  -e set external mknode shell path	 						 	"
-	echo "  -t ubifs(mkfs.ubifs, ubinize) tools path 					 	"
-	echo "  -i path ubi.ini to build ubi image (ubinize)				 	"
-	echo "  -p page size (B)											 	"
-	echo "  -s subpage size (special flash, B)							 	"
-	echo "  -b physical block size (KiB)									"
-	echo "  -l ubifs image size on nand flash (MiB)							"
-	echo "  -f nand flash chip size (MiB)									"
-	echo "  -z ubifs compress format  (lzo, favor_lzo, zlib, default lzo) 	"
-	echo "  -u skip build ubi image (ubinize) 							 	"
-	echo "  -g print build message 									 	 	"
-	echo "  clean rm *.img											 	 	"
+	echo "  -r input root filesystem for ubi image"
+	echo "  -v ubi volume/image name"
+	echo "  -l ubi volume size"
+	echo "  -i ubi volume id"
+	echo "  -p flash page size"
+	echo "  -s flash sub page size (default page size)"
+	echo "  -b flash block size"
+	echo "  -c flash size"
+	echo "  -z ubifs compress format (lzo, favor_lzo, zlib, default lzo)"
 }
 
-while getopts 'hr:c:n:de:t:i:p:s:b:l:f:z:v:ug' opt
+function convert_hn_to_byte() {
+	local val=$1
+	local ret=$2 # store calculated byte
+	local delmi="" mulitple=0
+
+	case "$val" in
+	*K* ) delmi='K'; mulitple=1024;;
+	*k* ) delmi='k'; mulitple=1024;;
+	*M* ) delmi='M'; mulitple=1048576;;
+	*m* ) delmi='m'; mulitple=1048576;;
+	*G* ) delmi='G'; mulitple=1073741824;;
+	*g* ) delmi='g'; mulitple=1073741824;;
+	-- ) ;;
+	esac
+
+	if [ ! -z $delmi ]; then
+		val=$(echo $val| cut -d$delmi -f 1)
+		val=`expr $val \* $mulitple`
+		eval "$ret=\"${val}\""
+	fi
+}
+
+function create_ubi_ini_file() {
+	local ini_file=$1 image=$2 vname=$3 vid=$4 vsize=$5
+
+	echo \[ubifs\] > $ini_file
+	echo mode=ubi >> $ini_file
+	echo image=$image >> $ini_file
+	echo vol_id=$vid >> $ini_file
+	echo vol_size=$vsize >> $ini_file
+	echo vol_type=dynamic >> $ini_file
+	echo vol_name=$vname >> $ini_file
+	echo vol_flags=autoresize >> $ini_file
+}
+
+function make_ubi_image()
+{
+	local root=`realpath $1`
+	local vname=$2 vid=$3 vsize=$4 compress=$5
+	local page_size=$6 sub_page_size=$7 block_size=$8 flash_size=$9
+
+	if [[ -z $page_size ]] || [[ -z $block_size ]] || [[ -z $flash_size ]]; then
+		echo -e "\033[0;31m Check page size:$page_size/block size:$block_size/flash size:$flash_size\033[0m"
+        fi
+
+	if [[ ! -d $root ]]; then
+		echo -e "\033[0;31m Not found root: $root\033[0m"
+		exit 1;
+	fi
+
+        if [[ -z $root ]] || [[ -z $vname ]] || [ -z $vsize ]; then
+		echo -e "\033[0;31m Check root image:$root/volume name:$vname/volume size:$vsize\033[0m"
+        fi
+
+	if [[ $compress != "lzo" ]] && [[ $compress != "favor_lzo" ]] &&
+	   [[ $compress != "zlib" ]]; then
+		echo -e "\033[0;31m Not support compress: $compress\033[0m"
+		exit 1;
+	fi
+
+	# check mkfs.ubifs capability
+	mkfs.ubifs --h | grep -q "space-fixup"
+	if [ $? -eq 1 ]; then
+		echo -e "\033[0;31m mkfs.ubifs not support option "-F" for space-fixup\033[0m"
+		exit 1;
+	fi
+
+	if [ -z $sub_page_size ] || [ $sub_page_size -eq 0 ]; then
+                sub_page_size=$page_size
+        fi
+
+	convert_hn_to_byte $block_size block_size
+	convert_hn_to_byte $flash_size flash_size
+	convert_hn_to_byte $vsize vsize
+
+	#
+        # Calcurate UBI varialbe
+        # Refer to http://processors.wiki.ti.com/index.php/UBIFS_Support
+        #
+        local LEB=`expr $block_size - \( 2 \* $page_size \)`
+        local PEB=$block_size
+        local BLC=`expr $flash_size / $block_size`
+        local RPB=`expr \( 20 \* $BLC \) / 1024`
+        local RPC=`expr $PEB - $LEB`
+        local TPB=`expr $vsize / $PEB`
+        local OVH=`expr \( \( $RPB + 4 \) \* $PEB \) + \( $RPC \* \( $TPB - $RPB - 4 \) \)`
+	local OVB=`expr $OVH / $PEB`
+	local avail_size=`expr $vsize - $OVH`
+        local max_block_count=`expr $avail_size / $LEB`
+
+	local DIR=$(dirname $root)
+        local ubi_fs=`realpath $DIR/$vname.ubifs`
+        local ubi_image=`realpath $DIR/$vname.img`
+	local ubi_ini=`realpath $DIR/ubi.$vname.ini`
+
+	echo -e "\033[0;33m ROOT dir = $root\033[0m"
+	echo -e "\033[0;33m UBI fs = $ubi_fs\033[0m"
+	echo -e "\033[0;33m UBI image = $ubi_image\033[0m"
+	echo -e "\033[0;33m UBI Ini = $ubi_ini\033[0m"
+	echo -e "\033[0;33m UBI Volume name = $vname\033[0m"
+	echo -e "\033[0;33m UBI Volume id = $vid\033[0m"
+	echo -e "\033[0;33m UBI Volume size = $(($avail_size/1024/1024))MiB ($(($vsize/1024/1024))MiB)\033[0m"
+	echo -e "\033[0;33m UBI Compression = $compress\033[0m"
+	echo -e "\033[0;33m UBI Logical Erase Block size = $((LEB/1024))KiB\033[0m"
+	echo -e "\033[0;33m UBI Maximum Logical Erase Block counts= $max_block_count\033[0m"
+	echo -e "\033[0;33m UBI Overhead = $OVB ($TPB)\033[0m"
+	echo -e "\033[0;33m UBI Reserved size = $(($OVH/1024/1024))MiB\033[0m"
+	echo -e "\033[0;33m Flash Page size = $page_size\033[0m"
+	echo -e "\033[0;33m Flash Sub page size = $sub_page_size\033[0m"
+	echo -e "\033[0;33m Flash Block size = $((block_size/1024))KiB\033[0m"
+	echo -e "\033[0;33m Flash size = $((flash_size/1024/1024))MiB\033[0m"
+
+	create_ubi_ini_file $ubi_ini $ubi_fs $vname $vid $((avail_size/1024/1024))MiB
+
+	mkfs.ubifs -r $root -o $ubi_fs -m $page_size -e $LEB -c $max_block_count -F
+
+	ubinize -o $ubi_image \
+		-m $page_size -p $block_size -s $sub_page_size \
+		$ubi_ini
+}
+
+UBI_IMAGE_ROOT=""
+UBI_VOLUME_NAME=""
+UBI_VOLUME_ID=0
+UBI_COMPRESS="lzo"
+FLASH_PAGE_SIZE=0
+FLASH_SUB_PAGE_SIZE=0
+FLASH_BLOCK_SIZE=0
+FLASH_DEVICE_SIZE=0
+
+while getopts 'hp:s:b:c:r:v:l:i:z:' opt
 do
-	case $opt in
-	r) FS_ROOT_PATH=$OPTARG ;;
-	c) FS_COPY_PATH=$OPTARG ;;
-	n) FS_NAME=$OPTARG ;;
-	d) FS_MAKE_DEVNODE=y ;;
-	e) MKDEV_EXT_SH_PATH=$OPTARG ;;
-	t) FS_EXEC_PATH=$OPTARG ;;
-	p) PAGE_SIZE=$OPTARG ;;
-	s) SUB_PAGE_SIZE=$OPTARG ;;
-	b) PHYS_BL_SIZE=$OPTARG ;;
-	l) FS_SIZE=$OPTARG ;;
-	f) TOTAL_CHIP_SIZE=$OPTARG ;;
-	i) UFS_INI_PATH=$OPTARG ;;
-	z) UFS_COMPRESS_TYPE=$OPTARG ;;
-	v) UFS_VOLUME_NAME=$OPTARG ;;
-	u) UFS_BUILD_IMAGE=n ;;
-	g) MK_DEBUG_MSG=y ;;
+        case $opt in
+	p ) FLASH_PAGE_SIZE=$OPTARG;;
+	s ) FLASH_SUB_PAGE_SIZE=$OPTARG;;
+	b ) FLASH_BLOCK_SIZE=$OPTARG;;
+	c ) FLASH_DEVICE_SIZE=$OPTARG;;
+	r ) UBI_IMAGE_ROOT=$OPTARG;;
+	v ) UBI_VOLUME_NAME=$OPTARG;;
+	l ) UBI_VOLUME_SIZE=$OPTARG;;
+	i ) UBI_VOLUME_ID=$OPTARG;;
+	z ) UBI_COMPRESS=$OPTARG;;
 	h | *)
 		usage
 		exit 1;;
-		esac
+	esac
 done
 
-# no input parameter
-if [ -z "$1" ]; then usage; exit 1; fi
-
-# clean
-if [ "clean" = "$1" ]; then
-	echo "make clean, rm *.img"
-	rm -f *.img
-	exit 1;
-fi
-
-#################################################################
-# functions
-#################################################################
-
-#
-# get sudo permission
-#
-# return "sudo"
-#
-function sudo_permission()
-{
-	_user_=$(id | sed 's/^uid=//;s/(.*$//')
-    if [ 0 != $_user_ ]; then
-    	echo " Require root permission"
-        _sudo_=$1
-        eval "$_sudo_='sudo'"	# return sudo
-        # test
-        sudo losetup -a >> /dev/null
-	fi
-}
-
-#
-# check rootfs path's permission
-#
-# input parameters
-# $1	= path
-#
-# return
-# - exit when not write permission
-#
-function check_permission_w()
-{
-	path=$1
-	if [ -z $path ] || [ ! -d $path ]; then
-		echo ""
-		echo -e " - check path: $path ...."
-		exit 1;
-	fi
-
-	if [ ! -w "$path" ]; then
-		echo ""
-		echo -e " You do not have write permission"
-		echo -e " Check permission: '$path'"
-		exit 1;
-	fi
-}
-
-#
-# make device node files
-#
-# input parameters
-# $1	= device path
-# $2 	= mknode shell path when use external shell
-#
-function build_mkdev()
-{
-	root_path=$1
-	ext_mk_sh=$2
-
-	if [ -n "$ext_mk_sh" ];
-	then
-		# use external shell program
-		#
-		if [ -x "$ext_mk_sh" ]; then
-			$ext_mk_sh $root_path
-			echo -e "\t[Done]"
-		else
-			echo ""
-			echo -e " - check mknode shell: $MKDEV_EXT_SH_PATH ...."
-		fi
-	else
-		echo ""
-		echo -n " [ Make Device Node: '$root_path'..."
-		###
-		# make device nodes in /dev
-		###
-		dev_dir=$root_path/dev
-		check_permission_w $root_path
-		sudo_permission _SUDO_
-
-		# miscellaneous one-of-a-kind stuff
-		[ ! -c $dev_dir/console   ] && $_SUDO_ mknod 	$dev_dir/console 	c 5 1;
-		[ ! -c "$dev_dir/full"    ] && $_SUDO_ mknod 	$dev_dir/full 		c 1 7;
-		[ ! -c "$dev_dir/kmem"    ] && $_SUDO_ mknod 	$dev_dir/kmem 		c 1 2;
-		[ ! -c "$dev_dir/mem"     ] && $_SUDO_ mknod 	$dev_dir/mem 		c 1 1;
-		[ ! -c "$dev_dir/null"    ] && $_SUDO_ mknod 	$dev_dir/null 		c 1 3;
-		[ ! -c "$dev_dir/port"    ] && $_SUDO_ mknod 	$dev_dir/port 		c 1 4;
-		[ ! -c "$dev_dir/random"  ] && $_SUDO_ mknod 	$dev_dir/random 	c 1 8;
-		[ ! -c "$dev_dir/urandom" ] && $_SUDO_ mknod  	$dev_dir/urandom 	c 1 9;
-		[ ! -c "$dev_dir/zero"    ] && $_SUDO_ mknod  	$dev_dir/zero 		c 1 5;
-		[ ! -c "$dev_dir/tty"     ] && $_SUDO_ mknod 	$dev_dir/tty 		c 5 0
-		[ ! -h "$dev_dir/core"    ] && ln -s /proc/kcore	$dev_dir/core;
-
-		# loop devs
-		for i in `seq 0 7`; do
-			[ ! -b "$dev_dir/loop$i" ] && $_SUDO_ mknod $dev_dir/loop$i 	b 7 $i;
-		done
-
-		# ram devs
-		for i in `seq 0 9`; do
-			[ ! -b "$dev_dir/ram$i" ] && $_SUDO_ mknod $dev_dir/ram$i 	b 1 $i
-		done
-
-		# ttys
-		for i in `seq 0 9`; do
-			[ ! -c "$dev_dir/tty$i" ] && $_SUDO_ mknod $dev_dir/tty$i 	c 4 $i
-		done
-		echo -e "\t Done]"
-	fi
-}
-
-#
-# make ubifs
-#
-# input parameters
-# $1	= rootfs path
-# $2	= ubifs build name (default fs.ubi.img/ubi.img)
-# $3	= page size (Byte)
-# $4	= sub page size (Byte)
-# $5	= erase block size (KByte)
-# $6	= file system size on nand (MByte)
-# $7	= ubi.ini path
-# $8 	= build ubi raw image (ubinize)
-# $9 	= ubifs compress type
-
-function build_ubifs()
-{
-	root_path=$1
-	mkfs_name=$2
- 	page_size=$3
- 	subs_size=$4
- 	bl_length=$5
- 	fs_length=$6
- 	conf_path=$7
- 	mkubinize=$8
- 	comp_type=$9
-	flash_size=${10}
-
-	# check root path
-	if [ ! -d $root_path ] || [ -z $root_path ]; then
-		echo -e " - check root path: $path ...."
-		exit 1;
-	fi
-
-	# check ubi config path
-	if [ -d $conf_path ] || [ -z $root_path ] || [ ! -r $conf_path ]; then
-		echo -e " check path ubi config at $conf_path"
-		exit 1;
-	fi
-
-	# check compression type
-	if [ $comp_type != "lzo" ] && [ $comp_type != "favor_lzo" ] && [ $comp_type != "zlib" ]; then
-		echo -e " not support compression type $comp_type"
-		exit 1;
-	fi
-
-	# set fs name
-	[ -z $mkfs_name ] && mkfs_name=ubi.img;
-	ubi_fs_path="${mkfs_name%/*}"
-	ubi_fs_name=fs."${mkfs_name##*/}"
-	ubi_bi_name="${mkfs_name##*/}"
-	ubi_vo_name=$UFS_VOLUME_NAME
-
-	# check mkfs.ubifs capability
-	if [ "y" = $mkubinize ]; then
-		$EXEC_MKUBIFS --h | grep -q "space-fixup"
-		if [ $? -eq 1 ]; then
-			echo    ""
-			echo -e " $EXEC_MKUBIFS not support option "-F" for space-fixup ..."
-			exit 1;
-		fi
-	fi
-
-	# Calcurate UBI varialbe
-	# Refer to http://processors.wiki.ti.com/index.php/UBIFS_Support
-	#
-	phys_bl_size=$(( $bl_length*1024 ))				# KiB
-	fsys_bl_size=$(( $fs_length*1024*1024 ))		# MiB
-	flash_bl_cnt=$(( ($flash_size * 1024*1024) / $phys_bl_size ))	# Flash erase block count
-
-	PEB=$(( $phys_bl_size ))						# PEB (Physical Erase Block) Size (SP)
-	LEB=$(( $phys_bl_size-(2*$page_size) )) 		# LEB (Logical Erase Block) Size (SL)
-	TPB=$(( $fsys_bl_size/$phys_bl_size ))			# Total number of PEBs on the MTD device  (P)
-#	RPB=$(( 20 * $TPB/1024 ))						# Number of PEBs reserved for bad PEB handling (20/1024) (B, but if flash has bad more than this...)
-	RPB=$(( 20 * ${flash_bl_cnt}/1024 ))			# Number of PEBs reserved for bad PEB handling (20/1024)
-	RPC=$(( $PEB-$LEB ))							# The overhead related to storing EC and VID headers in bytes (P)
-
-	# UBI overhead
-	OVH=$(( (($RPB+4)*$PEB)+($RPC*($TPB-$RPB-4)) )) # UBI overhead Size
-	OVB=$(( $OVH/$PEB ))							# UBI overhead PEBs
-	AVL=$(( $fsys_bl_size - $OVH ))					# Available Size ( ubi.cfg : vol_size )
-
-	leb_size=$LEB
-	bl_count=$(( $AVL / $leb_size ))				# maximum fs size
-	volsize=$(( $AVL/1024/1024 ))					# Available Volume Size (MiB)
-
-	# macro
-	_KIB_=KiB
-	_MIB_=MiB
-
-
-	# set ubi.ini
-	sed  -i "s|image\=.*|image=$ubi_fs_name|g" $conf_path;
-	sed  -i "s|vol_size\=.*|vol_size=$volsize$_MIB_|g" $conf_path;
-	[ ! -z $ubi_vo_name ] && sed  -i "s|vol_name\=.*|vol_name=$ubi_vo_name|g" $conf_path;
-	ubi_vo_name=`cat $conf_path | grep -w vol_name | cut -d'=' -f2`
-
-	echo ""
-	echo -e " Make ubifs "
-	echo " root from           = $root_path"
-	echo " disk name           = $ubi_fs_name, $ubi_bi_name"
-	echo " copy to             = $FS_COPY_PATH"
-	echo " ubi config          = $conf_path"
-	echo " compression type    = $comp_type"
-	echo " page size           = $page_size"
-	echo " physical block size = $bl_length KiB"
-	echo " logical block size  = $leb_size "
-	echo " logical block count = $bl_count "
-	echo " ubi overhead PEBs   = $OVB ($TPB)"
-	echo " ubi config          = $conf_path"
-	echo " ubi reserved  size  = $(( $OVH/1024/1024 )) MiB"
-	echo " ubi volume    size  = $volsize MiB"
-	echo " ubi volume    name  = $ubi_vo_name"
-
-	# build ubifs image
-	[ "y" = $MK_DEBUG_MSG ] && UBIFS_VERBOSE=-v;
-
-	pushd ${ubi_fs_path}
-
-	$EXEC_MKUBIFS -r $root_path -o $ubi_fs_name	\
-			-m $page_size 						\
-			-e $leb_size 						\
-			-c $bl_count						\
-			-F									\
-			$UBIFS_VERBOSE
-
-	echo "$EXEC_MKUBIFS -r $root_path -o $ubi_fs_name -m $page_size -e $leb_size -c $bl_count -F $UBIFS_VERBOSE"
-	echo "$EXEC_UBINIZE -o $ubi_bi_name -m $page_size -p $bl_length$_KIB_ -s $subs_size $conf_path $UBIFS_VERBOSE"
-
-
-	if [ "y" = $mkubinize ]; then
-		$EXEC_UBINIZE -o $ubi_bi_name 			\
-				-m $page_size					\
-				-p $bl_length$_KIB_				\
-				-s $subs_size					\
-				$conf_path						\
-				$UBIFS_VERBOSE
-	fi
-
-	[ $ubi_fs_name ] &&  chmod 666 $ubi_fs_name;
-	[ $ubi_bi_name ] &&  chmod 666 $ubi_bi_name;
-
-	# copy image
-	if [ ! -z $FS_COPY_PATH ] && [ -d $FS_COPY_PATH ]; then
-		[ $ubi_fs_name ]&& cp -f $ubi_fs_name $FS_COPY_PATH;
-		[ $ubi_bi_name ]&& cp -f $ubi_bi_name $FS_COPY_PATH;
-	fi
-
-	popd
-}
-
-
-#################################################################
-# RUN COMMAND
-#################################################################
-
-# check ubifs tools
-EXEC_MKUBIFS=mkfs.ubifs
-EXEC_UBINIZE=ubinize
-if [ ! -z $FS_EXEC_PATH   ]; then
-	EXEC_MKUBIFS=$FS_EXEC_PATH/$EXEC_MKUBIFS
-	if [ ! -x "$EXEC_MKUBIFS" ]; then
-		echo -e " check path mkfs.ubifs at $EXEC_MKUBIFS"
-		exit 1;
-	fi
-fi
-
-if [ ! -z $FS_EXEC_PATH   ]; then
-	EXEC_UBINIZE=$FS_EXEC_PATH/$EXEC_UBINIZE
-	if [ ! -x "$EXEC_UBINIZE" ]; then
-		echo -e " check path ubinize at $EXEC_UBINIZE"
-		exit 1;
-	fi
-fi
-
-# build device nodes
-ROOT_PATH=$FS_ROOT_PATH
-if [ $FS_MAKE_DEVNODE = "y" ] || [ -n "$MKDEV_EXT_SH_PATH" ]; then
-	check_permission_w $ROOT_PATH
-	build_mkdev $ROOT_PATH $MKDEV_EXT_SH_PATH
-fi
-
-# build ubifs
-param1=$ROOT_PATH
-param2=$FS_NAME
-param3=$PAGE_SIZE
-param4=$SUB_PAGE_SIZE
-param5=$PHYS_BL_SIZE
-param6=$FS_SIZE
-param7=$UFS_INI_PATH
-param8=$UFS_BUILD_IMAGE
-param9=$UFS_COMPRESS_TYPE
-param10=$TOTAL_CHIP_SIZE
-
-build_ubifs $param1 $param2 $param3 $param4 $param5 $param6 $param7 $param8 $param9 $param10
-
-
+make_ubi_image "$UBI_IMAGE_ROOT" \
+		"$UBI_VOLUME_NAME" \
+		"$UBI_VOLUME_ID" \
+		"$UBI_VOLUME_SIZE" \
+		"$UBI_COMPRESS" \
+		"$FLASH_PAGE_SIZE" \
+		"$FLASH_SUB_PAGE_SIZE" \
+		"$FLASH_BLOCK_SIZE" \
+		"$FLASH_DEVICE_SIZE"
