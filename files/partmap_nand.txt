@@ -1,8 +1,7 @@
-flash=nand,0:bl1:bootsector:0x0,0x10000:bl1-nxp3220.bin.raw.ecc;
-flash=nand,0:bl2:bootsector:0x10000,0x10000:bl2.bin.raw.ecc;
-flash=nand,0:bl32:bootsector:0x20000,0x200000:bl32.bin.raw.ecc;
-flash=nand,0:bootloader:bootsector:0x300000,0x180000:u-boot.bin.raw.ecc;
-flash=nand,0:env:raw:0x480000,0x4000:params_env.bin;
-flash=nand,0:boot:partition:0x500000,0x2000000:boot.img;
-flash=nand,0:modules:partition:0x2500000,0x2000000:modules.img;
-flash=nand,0:rootfs:partition:0x4500000,0:rootfs.img;
+flash=nand,0:bl1:bootsector:0x0,0x20000:bl1-nxp3220.bin.raw;
+flash=nand,0:bl2:bootsector:0x20000,0x20000:bl2.bin.raw;
+flash=nand,0:bl32:bootsector:0x40000,0x200000:bl32.bin.raw;
+flash=nand,0:bootloader:bootsector:0x300000,0x100000:u-boot.bin.raw;
+flash=nand,0:env:raw:0x500000,0x4000:params_env.bin;
+flash=nand,0:boot:partition:0x600000,0x1000000:boot.img;
+flash=nand,0:rootfs:partition:0x1600000,0x6a00000:rootfs.img;
