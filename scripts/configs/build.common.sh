@@ -62,7 +62,7 @@ UBOOT_BINGEN="$BINGEN_EXE -n $UBOOT_NSIH -i $RESULT/u-boot.bin
 UBOOT_POSTCMD="$UBOOT_PARAM; $UBOOT_BINGEN"
 
 KERNEL_POSTCMD="mkdir -p $RESULT/boot; \
-		cp -a $RESULT/zImage $RESULT/boot;"
+		cp -a $RESULT/${TARGET_KERNEL_IMAGE} $RESULT/boot;"
 DTB_POSTCMD="mkdir -p $RESULT/boot; \
 		cp -a $RESULT/${TARGET_KERNEL_DTB}.dtb $RESULT/boot;"
 LOGO_POSTCMD="mkdir -p $RESULT/boot; \
@@ -107,8 +107,8 @@ BUILD_IMAGES=(
 	"kernel	=
 		PATH  	: $KERNEL_DIR,
 		CONFIG	: ${TARGET_KERNEL_DEFCONFIG},
-		IMAGE 	: zImage,
-		OUTPUT	: arch/arm/boot/zImage,
+		IMAGE 	: ${TARGET_KERNEL_IMAGE},
+		OUTPUT	: arch/arm/boot/${TARGET_KERNEL_IMAGE},
 		POSTCMD : $KERNEL_POSTCMD",
 	"dtb   	=
 		PATH  	: $KERNEL_DIR,
