@@ -9,8 +9,9 @@ DISK_IMAGE_NAME="disk.img"
 DISK_UPDATE_DEV=""
 
 declare -A DISK_PARTITION=(
-	["mbr"]="msdos"
+	["partition"]="gpt"
 	["gpt"]="gpt"
+	["dos"]="msdos"
 )
 
 DISK_CHECK_SYSTEM=(
@@ -52,7 +53,7 @@ function usage () {
 	echo ""
 	echo "Partmap struct:"
 	echo "  fash=<>,<>:<>:<partition>:<start:hex>,<size:hex>"
-	echo "  part   : gpt or mbr else ..."
+	echo "  part   : gpt or dos else ..."
 	echo ""
 	echo "DISK update:"
 	echo "  $> sudo dd if=<path>/<image> of=/dev/sd? bs=1M"
@@ -231,7 +232,7 @@ function parse_images () {
 			fi
 		done
 
-		# get partition type: gpt/mbr
+		# get partition type: gpt/dos
 		local part=
 		for i in "${!DISK_PARTITION[@]}"; do
 			if [[ $i == $type ]]; then
