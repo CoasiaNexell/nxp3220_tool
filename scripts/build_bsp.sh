@@ -310,6 +310,7 @@ function make_target() {
 	fi
 
 	path=`realpath ${TARGET_COMPONENTS["PATH"]}`
+
 	if [[ ! -d $path ]]; then
 		echo -e "\033[47;31m No such to build $target: '$path' ... \033[0m"
 		exit 1;
@@ -382,28 +383,38 @@ function build_target() {
 	fi
 
 	if [ -z ${TARGET_COMPONENTS["JOBS"]} ]; then
-		TARGET_COMPONENTS["JOBS"]=$build_opt_jobs
+		TARGET_COMPONENTS["JOBS"]=$BUILD_OPT_JOBS
 	fi
 
 	print_components $target
 
-	if [ $build_opt_info == true ]; then
+	if [ $BUILD_OPT_INFO == true ]; then
 		return
 	fi
 
-	if [ $build_opt_precmd == true ] && [ ! -z "${TARGET_COMPONENTS["PRECMD"]}" ]; then
-		echo -e "\033[47;34m PRECMD : ${TARGET_COMPONENTS["PRECMD"]} \033[0m"
-		bash -c "${TARGET_COMPONENTS["PRECMD"]}"
+	mkdir -p ${BUILD_ENVIRONMENT["RESULT"]}
+
+	if [ $BUILD_OPT_PRECMD == true ] && [ ! -z "${TARGET_COMPONENTS["PRECMD"]}" ]; then
+		local exec=${TARGET_COMPONENTS["PRECMD"]}
+		echo -e "\033[47;34m PRECMD : ${exec} \033[0m"
+
+		if type "${exec}" 2>/dev/null | grep -q 'function'; then
+			${exec}
+		else
+			bash -c "${exec}"
+		fi
+
 		[ $? -ne 0 ] && exit 1;
 		echo -e "\033[47;34m PRECMD : DONE \033[0m"
 	fi
 
-	if [ $build_opt_make == true ]; then
+	if [ $BUILD_OPT_MAKE == true ]; then
 		make_target "$target" "$command"
 		[ $? -ne 0 ] && exit 1;
 	fi
 
-	if [ $build_opt_copy == true ]; then
+
+	if [ $BUILD_OPT_COPY == true ]; then
 		local path=${TARGET_COMPONENTS["PATH"]} out=${TARGET_COMPONENTS["OUTPUT"]}
 		local dir=${BUILD_ENVIRONMENT["RESULT"]} ret=${TARGET_COMPONENTS["COPY"]}
 
@@ -413,20 +424,27 @@ function build_target() {
 		fi
 	fi
 
-	if [ $build_opt_postcmd == true ] && [ ! -z "${TARGET_COMPONENTS["POSTCMD"]}" ]; then
-		echo -e "\033[47;34m POSTCMD: ${TARGET_COMPONENTS["POSTCMD"]} \033[0m"
-		bash -c "${TARGET_COMPONENTS["POSTCMD"]}"
+	if [ $BUILD_OPT_POSTCMD == true ] && [ ! -z "${TARGET_COMPONENTS["POSTCMD"]}" ]; then
+		local exec=${TARGET_COMPONENTS["POSTCMD"]}
+		echo -e "\033[47;34m POSTCMD: ${exec} \033[0m"
+
+		if type "${exec}" 2>/dev/null | grep -q 'function'; then
+			${exec}
+		else
+			bash -c "${exec}"
+		fi
+
 		[ $? -ne 0 ] && exit 1;
 		echo -e "\033[47;34m POSTCMD: DONE \033[0m"
 	fi
 }
 
-build_opt_jobs=`grep processor /proc/cpuinfo | wc -l`
-build_opt_info=false
-build_opt_make=false
-build_opt_precmd=false
-build_opt_postcmd=false
-build_opt_copy=false
+BUILD_OPT_JOBS=`grep processor /proc/cpuinfo | wc -l`
+BUILD_OPT_INFO=false
+BUILD_OPT_MAKE=false
+BUILD_OPT_PRECMD=false
+BUILD_OPT_POSTCMD=false
+BUILD_OPT_COPY=false
 
 case "$1" in
 	-f )
@@ -462,12 +480,12 @@ case "$1" in
 
 			case "$3" in
 			-l )	dump_lists=true; shift 2;;
-			-j )	build_opt_jobs=$4; shift 2;;
-			-i ) 	build_opt_info=true; shift 1;;
-			-m )	build_opt_make=true; shift 1;;
-			-p ) 	build_opt_precmd=true; shift 1;;
-			-s ) 	build_opt_postcmd=true; shift 1;;
-			-c )	build_opt_copy=true; shift 1;;
+			-j )	BUILD_OPT_JOBS=$4; shift 2;;
+			-i ) 	BUILD_OPT_INFO=true; shift 1;;
+			-m )	BUILD_OPT_MAKE=true; shift 1;;
+			-p ) 	BUILD_OPT_PRECMD=true; shift 1;;
+			-s ) 	BUILD_OPT_POSTCMD=true; shift 1;;
+			-c )	BUILD_OPT_COPY=true; shift 1;;
 			-e )
 				vim $bsp_file
 				exit 0;;
@@ -493,14 +511,14 @@ case "$1" in
 			fi
 		fi
 
-		if [ $build_opt_make == false ] &&
-		   [ $build_opt_copy == false ] &&
-		   [ $build_opt_precmd == false ] &&
-		   [ $build_opt_postcmd == false ]; then
-			build_opt_make=true
-			build_opt_copy=true
-			build_opt_precmd=true
-			build_opt_postcmd=true
+		if [ $BUILD_OPT_MAKE == false ] &&
+		   [ $BUILD_OPT_COPY == false ] &&
+		   [ $BUILD_OPT_PRECMD == false ] &&
+		   [ $BUILD_OPT_POSTCMD == false ]; then
+			BUILD_OPT_MAKE=true
+			BUILD_OPT_COPY=true
+			BUILD_OPT_PRECMD=true
+			BUILD_OPT_POSTCMD=true
 		fi
 
 		# build all
@@ -523,7 +541,7 @@ case "$1" in
 			exit 0;
 		fi
 
-		if [ $build_opt_info == true ]; then
+		if [ $BUILD_OPT_INFO == true ]; then
 			print_environments
 		fi
 
