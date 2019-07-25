@@ -46,13 +46,13 @@ function usage() {
 	done
 	echo -e " [options] [command]";
 	echo "[options]"
-	echo "  -i : show build command info in file"
-	echo "  -l : listup build target in file"
+	echo "  -i : show build command info"
+	echo "  -l : listup build targets"
 	echo "  -j : set build jobs"
-	echo "  -m : only run make"
-	echo "  -p : only run pre command, before make (related with PRECMD)"
-	echo "  -s : only run post command, after done (related with POSTCMD)"
-	echo "  -c : only run copy to result (related with COPY)"
+	echo "  -m : run make"
+	echo "  -p : run pre command, before make (related with PRECMD)"
+	echo "  -s : run post command, after done (related with POSTCMD)"
+	echo "  -c : run copy to result (related with COPY)"
 	echo "  -e : open file with vim"
 	echo ""
 	echo "[command] if not set, build 'IMAGE'"
@@ -66,34 +66,29 @@ function usage() {
 }
 
 function get_build_env() {
-	local value=$1	# $1 = store the prefix's value
-	local params=("${@}")
-	local prefix=("${params[1]}")		# $2 = search prefix
-	local separator=("${params[2]}")	# $3 = search separator
-	local images=("${params[@]:3}")		# $4 = search array
+	local ret=$1 prefix=$2 sep=$3
+	local -n array=$4
 
-	for i in "${images[@]}"
+	for i in "${array[@]}"
 	do
 		if [[ "$i" = *"$prefix"* ]]; then
-			local comp="$(echo $i| cut -d$separator -f 2)"
+			local comp="$(echo $i| cut -d$sep -f 2)"
 			comp="$(echo $comp| cut -d',' -f 1)"
 			comp="$(echo -e "${comp}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
-			eval "$value=(\"${comp}\")"
+			eval "$ret=(\"${comp}\")"
 			break
 		fi
 	done
 }
 
 function get_build_targets() {
-	local value=$1	# $1 = store the value
-	local params=("${@}")
-	local separator=("${params[1]}") # $2 = search separator
-	local images=("${params[@]:2}")	 # $3 = search array
+	local ret=$1 sep=$2
+	local -n array=$3
 
-	for i in "${images[@]}"
+	for i in "${array[@]}"
 	do
 		local add=true
-		local val="$(echo $i| cut -d$separator -f 1)"
+		local val="$(echo $i| cut -d$sep -f 1)"
 		val="$(echo -e "${val}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
 
 		# skip buil environments"
@@ -109,40 +104,35 @@ function get_build_targets() {
 		[ $add != true ] && continue;
 
 		if [[ "$i" == *"="* ]];then
-			eval "${value}+=(\"${val}\")"
+			eval "${ret}+=(\"${val}\")"
 		fi
 	done
 }
 
 function get_target_prefix() {
-	local value=$1	# $1 = store the value
-	local params=("${@}")
-	local prefix=("${params[1]}")	 # $2 = search prefix
-	local separator=("${params[2]}") # $3 = search separator
-	local images=("${params[@]:3}")	 # $4 = search array
+	local ret=$1 prefix=$2 sep=$3
+	local -n array=$4
 
-	for i in "${images[@]}"
+	for i in "${array[@]}"
 	do
 		if [[ "$i" = *"$prefix"* ]]; then
-			local comp="$(echo $(echo $i| cut -d$separator -f 1) | cut -d' ' -f 1)"
+			local comp="$(echo $(echo $i| cut -d$sep -f 1) | cut -d' ' -f 1)"
 			if [ "$prefix" != "$comp" ]; then
 				continue
 			fi
-			local pos=`expr index "$i" $separator`
+			local pos=`expr index "$i" $sep`
 			if [ $pos -eq 0 ]; then
 				return
 			fi
 			comp=${i:$pos}
-			eval "$value=(\"${comp}\")"
+			eval "$ret=(\"${comp}\")"
 			break
 		fi
 	done
 }
 
 function get_target_comp() {
-	local value=$1	# $1 = store the value
-	local prefix=$2
-	local separator=$3
+	local ret=$1 prefix=$2 sep=$3
 	local string=$4
 
 	local pos=`awk -v a="$string" -v b="$prefix" 'BEGIN{print index(a,b)}'`
@@ -152,7 +142,7 @@ function get_target_comp() {
 
 	local val=${string:$pos}
 
-	pos=`awk -v a="$val" -v b="$separator" 'BEGIN{print index(a,b)}'`
+	pos=`awk -v a="$val" -v b="$sep" 'BEGIN{print index(a,b)}'`
 	val=${val:$pos}
 
 	pos=`awk -v a="$val" -v b="," 'BEGIN{print index(a,b)}'`
@@ -166,16 +156,16 @@ function get_target_comp() {
 		val="$(echo "$val"| cut -d',' -f 1)"
 	fi
 
-	eval "$value=(\"${val}\")"
+	eval "$ret=(\"${val}\")"
 }
 
 function parse_environment() {
-	local images=("${@}")	# $1 = search array
+	local image=("${@}")	# $1 = search array
 
 	for key in ${!BUILD_ENVIRONMENT[@]}
 	do
 		local val=""
-		get_build_env val "$key" "=" "${images[@]}"
+		get_build_env val "$key" "=" image
 		BUILD_ENVIRONMENT[$key]=$val
 	done
 }
@@ -212,19 +202,16 @@ function print_components() {
 }
 
 function setup_path() {
-	local tool=$1
-
-	if [[ -z $tool ]]; then
+	if [[ -z $1 ]]; then
 		return
 	fi
 
-	local path=`readlink -e -n "$(dirname "$tool")"`
+	local path=`readlink -e -n "$(dirname "$1")"`
 	if [[ -z $path ]]; then
-		echo -e "\033[47;31m No such 'TOOL': $(dirname "$tool") \033[0m"
+		echo -e "\033[47;31m No such 'TOOL': $(dirname "$1") \033[0m"
 		exit 1
 	fi
 
-	tool=$(basename $tool)
 	export PATH=$path:$PATH
 }
 
@@ -284,12 +271,10 @@ function copy_target() {
 }
 
 function parse_target() {
-	local params=("${@}")
-	local prefix=("${params[0]}")	# $0 = target name for search
-	local images=("${params[@]:1}")	# $1 = search array
-	local target
+	local prefix=$1 target
+	local -n image=$2
 
-	get_target_prefix target "$prefix" "=" "${images[@]}"
+	get_target_prefix target "$prefix" "=" image
 
 	for key in ${!TARGET_COMPONENTS[@]}
 	do
@@ -390,7 +375,7 @@ function make_target() {
 function build_target() {
 	local target=$1 command=$2
 
-	parse_target "$target" "${BUILD_IMAGES[@]}"
+	parse_target "$target" BUILD_IMAGES
 
 	if [ -z ${TARGET_COMPONENTS["TOOL"]} ]; then
 		TARGET_COMPONENTS["TOOL"]=${BUILD_ENVIRONMENT["TOOL"]}
@@ -459,7 +444,7 @@ case "$1" in
 		# include input file
 		source $bsp_file
 
-		get_build_targets BUILD_TARGETS "=" "${BUILD_IMAGES[@]}"
+		get_build_targets BUILD_TARGETS "=" BUILD_IMAGES
 
 		while [ "$#" -gt 2 ]; do
 			count=0
