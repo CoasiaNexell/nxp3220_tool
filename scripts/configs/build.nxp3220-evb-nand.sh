@@ -1,36 +1,36 @@
 #!/bin/bash
 
-BASEDIR="$(cd "$(dirname "$0")" && pwd)/../.."
-RESULT="$BASEDIR/result"
+TARGET_RESULT=result-nxp3220-evb-nand
 
-TARGET_BL1_NAME=nxp3220
-
+# For BL2
 TARGET_BL2_CHIP=nxp3220
 TARGET_BL2_BOARD=evb
 TARGET_BL2_PMIC=nxe1500
-TARGET_BL2_NSIH=nsih_evb_nand_ddr3_800Mhz
+TARGET_BL2_NSIH=nsih_evb_nand_ddr3_800Mhz.txt
 
-TARGET_BL32_LOADADDRESS=0x5F000000
-TARGET_BL32_LAUNCHADDRESS=0x5F000000
+# For BL32
+TARGET_BL32_LOADADDR=0x5F000000
 
+# For Kernel
 TARGET_KERNEL_DEFCONFIG=nxp3220_evb_nand_defconfig
 TARGET_KERNEL_DTB=nxp3220-evb-nand
 TARGET_KERNEL_IMAGE=zImage
 
+# For U-boot
 TARGET_UBOOT_DEFCONFIG=nxp3220_evb_nand_defconfig
 
+# For Buildroot
 TARGET_BR2_DEFCONFIG=nxp3220_sysv_defconfig
 
-# nand info
+# For Filesystem image
+TARGET_IMAGE_TYPE="ubi"
+TARGET_BOOT_IMAGE_SIZE=16M
+TARGET_ROOT_IMAGE_SIZE=106M
+
 FLASH_PAGE_SIZE=2048
 FLASH_BLOCK_SIZE=128K
 FLASH_DEVICE_SIZE=128M
 
-[[ $FLASH_PAGE_SIZE -gt 512 ]] && PSIZE=1024 || PSIZE=512
-
-UBI_BOOTIMG_ARGS="-r ${RESULT}/boot -v boot -i 0 -l 16M -p $FLASH_PAGE_SIZE -b $FLASH_BLOCK_SIZE -c $FLASH_DEVICE_SIZE"
-UBI_ROOTIMG_ARGS="-r ${RESULT}/rootfs -v rootfs -i 1 -l 106M -p $FLASH_PAGE_SIZE -b $FLASH_BLOCK_SIZE -c $FLASH_DEVICE_SIZE"
-
-CONFIGDIR="$(cd "$(dirname "$0")" && pwd)"/configs
-
-source $CONFIGDIR/build.common-nand.sh
+# build script
+BUILD_SRC_DIR="$(cd "$(dirname "$0")" && pwd)"/configs
+source $BUILD_SRC_DIR/build.common.sh

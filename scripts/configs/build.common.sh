@@ -1,122 +1,137 @@
 #!/bin/bash
 
-# Toolchains for Bootloader and Linux
-BL_TOOLCHAIN="$BASEDIR/tools/crosstools/gcc-arm-none-eabi-6-2017-q2-update/bin/arm-none-eabi-"
-LINUX_TOOLCHAIN="$BASEDIR/tools/crosstools/gcc-linaro-7.2.1-2017.11-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-"
+source $(readlink -e -n $(dirname "$0"))/configs/env_common.sh
 
-# Build Path
-BR2_DIR=$BASEDIR/buildroot
-UBOOT_DIR=$BASEDIR/u-boot-2018.5
-KERNEL_DIR=$BASEDIR/kernel-4.14
-BIN_DIR="$BASEDIR/tools/bin"
-FILES_DIR="$BASEDIR/tools/files"
+function post_build_bl1 () {
+        # Encrypt binary : $BIN.enc
+        ${TOOL_BINENC} -n ${BL1_DIR}/${BL1_BIN} -k $(cat ${BL1_AESKEY}) \
+		-v $(cat ${BL1_VECTOR}) -m enc -b 128;
 
-# FILES
-UBOOT_NSIH="$FILES_DIR/nsih_uboot.txt"
-BOOT_KEY="$FILES_DIR/bootkey"
-USER_KEY="$FILES_DIR/userkey"
-BINGEN_EXE="$BIN_DIR/bingen"
-LOGO_BMP="$FILES_DIR/logo.bmp"
-AESCBC_EXE="$BIN_DIR/aescbc_enc"
-AES_KEY=$(<$FILES_DIR/aeskey.txt)
-AES_VECTOR=$(<$FILES_DIR/aesvector.txt)
+        # (Encrypted binary) + NSIH : $BIN.bin.enc.raw
+        ${TOOL_BINGEN} -k bl1 -n ${BL1_NSIH} -i ${BL1_DIR}/${BL1_BIN}.enc \
+		-b ${BL1_BOOTKEY} -u ${BL1_USERKEY} -l ${BL1_LOADADDR} -s ${BL1_LOADADDR} -t;
 
-# BL1 BUILD
-BL1_NSIHFILE="$FILES_DIR/nsih_bl1.txt"
-BL1_AESCBC_ENC="$AESCBC_EXE -n $RESULT/bl1-nxp3220.bin -k $AES_KEY -v $AES_VECTOR -m enc -b 128"
-BL1_BINGEN="$BINGEN_EXE -n $BL1_NSIHFILE -i $RESULT/bl1-nxp3220.bin
-		-b $BOOT_KEY -u $USER_KEY -k bl1 -l 0xFFFF0000 -s 0xFFFF0000 -t"
-BL1_BINGEN_ENC="$BINGEN_EXE -n $BL1_NSIHFILE -i $RESULT/bl1-nxp3220.bin.enc
-		-b $BOOT_KEY -u $USER_KEY -k bl1 -l 0xFFFF0000 -s 0xFFFF0000 -t"
-BL1_POSTCMD="$BL1_AESCBC_ENC; $BL1_BINGEN_ENC; $BL1_BINGEN"
+        # Binary + NSIH : $BIN.raw
+        ${TOOL_BINGEN} -k bl1 -n ${BL1_NSIH} -i ${BL1_DIR}/${BL1_BIN} \
+		-b ${BL1_BOOTKEY} -u ${BL1_USERKEY} -l ${BL1_LOADADDR} -s ${BL1_LOADADDR} -t;
 
-# BL2 BUILD
-BL2_DIR=$BASEDIR/firmwares/bl2-nxp3220
-BL2_MAKEOPT="CHIPNAME=${TARGET_BL2_CHIP} BOARD=${TARGET_BL2_BOARD} PMIC=${TARGET_BL2_PMIC}"
-BL2_NSIH="$BL2_DIR/reference-nsih/${TARGET_BL2_NSIH}.txt"
+	cp ${BL1_DIR}/${BL1_BIN}.raw ${RESULT}
+	cp ${BL1_DIR}/${BL1_BIN}.enc.raw ${RESULT}
+}
 
-BL2_BINGEN="$BINGEN_EXE -n $BL2_NSIH -i $RESULT/bl2-${TARGET_BL2_BOARD}.bin
-		-b $BOOT_KEY -u $USER_KEY -k bl2 -l 0xFFFF9000 -s 0xFFFF9000 -t"
-BL2_POSTCMD="$BL2_BINGEN; \
-		cp $RESULT/bl2-${TARGET_BL2_BOARD}.bin.raw $RESULT/bl2.bin.raw"
+function post_build_bl2 () {
+        # Binary + NSIH : $BIN.raw
+        ${TOOL_BINGEN} -k bl2 -n ${BL2_NSIH} -i ${BL2_DIR}/out/${BL2_BIN} \
+		-b ${BL2_BOOTKEY} -u ${BL2_USERKEY} -l ${BL2_LOADADDR} -s ${BL2_LOADADDR} -t;
 
-# BL32 BUILD
-BL32_DIR=$BASEDIR/firmwares/bl32-nxp3220
-BL32_NSIH="$BL32_DIR/reference-nsih/nsih_general.txt"
+        cp ${BL2_DIR}/out/${BL2_BIN}.raw ${RESULT}/bl2.bin.raw;
+}
 
-BL32_BINGEN="$BINGEN_EXE -n $BL32_NSIH -i $RESULT/bl32.bin
-		-b $BOOT_KEY -u $USER_KEY -k bl32 -l ${TARGET_BL32_LOADADDRESS} -s ${TARGET_BL32_LAUNCHADDRESS} -t"
-BL32_BINGEN_ENC="$BINGEN_EXE -n $BL32_NSIH -i $RESULT/bl32.bin.enc
-		-b $BOOT_KEY -u $USER_KEY -k bl32 -l ${TARGET_BL32_LOADADDRESS} -s ${TARGET_BL32_LAUNCHADDRESS} -t"
+function post_build_bl32 () {
+        # Encrypt binary : $BIN.enc
+        ${TOOL_BINENC} -n ${BL32_DIR}/out/${BL32_BIN} \
+		-k $(cat ${BL32_AESKEY}) -v $(cat ${BL32_VECTOR}) -m enc -b 128;
 
-BL32_AESCBC_ENC="$AESCBC_EXE -n $RESULT/bl32.bin -k $AES_KEY -v $AES_VECTOR -m enc -b 128"
-BL32_POSTCMD="$BL32_AESCBC_ENC; $BL32_BINGEN_ENC; $BL32_BINGEN"
+        # (Encrypted binary) + NSIH : $BIN.enc.raw
+        ${TOOL_BINGEN} -k bl32 -n ${BL32_NSIH} -i ${BL32_DIR}/out/${BL32_BIN}.enc \
+		-b ${BL32_BOOTKEY} -u ${BL32_USERKEY} \
+		-l ${BL32_LOADADDR} -s ${BL32_LOADADDR} -t;
 
-# Images BUILD
-EXT4FS_EXE="make_ext4fs"
+        # Binary + NSIH : $BIN.raw
+        ${TOOL_BINGEN} -k bl32 -n ${BL32_NSIH} -i ${BL32_DIR}/out/${BL32_BIN} \
+		-b ${BL32_BOOTKEY} -u ${BL32_USERKEY} \
+		-l ${BL32_LOADADDR} -s ${BL32_LOADADDR} -t;
 
-MKBOOT_PARAM="$BASEDIR/tools/scripts/mk_bootparam.sh"
-UBOOT_PARAM="$MKBOOT_PARAM $UBOOT_DIR $LINUX_TOOLCHAIN $RESULT"
-UBOOT_BINGEN="$BINGEN_EXE -n $UBOOT_NSIH -i $RESULT/u-boot.bin
-		-b $BOOT_KEY -u $USER_KEY -k bl33 -l 0x43C00000 -s 0x43C00000 -t"
-UBOOT_POSTCMD="$UBOOT_PARAM; $UBOOT_BINGEN"
+	cp ${BL32_DIR}/out/${BL32_BIN}.raw ${RESULT}
+	cp ${BL32_DIR}/out/${BL32_BIN}.enc.raw ${RESULT}
+}
 
-KERNEL_POSTCMD="mkdir -p $RESULT/boot; \
-		cp -a $RESULT/${TARGET_KERNEL_IMAGE} $RESULT/boot;"
-DTB_POSTCMD="mkdir -p $RESULT/boot; \
-		cp -a $RESULT/${TARGET_KERNEL_DTB}.dtb $RESULT/boot;"
-LOGO_POSTCMD="mkdir -p $RESULT/boot; \
-		cp -a $LOGO_BMP $RESULT/boot;"
+function post_build_uboot () {
+        ${TOOL_BINGEN} -k bl33 -n ${UBOOT_NSIH} -i ${UBOOT_DIR}/${UBOOT_BIN} \
+		-b ${UBOOT_BOOTKEY} -u ${UBOOT_USERKEY} \
+		-l ${UBOOT_LOADADDR} -s ${UBOOT_LOADADDR} -t;
 
-MAKE_BOOTIMG="$KERNEL_POSTCMD $DTB_POSTCMD $LOGO_POSTCMD
-		$EXT4FS_EXE -b 4096 -L boot -l ${BOOT_IMAGE_SIZE} $RESULT/boot.img $RESULT/boot/"
-MAKE_ROOTIMG="$EXT4FS_EXE -b 4096 -s -L rootfs -l ${ROOT_IMAGE_SIZE} $RESULT/rootfs.img $RESULT/rootfs"
+	cp ${UBOOT_DIR}/${UBOOT_BIN}.raw ${RESULT}
+
+	# create param.bin
+	${TOOL_MKPARAM} ${UBOOT_DIR} ${LINUX_TOOLCHAIN} ${RESULT}
+}
+
+function post_copy_tools () {
+	for file in "${TOOL_FILES[@]}"; do
+		[[ -d $file ]] && continue;
+		cp -a $file ${RESULT}
+	done
+}
+
+function post_ret_link () {
+	if [ -e ${BASEDIR}/out/result ] || [ -h ${BASEDIR}/out/result ]; then
+		rm -f ${BASEDIR}/out/result
+	fi
+
+	ln -s ${RESULT} ${BASEDIR}/out/result
+}
+
+BOOT_PRECMD="mkdir -p ${RESULT}/boot;
+	cp -a ${RESULT}/${KERNEL_BIN} ${RESULT}/boot;
+	cp -a ${RESULT}/${DTB_BIN} ${RESULT}/boot;
+	cp -a ${UBOOT_LOGO_BMP} ${RESULT}/boot;"
+
+if [[ ${IMAGE_TYPE} == "ubi" ]]; then
+	BOOT_POSTCMD="${TOOL_MKUBIFS} -r ${RESULT}/boot -v boot -i 0 -l ${IMAGE_BOOT_SIZE}
+			-p ${FLASH_PAGE_SIZE} -b ${FLASH_BLOCK_SIZE} -c ${FLASH_DEVICE_SIZE}"
+	ROOT_POSTCMD="${TOOL_MKUBIFS} -r ${RESULT}/rootfs -v rootfs -i 1 -l ${IMAGE_ROOT_SIZE}
+			-p ${FLASH_PAGE_SIZE} -b ${FLASH_BLOCK_SIZE} -c ${FLASH_DEVICE_SIZE}"
+else
+	BOOT_POSTCMD="${TOOL_MKEXT4} -b 4096 -L boot -l ${IMAGE_BOOT_SIZE} $RESULT/boot.img $RESULT/boot/"
+	ROOT_POSTCMD="${TOOL_MKEXT4} -b 4096 -s -L rootfs -l ${IMAGE_ROOT_SIZE} $RESULT/rootfs.img $RESULT/rootfs"
+fi
 
 # Build Targets
 BUILD_IMAGES=(
 	"MACHINE= nxp3220",
 	"ARCH  	= arm",
-	"TOOL	= $LINUX_TOOLCHAIN",
-	"RESULT = $RESULT",
+	"TOOL	= ${LINUX_TOOLCHAIN}",
+	"RESULT = ${RESULT}",
 	"bl1   	=
-		OUTPUT	: $BASEDIR/firmwares/binary/bl1-${TARGET_BL1_NAME}.bin*,
-		POSTCMD : $BL1_POSTCMD",
+		POSTCMD : post_build_bl1",
 	"bl2   	=
-		PATH  	: $BL2_DIR,
-		TOOL  	: $BL_TOOLCHAIN,
-		OPTION	: $BL2_MAKEOPT,
-		OUTPUT	: out/bl2-${TARGET_BL2_BOARD}.bin*,
-		POSTCMD : $BL2_POSTCMD,
+		PATH  	: ${BL2_DIR},
+		TOOL  	: ${BL_TOOLCHAIN},
+		OPTION	: CHIPNAME=${BL2_CHIP} BOARD=${BL2_BOARD} PMIC=${BL2_PMIC},
+		POSTCMD : post_build_bl2,
 		JOBS  	: 1", # must be 1
-	"bl32   	=
-		PATH  	: $BL32_DIR,
-		TOOL  	: $BL_TOOLCHAIN,
-		OUTPUT	: out/bl32.bin*,
-		POSTCMD	: $BL32_POSTCMD,
+	"bl32  =
+		PATH  	: ${BL32_DIR},
+		TOOL  	: ${BL_TOOLCHAIN},
+		POSTCMD	: post_build_bl32,
 		JOBS  	: 1", # must be 1
 	"uboot 	=
-		PATH  	: $UBOOT_DIR,
-		CONFIG	: ${TARGET_UBOOT_DEFCONFIG},
+		PATH  	: ${UBOOT_DIR},
+		CONFIG	: ${UBOOT_DEFCONFIG},
 		OUTPUT	: u-boot.bin,
-		POSTCMD	: $UBOOT_POSTCMD"
+		POSTCMD	: post_build_uboot"
 	"br2   	=
-		PATH  	: $BR2_DIR,
-		CONFIG	: ${TARGET_BR2_DEFCONFIG},
+		PATH  	: ${BR2_DIR},
+		CONFIG	: ${BR2_DEFCONFIG},
 		OUTPUT	: output/target,
 		COPY  	: rootfs",
 	"kernel	=
-		PATH  	: $KERNEL_DIR,
-		CONFIG	: ${TARGET_KERNEL_DEFCONFIG},
-		IMAGE 	: ${TARGET_KERNEL_IMAGE},
-		OUTPUT	: arch/arm/boot/${TARGET_KERNEL_IMAGE},
-		POSTCMD : $KERNEL_POSTCMD",
+		PATH  	: ${KERNEL_DIR},
+		CONFIG	: ${KERNEL_DEFCONFIG},
+		IMAGE 	: ${KERNEL_BIN},
+		OUTPUT	: arch/arm/boot/${KERNEL_BIN}",
 	"dtb   	=
-		PATH  	: $KERNEL_DIR,
-		IMAGE 	: ${TARGET_KERNEL_DTB}.dtb,
-		OUTPUT	: arch/arm/boot/dts/${TARGET_KERNEL_DTB}.dtb,
-		POSTCMD : $DTB_POSTCMD",
+		PATH  	: ${KERNEL_DIR},
+		IMAGE 	: ${DTB_BIN},
+		OUTPUT	: arch/arm/boot/dts/${DTB_BIN}",
 	"bootimg =
-		POSTCMD : $MAKE_BOOTIMG",
+		PRECMD  : $BOOT_PRECMD,
+		POSTCMD : $BOOT_POSTCMD",
 	"rootimg =
-		POSTCMD	: $MAKE_ROOTIMG",
+		POSTCMD	: $ROOT_POSTCMD",
+	"tools  =
+		POSTCMD	: post_copy_tools",
+	"ret    =
+		POSTCMD	: post_ret_link",
 )

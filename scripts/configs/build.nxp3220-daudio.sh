@@ -1,29 +1,32 @@
 #!/bin/bash
 
-BASEDIR="$(cd "$(dirname "$0")" && pwd)/../.."
-RESULT="$BASEDIR/result"
+TARGET_RESULT=result-nxp3220-daudio
 
-TARGET_BL1_NAME=nxp3220
-
+# For BL2
 TARGET_BL2_CHIP=nxp3220
 TARGET_BL2_BOARD=evb
 TARGET_BL2_PMIC=nxe1500
-TARGET_BL2_NSIH=nsih_evb_ddr3_800Mhz
+TARGET_BL2_NSIH=nsih_evb_ddr3_800Mhz.txt
 
-TARGET_BL32_LOADADDRESS=0x5F000000
-TARGET_BL32_LAUNCHADDRESS=0x5F000000
+# For BL32
+TARGET_BL32_LOADADDR=0x5F000000
 
+# For Kernel
 TARGET_KERNEL_DEFCONFIG=nxp3220_daudio_defconfig
 TARGET_KERNEL_DTB=nxp3220-daudio
 TARGET_KERNEL_IMAGE=Image
 
+# For U-boot
 TARGET_UBOOT_DEFCONFIG=nxp3220_daudio_defconfig
 
+# For Buildroot
 TARGET_BR2_DEFCONFIG=nxp3220_sysv_defconfig
 
-BOOT_IMAGE_SIZE=32M
-ROOT_IMAGE_SIZE=1G
+# For Filesystem image
+TARGET_IMAGE_TYPE="ext4"
+TARGET_BOOT_IMAGE_SIZE=32M
+TARGET_ROOT_IMAGE_SIZE=1G
 
-CONFIGDIR="$(cd "$(dirname "$0")" && pwd)"/configs
-
-source $CONFIGDIR/build.common.sh
+# build script
+BUILD_CONFIG_DIR="$(cd "$(dirname "$0")" && pwd)"/configs
+source $BUILD_CONFIG_DIR/build.common.sh
