@@ -15,6 +15,8 @@
 #		....
 #
 
+eval $(locale | sed -e 's/\(.*\)=.*/export \1=en_US.UTF-8/')
+
 #set -x
 declare -A BUILD_ENVIRONMENT=(
 	["ARCH"]=" "
