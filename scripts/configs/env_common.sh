@@ -1,6 +1,6 @@
 #!/bin/bash
 export BASEDIR=`readlink -e -n "$(cd "$(dirname "$0")" && pwd)/../.."`
-export RESULT="${BASEDIR}/result"
+export RESULT="${BASEDIR}/out/result"
 
 if [ ! -z $TARGET_RESULT ]; then
 	export RESULT="${BASEDIR}/out/${TARGET_RESULT}"

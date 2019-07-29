@@ -65,11 +65,10 @@ function post_copy_tools () {
 }
 
 function post_ret_link () {
-	if [ -e ${BASEDIR}/out/result ] || [ -h ${BASEDIR}/out/result ]; then
-		rm -f ${BASEDIR}/out/result
+	if [[ $RESULT != ${BASEDIR}/out/result ]]; then
+		rm -rf ${BASEDIR}/out/result
+		ln -s ${RESULT} ${BASEDIR}/out/result
 	fi
-
-	ln -s ${RESULT} ${BASEDIR}/out/result
 }
 
 BOOT_PRECMD="mkdir -p ${RESULT}/boot;
