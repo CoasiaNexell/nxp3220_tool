@@ -2,21 +2,30 @@
 
 source $(readlink -e -n $(dirname "$0"))/configs/env_common.sh
 
+# Add to build source at target script:
+# export BASEDIR=`readlink -e -n "$(cd "$(dirname "$0")" && pwd)/../.."`
+# TARGET_BL1_DIR=${BASEDIR}/firmwares/bl1-nxp3220
 function post_build_bl1 () {
+	local bl1_binary=${BL1_DIR}/${BL1_BIN}
+
+	if [[ ! -z $TARGET_BL1_DIR ]]; then
+		bl1_binary=${BL1_DIR}/out/${BL1_BIN}
+	fi
+
         # Encrypt binary : $BIN.enc
-        ${TOOL_BINENC} -n ${BL1_DIR}/${BL1_BIN} -k $(cat ${BL1_AESKEY}) \
+        ${TOOL_BINENC} -n ${bl1_binary} -k $(cat ${BL1_AESKEY}) \
 		-v $(cat ${BL1_VECTOR}) -m enc -b 128;
 
         # (Encrypted binary) + NSIH : $BIN.bin.enc.raw
-        ${TOOL_BINGEN} -k bl1 -n ${BL1_NSIH} -i ${BL1_DIR}/${BL1_BIN}.enc \
+        ${TOOL_BINGEN} -k bl1 -n ${BL1_NSIH} -i ${bl1_binary}.enc \
 		-b ${BL1_BOOTKEY} -u ${BL1_USERKEY} -l ${BL1_LOADADDR} -s ${BL1_LOADADDR} -t;
 
         # Binary + NSIH : $BIN.raw
-        ${TOOL_BINGEN} -k bl1 -n ${BL1_NSIH} -i ${BL1_DIR}/${BL1_BIN} \
+        ${TOOL_BINGEN} -k bl1 -n ${BL1_NSIH} -i ${bl1_binary} \
 		-b ${BL1_BOOTKEY} -u ${BL1_USERKEY} -l ${BL1_LOADADDR} -s ${BL1_LOADADDR} -t;
 
-	cp ${BL1_DIR}/${BL1_BIN}.raw ${RESULT}
-	cp ${BL1_DIR}/${BL1_BIN}.enc.raw ${RESULT}
+	cp ${bl1_binary}.raw ${RESULT}
+	cp ${bl1_binary}.enc.raw ${RESULT}
 }
 
 function post_build_bl2 () {
@@ -93,7 +102,10 @@ BUILD_IMAGES=(
 	"TOOL	= ${LINUX_TOOLCHAIN}",
 	"RESULT = ${RESULT}",
 	"bl1   	=
-		POSTCMD : post_build_bl1",
+		PATH  	: ${BL1_DIR},
+		TOOL  	: ${BL_TOOLCHAIN},
+		POSTCMD : post_build_bl1,
+		JOBS  	: 1", # must be 1
 	"bl2   	=
 		PATH  	: ${BL2_DIR},
 		TOOL  	: ${BL_TOOLCHAIN},

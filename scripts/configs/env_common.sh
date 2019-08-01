@@ -2,14 +2,19 @@
 export BASEDIR=`readlink -e -n "$(cd "$(dirname "$0")" && pwd)/../.."`
 export RESULT="${BASEDIR}/out/result"
 
-if [ ! -z $TARGET_RESULT ]; then
+if [[ ! -z $TARGET_RESULT ]]; then
 	export RESULT="${BASEDIR}/out/${TARGET_RESULT}"
 fi
 
 export BL_TOOLCHAIN="${BASEDIR}/tools/crosstools/gcc-arm-none-eabi-6-2017-q2-update/bin/arm-none-eabi-"
 export LINUX_TOOLCHAIN="${BASEDIR}/tools/crosstools/gcc-linaro-7.2.1-2017.11-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-"
 
-export BL1_DIR=${BASEDIR}/firmwares/binary
+if [[ -z $TARGET_BL1_DIR ]]; then
+	export BL1_DIR=${BASEDIR}/firmwares/binary
+else
+	export BL1_DIR=${TARGET_BL1_DIR}
+fi
+
 export BL2_DIR=${BASEDIR}/firmwares/bl2-nxp3220
 export BL32_DIR=${BASEDIR}/firmwares/bl32-nxp3220
 export UBOOT_DIR=${BASEDIR}/u-boot-2018.5
