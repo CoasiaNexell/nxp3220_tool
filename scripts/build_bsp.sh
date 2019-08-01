@@ -314,12 +314,13 @@ function make_target() {
 	path=`realpath ${TARGET_COMPONENTS["PATH"]}`
 
 	if [[ ! -d $path ]]; then
-		echo -e "\033[47;31m No such to build $target: '$path' ... \033[0m"
+		echo -e "\033[47;31m Invalid 'PATH' $target: '$path' ... \033[0m"
 		exit 1;
 	fi
 
 	if [ ! -f "$path/makefile" ] && [ ! -f "$path/Makefile" ]; then
-		exit 1;
+		echo -e "\033[47;31m Not found Makefile $target: '$path' ... \033[0m"
+		return;
 	fi
 
 	if [[ $image != *".dtb"* ]]; then
@@ -456,8 +457,7 @@ case "$1" in
 		dump_lists=false
 
 		if [ ! -f $bsp_file ]; then
-			echo "No such file to build config: $bsp_file"
-			echo -e "\033[47;31m No such to build config: $bsp_file \033[0m"
+			echo -e "\033[47;31m Not found build config: $bsp_file \033[0m"
 			exit 1;
 		fi
 
