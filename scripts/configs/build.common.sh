@@ -1,9 +1,12 @@
 #!/bin/bash
+# Copyright (c) 2018 Nexell Co., Ltd.
+# Author: Junghyun, Kim <jhkim@nexell.co.kr>
+#
 
-source $(readlink -e -n $(dirname "$0"))/configs/env_common.sh
+source $(realpath $(dirname "$0"))/configs/env_common.sh
 
 # Add to build source at target script:
-# export BASEDIR=`readlink -e -n "$(cd "$(dirname "$0")" && pwd)/../.."`
+# export BASEDIR=`realpath "$(cd "$(dirname "$0")" && pwd)/../.."`
 # TARGET_BL1_DIR=${BASEDIR}/firmwares/bl1-nxp3220
 function post_build_bl1 () {
 	local bl1_binary=${BL1_DIR}/${BL1_BIN}
@@ -55,6 +58,13 @@ function post_build_bl32 () {
 	cp ${BL32_DIR}/out/${BL32_BIN}.enc.raw ${RESULT}
 }
 
+function pre_build_uboot () {
+	file=${UBOOT_DIR}/.uboot_defconfig
+	[ -e ${file} ] && [[ $(cat ${file}) == ${UBOOT_DEFCONFIG} ]] && return;
+	rm -f ${file}; echo ${UBOOT_DEFCONFIG} >> ${file};
+	make -C ${UBOOT_DIR} distclean
+}
+
 function post_build_uboot () {
         ${TOOL_BINGEN} -k bl33 -n ${UBOOT_NSIH} -i ${UBOOT_DIR}/${UBOOT_BIN} \
 		-b ${UBOOT_BOOTKEY} -u ${UBOOT_USERKEY} \
@@ -66,11 +76,25 @@ function post_build_uboot () {
 	${TOOL_MKPARAM} ${UBOOT_DIR} ${LINUX_TOOLCHAIN} ${RESULT}
 }
 
+function pre_build_kernel () {
+	file=${KERNEL_DIR}/.kernel_defconfig
+	[ -e ${file} ] && [[ $(cat ${file}) == ${KERNEL_DEFCONFIG} ]] && return;
+	rm -f ${file}; echo ${KERNEL_DEFCONFIG} >> ${file};
+	make -C ${KERNEL_DIR} distclean
+}
+
 function post_copy_tools () {
 	for file in "${TOOL_FILES[@]}"; do
 		[[ -d $file ]] && continue;
 		cp -a $file ${RESULT}
 	done
+}
+
+function post_data_image () {
+	[[ ! ${IMAGE_DATA_SIZE} ]] || [[ ${IMAGE_TYPE} == "ubi" ]] && return;
+	[[ ! -d $RESULT/userdata ]] && mkdir -p $RESULT/userdata;
+
+	${TOOL_MKEXT4} -b 4096 -s -L userdata -l ${IMAGE_DATA_SIZE} $RESULT/userdata.img $RESULT/userdata
 }
 
 function post_ret_link () {
@@ -91,8 +115,8 @@ if [[ ${IMAGE_TYPE} == "ubi" ]]; then
 	ROOT_POSTCMD="${TOOL_MKUBIFS} -r ${RESULT}/rootfs -v rootfs -i 1 -l ${IMAGE_ROOT_SIZE}
 			-p ${FLASH_PAGE_SIZE} -b ${FLASH_BLOCK_SIZE} -c ${FLASH_DEVICE_SIZE}"
 else
-	BOOT_POSTCMD="${TOOL_MKEXT4} -b 4096 -L boot -l ${IMAGE_BOOT_SIZE} $RESULT/boot.img $RESULT/boot/"
-	ROOT_POSTCMD="${TOOL_MKEXT4} -b 4096 -s -L rootfs -l ${IMAGE_ROOT_SIZE} $RESULT/rootfs.img $RESULT/rootfs"
+	BOOT_POSTCMD="${TOOL_MKEXT4} -L boot -s -b 4k -l ${IMAGE_BOOT_SIZE} $RESULT/boot.img $RESULT/boot/"
+	ROOT_POSTCMD="${TOOL_MKEXT4} -L rootfs -s -b 4k -l ${IMAGE_ROOT_SIZE} $RESULT/rootfs.img $RESULT/rootfs"
 fi
 
 # Build Targets
@@ -121,6 +145,7 @@ BUILD_IMAGES=(
 		PATH  	: ${UBOOT_DIR},
 		CONFIG	: ${UBOOT_DEFCONFIG},
 		OUTPUT	: u-boot.bin,
+		PRECMD	: pre_build_uboot,
 		POSTCMD	: post_build_uboot"
 	"br2   	=
 		PATH  	: ${BR2_DIR},
@@ -131,7 +156,8 @@ BUILD_IMAGES=(
 		PATH  	: ${KERNEL_DIR},
 		CONFIG	: ${KERNEL_DEFCONFIG},
 		IMAGE 	: ${KERNEL_BIN},
-		OUTPUT	: arch/arm/boot/${KERNEL_BIN}",
+		OUTPUT	: arch/arm/boot/${KERNEL_BIN},
+		PRECMD	: pre_build_kernel",
 	"dtb   	=
 		PATH  	: ${KERNEL_DIR},
 		IMAGE 	: ${DTB_BIN},
@@ -141,6 +167,8 @@ BUILD_IMAGES=(
 		POSTCMD : $BOOT_POSTCMD",
 	"rootimg =
 		POSTCMD	: $ROOT_POSTCMD",
+	"dataimg =
+		POSTCMD	: post_data_image",
 	"tools  =
 		POSTCMD	: post_copy_tools",
 	"ret    =
