@@ -63,6 +63,7 @@ TOOLS_FILES=(
 	"tools/scripts/usb-down.sh"
 	"tools/scripts/configs/udown.bootloader.sh"
 	"tools/bin/linux-usbdownloader"
+	"tools/bin/simg2dev"
 	"tools/files/partmap_*.txt"
 )
 
