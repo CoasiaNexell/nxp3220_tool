@@ -369,7 +369,12 @@ case "$1" in
 				for i in ${DISK_CHECK_SYSTEM[@]}
 				do
 					if [[ ! -z "$(echo $DISK_UPDATE_DEV | grep "$i" -m ${#DISK_UPDATE_DEV})" ]]; then
-						echo -ne "\033[47;31m Can be 'SYSTEM' region: $DISK_UPDATE_DEV, continue y/n ?> \033[0m"
+						echo -ne "\033[47;31m Can be 'system' region: $DISK_UPDATE_DEV, continue y/n ?> \033[0m"
+						read input
+						if [ $input != 'y' ]; then
+							exit 1
+						fi
+						echo -ne "\033[47;31m Check again: $DISK_UPDATE_DEV, continue y/n ?> \033[0m"
 						read input
 						if [ $input != 'y' ]; then
 							exit 1
