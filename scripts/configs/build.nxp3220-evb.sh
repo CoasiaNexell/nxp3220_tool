@@ -26,6 +26,7 @@ TARGET_BR2_DEFCONFIG=nxp3220_sysv_defconfig
 TARGET_IMAGE_TYPE="ext4"
 TARGET_BOOT_IMAGE_SIZE=32M
 TARGET_ROOT_IMAGE_SIZE=1G
+TARGET_DATA_IMAGE_SIZE=6G
 
 # build script
 BUILD_CONFIG_DIR="$(cd "$(dirname "$0")" && pwd)"/configs
