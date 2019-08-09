@@ -5,7 +5,7 @@
 BASEDIR=$(cd "$(dirname "$0")" && pwd)
 USBDOWNLOADER=linux-usbdownloader
 DOWNLOADER_TOOL=$BASEDIR/../bin/$USBDOWNLOADER
-RESULTDIR="$BASEDIR/../../result"
+RESULTDIR=`realpath "./"`
 USBVENDOR="Digit"
 DN_TARGET=
 USB_WAIT_TIME=	# sec
@@ -34,7 +34,7 @@ function usage() {
 	echo "  -i : usb down info with -f file name"
 	echo "  -e : open file with vim"
 	echo "  -p : encryted file transfer"
-	echo "  -d : download image path, default:$RESULTDIR"
+	echo "  -d : download image path, default:'$RESULTDIR'"
 	echo ""
 }
 
@@ -246,7 +246,7 @@ do
 		USB_WAIT_TIME=$OPTARG
 		;;
 	d )
-		RESULTDIR=$OPTARG
+		RESULTDIR=`realpath $OPTARG`
 		;;
         h | *)
         	usage
