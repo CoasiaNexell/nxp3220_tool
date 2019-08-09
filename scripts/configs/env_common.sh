@@ -1,5 +1,5 @@
 #!/bin/bash
-export BASEDIR=`readlink -e -n "$(cd "$(dirname "$0")" && pwd)/../.."`
+export BASEDIR=`realpath "$(cd "$(dirname "$0")" && pwd)/../.."`
 export RESULT="${BASEDIR}/out/result"
 
 if [[ ! -z $TARGET_RESULT ]]; then
@@ -70,6 +70,7 @@ export BR2_DEFCONFIG=${TARGET_BR2_DEFCONFIG}
 export IMAGE_TYPE=${TARGET_IMAGE_TYPE}
 export IMAGE_BOOT_SIZE=${TARGET_BOOT_IMAGE_SIZE}
 export IMAGE_ROOT_SIZE=${TARGET_ROOT_IMAGE_SIZE}
+export IMAGE_DATA_SIZE=${TARGET_DATA_IMAGE_SIZE}
 
 export TOOL_FILES=(
 	"${BASEDIR}/tools/scripts/partmap_fastboot.sh"
@@ -77,6 +78,7 @@ export TOOL_FILES=(
 	"${BASEDIR}/tools/scripts/usb-down.sh"
 	"${BASEDIR}/tools/scripts/configs/udown.bootloader.sh"
 	"${BASEDIR}/tools/bin/linux-usbdownloader"
+	"${BASEDIR}/tools/bin/simg2dev"
 	"${BASEDIR}/tools/files/partmap_*.txt"
 )
 
