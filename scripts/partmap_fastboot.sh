@@ -3,7 +3,7 @@
 # Author: Junghyun, Kim <jhkim@nexell.co.kr>
 
 BASEDIR="$(cd "$(dirname "$0")" && pwd)"
-RESULTDIR="$BASEDIR/../../result"
+RESULTDIR=`realpath "./"`
 
 PARTMAP_FILE=
 PARTMAP_CONTEXT=()
@@ -13,7 +13,7 @@ function usage () {
 	echo "usage: `basename $0` -f [partmap file] <targets> <options>"
 	echo ""
 	echo "[OPTIONS]"
-	echo "  -d : image path for fastboot, default: `readlink -e -n $RESULTDIR`"
+	echo "  -d : image path for fastboot, default: '$RESULTDIR'"
 	echo "  -i : partmap info"
 	echo "  -l : listup target in partmap list"
 	echo "  -r : send reboot command after end of fastboot"
@@ -28,6 +28,22 @@ function usage () {
 	echo "  1. sudo fastboot flash partmap <partmap.txt>"
 	echo "  2. sudo fastboot flash <target> <image>"
 	echo ""
+}
+
+function convert_byte_to_hn () {
+	local val=$1 ret=$2
+	local KB=$((1024)) MB=$((1024 * 1024)) GB=$((1024 * 1024 * 1024))
+
+	if [[ $((val)) -ge $((GB)) ]]; then
+		val="$((val/$GB))G";
+	elif [[ $((val)) -ge $((MB)) ]]; then
+		val="$((val/$MB))M";
+	elif [[ $((val)) -ge $((KB)) ]]; then
+		val="$((val/$KB))K";
+	else
+		val="$((val))B";
+	fi
+	eval "$ret=\"${val}\""
 }
 
 function parse_targets () {
@@ -68,7 +84,7 @@ function do_fastboot () {
 				continue
 			fi
 		fi
-		partmap_images+=("$i:`readlink -e -n "$image"`");
+		partmap_images+=("$i:`realpath "$image"`");
 	done
 
 	echo -e "\033[0;33m Partmap: $PARTMAP_FILE\033[0m"
@@ -122,7 +138,7 @@ case "$1" in
 			done
 
 			case "$3" in
-			-d )	RESULTDIR=$4; ((options+=2)); shift 2;;
+			-d )	RESULTDIR=`realpath $4`; ((options+=2)); shift 2;;
 			-r ) 	SEND_REBOOT=true; ((options+=1)); shift 1;;
 			-l )
 				echo -e "\033[0;33m------------------------------------------------------------------ \033[0m"
@@ -137,18 +153,9 @@ case "$1" in
 				echo -e "\033[0;33m------------------------------------------------------------------ \033[0m"
 				for i in "${PARTMAP_CONTEXT[@]}"
 				do
-					KB=$((1024)) MB=$((1024 * 1024)) GB=$((1024 * 1024 * 1024))
-					val="$(echo "$(echo "$i" | cut -d':' -f4)" | cut -d',' -f2)"
-
-					if [[ $val -ge "$GB" ]]; then
-						len="$((val/$GB)) GB"
-					elif [[ $val -ge "$MB" ]]; then
-						len="$((val/$MB)) MB"
-					else
-						len="$((val/$KB)) KB"
-					fi
-
-					echo -e "$i [$len]"
+					size=$(echo "$(echo "$i" | cut -d':' -f4)" | cut -d',' -f2)
+					convert_byte_to_hn $size size
+					printf "[%s]\t %s\n" $size $i
 				done
 				echo -e "\033[0;33m------------------------------------------------------------------ \033[0m"
 				exit 0;;
