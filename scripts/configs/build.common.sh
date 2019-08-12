@@ -60,8 +60,8 @@ function post_build_bl32 () {
 
 function pre_build_uboot () {
 	file=${UBOOT_DIR}/.uboot_defconfig
-	[ -e ${file} ] && [[ $(cat ${file}) == ${UBOOT_DEFCONFIG} ]] && return;
-	rm -f ${file}; echo ${UBOOT_DEFCONFIG} >> ${file};
+	[ -e ${file} ] && [[ $(cat ${file}) == "${UBOOT_DEFCONFIG}+bsp" ]] && return;
+	rm -f ${file}; echo "${UBOOT_DEFCONFIG}+bsp" >> ${file};
 	make -C ${UBOOT_DIR} distclean
 }
 
@@ -78,8 +78,8 @@ function post_build_uboot () {
 
 function pre_build_kernel () {
 	file=${KERNEL_DIR}/.kernel_defconfig
-	[ -e ${file} ] && [[ $(cat ${file}) == ${KERNEL_DEFCONFIG} ]] && return;
-	rm -f ${file}; echo ${KERNEL_DEFCONFIG} >> ${file};
+	[ -e ${file} ] && [[ $(cat ${file}) == "${KERNEL_DEFCONFIG}+bsp" ]] && return;
+	rm -f ${file}; echo "${KERNEL_DEFCONFIG}+bsp" >> ${file};
 	make -C ${KERNEL_DIR} distclean
 }
 
