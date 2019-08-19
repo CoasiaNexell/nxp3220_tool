@@ -6,14 +6,13 @@ BASEDIR=$(cd "$(dirname "$0")" && pwd)
 USBDOWNLOADER=linux-usbdownloader
 DOWNLOADER_TOOL=$BASEDIR/../bin/$USBDOWNLOADER
 RESULTDIR=`realpath "./"`
-USBVENDOR="Digit"
 DN_TARGET=
 USB_WAIT_TIME=	# sec
 
 declare -A TARGET_PRODUCT_ID=(
-	["3220"]="nxp3220"	# VID 0x2375
-	["3225"]="nxp3225"	# VID 0x2375
-	["1234"]="artik310"	# VID 0x04e8
+	["3220"]="nxp3220"	# VID 0x2375 : Digit
+	["3225"]="nxp3225"	# VID 0x2375 : Digit
+	["1234"]="artik310"	# VID 0x04e8 : Samsung
 )
 
 function usage() {
@@ -57,41 +56,33 @@ function get_prefix_element() {
 	done
 }
 
-function get_target_name() {
+function get_usb_target() {
 	local value=$1			# $1 = store the prefix's value
 	local counter=0
-	local id="$(lsusb | grep $USBVENDOR | cut -d ':' -f 3 | cut -d ' ' -f 1)"
 
 	if [[ -n $USB_WAIT_TIME ]]; then
-		[ -z "$id" ] &&	echo -e "\033[47;31m Wait $USB_WAIT_TIME sec $USBVENDOR connect\033[0m";
+		echo -e "\033[47;31m Wait $USB_WAIT_TIME sec connect\033[0m";
+	fi
 
-		while true; do
-			id="$(lsusb | grep $USBVENDOR | cut -d ':' -f 3 | cut -d ' ' -f 1)"
-			if [ -z "$id" ]; then
-				counter=$((counter+1))
-				sleep 1
-			else
-				break
-			fi
-
-			if [[ "$counter" -ge "$USB_WAIT_TIME" ]]; then
-				echo -e "\033[47;31m Not find usb vendor: $USBVENDOR !!!\033[0m";
-				exit 1
+	while true; do
+		for i in "${!TARGET_PRODUCT_ID[@]}"
+		do
+			local id="$(lsusb | grep $i | cut -d ':' -f 3 | cut -d ' ' -f 1)"
+			if [ "$i" == "$id" ]; then
+				id=${TARGET_PRODUCT_ID[$i]}
+				eval "$value=(\"${id}\")"
+				return
 			fi
 		done
-	fi
 
-	if [ -z "$id" ]; then
-		echo -e "\033[47;31m Not find usb vendor: $USBVENDOR !!!\033[0m"
-		exit 1;
-	fi
+		if [[ -n $USB_WAIT_TIME ]]; then
+			counter=$((counter+1))
+			sleep 1
+		fi
 
-	for i in "${!TARGET_PRODUCT_ID[@]}"
-	do
-		if [ "$i" == "$id" ]; then
-			id=${TARGET_PRODUCT_ID[$i]}
-			eval "$value=(\"${id}\")"
-			return
+		if [[ "$counter" -ge "$USB_WAIT_TIME" ]]; then
+			echo -e "\033[47;31m Not found usb device !!!\033[0m";
+			exit 1
 		fi
 	done
 
@@ -107,7 +98,7 @@ function usb_download_array() {
 	get_prefix_element target "TARGET" "${images[@]}"
 
 	if [ -z "$DN_TARGET" ]; then
-		get_target_name target
+		get_usb_target target
 		DN_TARGET=$target # set DN_TARGET with config file
 	else
 		target=$DN_TARGET # overwrite target with input target parameter with '-t'
@@ -170,7 +161,7 @@ function usb_download_files() {
 	local target=$DN_TARGET
 
 	if [ -z "$DN_TARGET" ]; then
-		get_target_name target
+		get_usb_target target
 	fi
 
 	echo "##################################################################"
