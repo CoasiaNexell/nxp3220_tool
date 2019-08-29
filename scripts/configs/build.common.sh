@@ -104,10 +104,14 @@ function post_ret_link () {
 	fi
 }
 
-BOOT_PRECMD="mkdir -p ${RESULT}/boot;
+function pre_boot_image () {
+	mkdir -p ${RESULT}/boot;
 	cp -a ${RESULT}/${KERNEL_BIN} ${RESULT}/boot;
 	cp -a ${RESULT}/${DTB_BIN} ${RESULT}/boot;
-	cp -a ${UBOOT_LOGO_BMP} ${RESULT}/boot;"
+	if [ -f ${UBOOT_LOGO_BMP} ]; then
+		cp -a ${UBOOT_LOGO_BMP} ${RESULT}/boot;
+	fi
+}
 
 if [[ ${IMAGE_TYPE} == "ubi" ]]; then
 	BOOT_POSTCMD="${TOOL_MKUBIFS} -r ${RESULT}/boot -v boot -i 0 -l ${IMAGE_BOOT_SIZE}
@@ -163,7 +167,7 @@ BUILD_IMAGES=(
 		IMAGE 	: ${DTB_BIN},
 		OUTPUT	: arch/arm/boot/dts/${DTB_BIN}",
 	"bootimg =
-		PRECMD  : $BOOT_PRECMD,
+		PRECMD  : pre_boot_image,
 		POSTCMD : $BOOT_POSTCMD",
 	"rootimg =
 		POSTCMD	: $ROOT_POSTCMD",
