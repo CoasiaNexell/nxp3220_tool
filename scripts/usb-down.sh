@@ -247,7 +247,7 @@ done
 
 if [ $EDIT_FILE == true ]; then
 	if [ ! -f $DN_LOAD_FILE ]; then
-		echo "No such file $argc"
+		echo -e "\033 No such file: $DN_LOAD_FILE \033[0m"
 		exit 1
 	fi
 
@@ -257,7 +257,7 @@ fi
 
 if [ ! -z $DN_LOAD_FILE ]; then
 	if [ ! -f $DN_LOAD_FILE ]; then
-		echo "No such file $argc"
+		echo -e "\033 No such file: $DN_LOAD_FILE \033[0m"
 		exit 1
 	fi
 
