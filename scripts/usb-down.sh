@@ -171,6 +171,7 @@ function usb_download_files() {
 
 	for i in "${files[@]}"
 	do
+		i=`realpath "$RESULTDIR/$i"`
 		if [ ! -f $i ]; then
 			echo -e "\033[47;31m No such file: $i... \033[0m"
 			exit 1;
