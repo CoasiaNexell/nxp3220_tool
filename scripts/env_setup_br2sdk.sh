@@ -14,11 +14,9 @@ function usage() {
 	echo  -e "\033[0;33m  $> make sdk \033[0m"
 	echo  -e "\033[0;33m \033[0m"
 	echo  -e "\033[0;33m Install Buildroot SDK:\033[0m"
-	echo  -e "\033[0;33m  $> cp <buildroot>/output/images/arm-buildroot-linux-gnueabihf_sdk-buildroot.tar.gz to <SDK PATH>\033[0m"
-	echo  -e "\033[0;33m  $> cd <SDK PATH> \033[0m"
-	echo  -e "\033[0;33m  $> tar zxvf arm-buildroot-linux-gnueabihf_sdk-buildroot.tar.gz\033[0m"
-	echo  -e "\033[0;33m  $> cd arm-buildroot-linux-gnueabihf_sdk-buildroot\033[0m"
-	echo  -e "\033[0;33m  $> relocate-sdk.sh \033[0m"
+	echo  -e "\033[0;33m  $> tar zxvf <buildroot>/output/images/arm-buildroot-linux-gnueabihf_sdk-buildroot.tar.gz -C <SDK PATH>\033[0m"
+	echo  -e "\033[0;33m  $> cd <SDK PATH>/arm-buildroot-linux-gnueabihf_sdk-buildroot\033[0m"
+	echo  -e "\033[0;33m  $> ./relocate-sdk.sh \033[0m"
 	echo  -e "\033[0;33m--------------------------------------------------- \033[0m"
 }
 
