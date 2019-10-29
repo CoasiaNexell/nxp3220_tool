@@ -170,6 +170,10 @@ function parse_environment() {
 		get_build_env val "$key" "=" image
 		BUILD_ENVIRONMENT[$key]=$val
 	done
+
+	if [[ -n ${BUILD_ENVIRONMENT["RESULT"]} ]]; then
+                mkdir -p ${BUILD_ENVIRONMENT["RESULT"]}
+	fi
 }
 
 function print_environments() {
