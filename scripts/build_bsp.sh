@@ -27,13 +27,13 @@ declare -A BUILD_ENVIRONMENT=(
 
 declare -A TARGET_COMPONENTS=(
   	["PATH"]=" "	# build path
-  	["CONFIG"]=" "	# build default condig (defconfig)
-  	["IMAGE"]=" "	# build image
-  	["TOOL"]=" "	# cross compiler
-  	["OUTPUT"]=" "	# output image to copy, copy after post command
-  	["OPTION"]=" "	# build option
-  	["PRECMD"]=" "	# pre command before build
-  	["POSTCMD"]=" "	# post command after copy done
+	["CONFIG"]=" "	# default condig (defconfig) for make build
+	["IMAGE"]=" "	# target image name for make build
+	["TOOL"]=" "	# cross compiler for make build
+	["OUTPUT"]=" "	# name of make built imag to copy to resultdir, copy after post command
+	["OPTION"]=" "	# make option
+	["PRECMD"]=" "	# pre command before make build.
+	["POSTCMD"]=" "	# post command after make build and copy done.
   	["COPY"]=" "	# copy name to RESULT
   	["JOBS"]=" "	# build jobs number (-j n)
 )
