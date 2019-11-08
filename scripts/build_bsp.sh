@@ -336,6 +336,19 @@ function make_target() {
 		   [ "$cmd" == "rebuild" ]; then
 			make -C $path clean
 		fi
+
+		if  [ "$cmd" == "rebuild" ] || [ "$cmd" == "cleanbuild" ] &&
+		    [ ! -z "${TARGET_COMPONENTS["PRECMD"]}" ]; then
+			local exec=${TARGET_COMPONENTS["PRECMD"]}
+			echo -e "\033[47;34m PRECMD : ${exec} \033[0m"
+			if type "${exec}" 2>/dev/null | grep -q 'function'; then
+				${exec}
+			else
+				bash -c "${exec}"
+			fi
+			[ $? -ne 0 ] && exit 1;
+			echo -e "\033[47;34m PRECMD : DONE \033[0m"
+		fi
 	fi
 
 	# exit after excute default build commands
@@ -404,13 +417,11 @@ function build_target() {
 	if [ $BUILD_OPT_PRECMD == true ] && [ ! -z "${TARGET_COMPONENTS["PRECMD"]}" ]; then
 		local exec=${TARGET_COMPONENTS["PRECMD"]}
 		echo -e "\033[47;34m PRECMD : ${exec} \033[0m"
-
 		if type "${exec}" 2>/dev/null | grep -q 'function'; then
 			${exec}
 		else
 			bash -c "${exec}"
 		fi
-
 		[ $? -ne 0 ] && exit 1;
 		echo -e "\033[47;34m PRECMD : DONE \033[0m"
 	fi
@@ -434,13 +445,11 @@ function build_target() {
 	if [ $BUILD_OPT_POSTCMD == true ] && [ ! -z "${TARGET_COMPONENTS["POSTCMD"]}" ]; then
 		local exec=${TARGET_COMPONENTS["POSTCMD"]}
 		echo -e "\033[47;34m POSTCMD: ${exec} \033[0m"
-
 		if type "${exec}" 2>/dev/null | grep -q 'function'; then
 			${exec}
 		else
 			bash -c "${exec}"
 		fi
-
 		[ $? -ne 0 ] && exit 1;
 		echo -e "\033[47;34m POSTCMD: DONE \033[0m"
 	fi
