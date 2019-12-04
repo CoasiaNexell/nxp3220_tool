@@ -3,7 +3,7 @@
 # Author: Junghyun, Kim <jhkim@nexell.co.kr>
 
 BASEDIR="$(cd "$(dirname "$0")" && pwd)"
-RESULTDIR=`realpath "./"`
+RESULTDIR=`readlink -f "./"`
 
 DISK_IMAGE_NAME="disk.img"
 DISK_UPDATE_DEV=""
@@ -356,7 +356,7 @@ case "$1" in
 			done
 
 			case "$3" in
-			-d )	RESULTDIR=`realpath $4`; ((options+=2)); shift 2;;
+			-d )	RESULTDIR=`readlink -f $4`; ((options+=2)); shift 2;;
 			-s )	DISK_SIZE=$(($4 * $SZ_GB)); ((options+=2)); shift 2;;
 			-r )	DISK_MARGIN=$(($4 * $SZ_MB)); ((options+=2)); shift 2;;
 			-n )	DISK_IMAGE_NAME=$4; ((options+=2)); shift 2;;
@@ -421,7 +421,7 @@ case "$1" in
 
 		((args-=2))
 		num=${#DISK_TARGET_NAME[@]}
-		num=$((args-num-options))
+		num=$((args - num - options))
 
 		if [ $num -ne 0 ]; then
 			echo -e "\033[47;31m Unknown target: $mapfile\033[0m"
