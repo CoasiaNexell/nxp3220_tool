@@ -27,8 +27,8 @@ YOCTO_IMAGE_DIR=$YOCTO_META_DIR/recipes-core/images
 YOCTO_BUILD_DIR=$BSP_YOCTO_DIR/build/build-$TARGET_MACHINE
 
 # Configure file path for available lists
-TARGET_MACHINE_DIR=$YOCTO_META_DIR/tools/configs/machines
-TARGET_IMAGE_DIR=$YOCTO_META_DIR/tools/configs/images
+TARGET_MACHINE_DIR=$YOCTO_META_DIR/configs/machines
+TARGET_IMAGE_DIR=$YOCTO_META_DIR/configs/images
 
 # Parse to local.conf
 declare -A LOCAL_CONF_VALUES=(
