@@ -80,5 +80,7 @@ export TOOL_FILES=(
 	"${BASEDIR}/tools/bin/linux-usbdownloader"
 	"${BASEDIR}/tools/bin/simg2dev"
 	"${BASEDIR}/tools/files/partmap_*.txt"
+	"${BASEDIR}/tools/scripts/swu_image.sh"
+	"${BASEDIR}/tools/scripts/swu_hash.sh"
 )
 

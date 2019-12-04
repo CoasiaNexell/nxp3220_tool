@@ -1,0 +1,15 @@
+hwrevision	2.0
+sw-versions	2.0
+swu.public.key  2.0
+bootpart	2.0
+miscpart	2.0
+rootpart	2.0
+datapart	2.0
+bl1		2.0
+bl2		2.0
+bl32		2.0
+bootloader	2.0
+env		2.0
+bootimg		2.0
+rootimg		2.0
+dataimg		2.0
