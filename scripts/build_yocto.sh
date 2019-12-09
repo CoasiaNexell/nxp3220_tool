@@ -5,6 +5,8 @@
 # $> build_yocto.sh <machine-board> <image> [options]
 #
 
+BSP_YOCTO_VERSION="R2"
+
 # Input arguments
 TARGET_MACHINE=$1
 TARGET_IMAGE=$2
@@ -378,8 +380,9 @@ function setup_bitbake_env () {
 function check_bitbake_env () {
         local mach="$(echo $TARGET_MACHINE | cut -d'-' -f 1)"
 	local conf=$BBLOCAL_CONF_FILE
-	local file=$YOCTO_BUILD_OUT/.build_image_type
-	local new=${TARGET_MACHINE}_${TARGET_IMAGE} old=""
+	local file=$YOCTO_BUILD_OUT/.build_config
+	local new=${TARGET_MACHINE}_${TARGET_IMAGE}_${BSP_YOCTO_VERSION}
+	local old=""
 
         if [ ! -f $conf ]; then
                 err "Not build setup environment : '$conf' ..."
@@ -422,6 +425,7 @@ function check_bitbake_env () {
 
 function print_avail_lists () {
 	msg "=================================================================================="
+	msg "Version: $BSP_YOCTO_VERSION"
 	msg "Support:"
 	msg "=================================================================================="
 
@@ -642,7 +646,6 @@ check_avail_type "$OPT_IMAGE_TYPE" "$IMAGE_AVAIL_TYPES" "image type"
 
 setup_bitbake_env
 check_bitbake_env
-
 local_conf_parse=$?
 
 if [ $local_conf_parse == 1 ] || [ $OPT_BUILD_PARSE == true ]; then
