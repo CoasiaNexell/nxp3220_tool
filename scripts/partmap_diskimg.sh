@@ -10,7 +10,7 @@ DISK_UPDATE_DEV=""
 DISK_UPDATE_PART=false
 
 SIMG2DEV=simg2dev
-IMG_TOOL=$BASEDIR/../bin/$SIMG2DEV
+ANDROID_IMAGE_WRITER=$BASEDIR/../bin/$SIMG2DEV
 
 declare -A DISK_PARTITION=(
 	["partition"]="gpt"
@@ -165,10 +165,10 @@ function disk_write () {
 		[[ ! -z $file ]] && printf " %s\n" `readlink -e -n $file`
 
 		if [[ ! -z "$(file $file | grep 'Android sparse')" ]]; then
-			if [ ! -f $IMG_TOOL ]; then
-				IMG_TOOL=./$SIMG2DEV
+			if [ ! -f $ANDROID_IMAGE_WRITER ]; then
+				ANDROID_IMAGE_WRITER=./$SIMG2DEV
 			fi
-			sudo $IMG_TOOL "$file" "$disk" "$seek" > /dev/null
+			sudo $ANDROID_IMAGE_WRITER "$file" "$disk" "$seek" > /dev/null
 			[ $? -ne 0 ] && exit 1;
 		else
 			dd_write "$disk" "$seek" "$size" "$file" "conv=notrunc"
