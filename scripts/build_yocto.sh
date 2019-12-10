@@ -102,35 +102,28 @@ declare -A BUILD_COMMANDS=(
 BSP_RESULT_OUT=$BSP_YOCTO_DIR/out
 BSP_RESULT_LINK=
 
-BBLOCAL_CONF_FILE=$YOCTO_BUILD_OUT/conf/local.conf
-BBLAYER_CONF_FILE=$YOCTO_BUILD_OUT/conf/bblayers.conf
-
-TARGET_AVAIL_TABLE=""
-IMAGE_AVAIL_TABLE=""
-IMAGE_AVAIL_TYPES=""
-
 function usage () {
 	echo ""
 	echo "Usage: `basename $0` <machine>-<board> <image> [options]"
 	echo ""
 	echo " [machine-board]"
-	echo "      : located at '$(echo $TARGET_CONF_MACHINE | sed 's|'$BSP_ROOT_DIR'/||')'"
+	echo "      : Located at '$(echo $TARGET_CONF_MACHINE | sed 's|'$BSP_ROOT_DIR'/||')'"
 	echo " [image]"
-	echo "      : located at '$(echo $YOCTO_RECIPE_IMAGE | sed 's|'$BSP_ROOT_DIR'/||')'"
-	echo "      : The image name is must be 'nexell-image-<image>'"
+	echo "      : Located at '$(echo $YOCTO_RECIPE_IMAGE | sed 's|'$BSP_ROOT_DIR'/||')'"
+	echo "      : The image name is prefixed with 'nexell-image-', ex> 'nexell-image-<name>'"
 	echo ""
 	echo " [options]"
-	echo "  -l : show available lists (machine-board, images, recipes, commands ...)"
-	echo "  -t : set build recipe"
-	echo "  -i : set image type to build with <image>, ex> -i A,B,..."
-	echo "  -c : build commands"
-	echo "  -o : bitbake option"
-	echo "  -v : set bitbake '-v' option"
-	echo "  -S : build the SDK for image"
-	echo "  -p : copy images from deploy dir to result dir"
-	echo "  -f : force overwrite buid confing files ('local.conf' and 'bblayers.conf')"
-	echo "  -j : determines how many tasks bitbake should run in parallel"
-	echo "  -h : help"
+	echo "  -l : Show available lists (machine-board, images, recipes, commands ...)"
+	echo "  -t : Set build recipe"
+	echo "  -i : Add features to <feature> ex> -i A,B,..."
+	echo "  -c : Build commands"
+	echo "  -o : Bitbake option"
+	echo "  -v : Set bitbake '-v' option"
+	echo "  -S : Build the SDK for image"
+	echo "  -p : Copy images from deploy dir to result dir"
+	echo "  -f : Force overwrite buid confing files ('local.conf' and 'bblayers.conf')"
+	echo "  -j : Determines how many tasks bitbake should run in parallel"
+	echo "  -h : Help"
 	echo ""
 	print_avail_lists
 	exit 1;
@@ -143,6 +136,13 @@ function err() {
 function msg() {
 	echo  -e "\033[0;33m $@\033[0m"
 }
+
+BBLOCAL_CONF_FILE=$YOCTO_BUILD_OUT/conf/local.conf
+BBLAYER_CONF_FILE=$YOCTO_BUILD_OUT/conf/bblayers.conf
+
+TARGET_AVAIL_TABLE=""
+IMAGE_AVAIL_TABLE=""
+FEATURE_AVAIL_TABLE=""
 
 function get_avail_types () {
 	local dir=$1 sep=$2 table=$3 val # store the value
@@ -189,7 +189,7 @@ function check_avail_type () {
 	local comp=()
 
 	if [[ -z $name ]] &&
-	   [[ $msg == "image type" ]]; then
+	   [[ $msg == "feature" ]]; then
 		return
 	fi
 
@@ -435,16 +435,16 @@ function print_avail_lists () {
 	msg "\t${TARGET_AVAIL_TABLE}"
 	msg "\t---------------------------------------------------------------------------"
 
-	msg "IMAGE: nexell-image-<image>"
+	msg "IMAGE: <image>"
 	msg "\t: '$(echo $YOCTO_RECIPE_IMAGE | sed 's|'$BSP_ROOT_DIR'/||')'"
 	msg "\t---------------------------------------------------------------------------"
 	msg "\t ${IMAGE_AVAIL_TABLE}"
 	msg "\t---------------------------------------------------------------------------"
 
-	msg "IMAGE-TYPE: -i <image>,<image>,..."
+	msg "FEATURES: -i <feature>,<feature>,..."
 	msg "\t: '$(echo $TARGET_CONF_IMAGE | sed 's|'$BSP_ROOT_DIR'/||')'"
 	msg "\t---------------------------------------------------------------------------"
-	msg "\t ${IMAGE_AVAIL_TYPES}"
+	msg "\t ${FEATURE_AVAIL_TABLE}"
 	msg "\t---------------------------------------------------------------------------"
 
 	msg ""
@@ -635,14 +635,14 @@ function parse_args () {
 ###############################################################################
 get_avail_types $TARGET_CONF_MACHINE "conf" TARGET_AVAIL_TABLE MACHINE_SUPPORT
 get_avail_types $YOCTO_RECIPE_IMAGE "bb" IMAGE_AVAIL_TABLE
-get_avail_types $TARGET_CONF_IMAGE "conf" IMAGE_AVAIL_TYPES
+get_avail_types $TARGET_CONF_IMAGE "conf" FEATURE_AVAIL_TABLE
 
 # parsing input arguments
 parse_args $@
 
 check_avail_type "$TARGET_MACHINE" "$TARGET_AVAIL_TABLE" "target"
 check_avail_type "$TARGET_IMAGE" "$IMAGE_AVAIL_TABLE" "image"
-check_avail_type "$OPT_IMAGE_TYPE" "$IMAGE_AVAIL_TYPES" "image type"
+check_avail_type "$OPT_IMAGE_TYPE" "$FEATURE_AVAIL_TABLE" "feature"
 
 setup_bitbake_env
 check_bitbake_env
@@ -675,7 +675,7 @@ if [ $OPT_BUILD_SDK != true ]; then
 		if [ ! -z $BB_TARGET_RECIPE ]; then
 			bitbake $BB_TARGET_RECIPE $BB_BUILD_CMD $OPT_BUILD_OPTION $OPT_BUILD_VERBOSE
 		else
-			# not support buildclean for image type
+			# not support buildclean for image
 			if [ "$BB_BUILD_CMD" == "-c buildclean" ]; then
 				BB_BUILD_CMD="-c cleanall"
 			fi
