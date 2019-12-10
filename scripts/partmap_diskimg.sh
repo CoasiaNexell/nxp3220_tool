@@ -335,10 +335,10 @@ case "$1" in
 
 		while read line;
 		do
+			line="$(echo "$line" | sed 's/[[:space:]]//g')"
 			if [[ "$line" == *"#"* ]];then
 				continue
 			fi
-
 			DISK_TARGET_CONTEXT+=($line)
 		done < $mapfile
 
