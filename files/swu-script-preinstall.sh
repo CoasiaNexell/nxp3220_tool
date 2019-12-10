@@ -7,7 +7,7 @@
 umount /misc
 
 # Create /tmp/datadst to remount for filesystem
-mkdir -p /tmp/datadst
+mkdir -p /tmp/datadst; sync;
 
 # disable ro mode to enable write for mmc boot partition
 SYS_MMCBOOT=/sys/block/$1/force_ro
