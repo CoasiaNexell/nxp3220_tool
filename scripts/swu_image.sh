@@ -41,6 +41,8 @@ function usage()
 	echo " SWU Archive contents (cpio):"
 	echo "     #> cpio -it -F $SWU_IMAGE_NAME"
 	echo " SWU Extract (cpio):"
+	echo "     #> mkdir root"
+	echo "     #> cd root"
 	echo "     #> cpio -idmv -F $SWU_IMAGE_NAME"
 	exit 1;
 }
