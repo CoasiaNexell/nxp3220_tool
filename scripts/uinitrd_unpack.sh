@@ -1,7 +1,8 @@
 #!/bin/bash
 
-IMAGE_UNPACK=initrd.gz
-IMAGE_PATH=initrd
+IMAGE_IN=$1
+IMAGE_DIR=$2
+[ -z $IMAGE_DIR ] && IMAGE_DIR=initrd;
 
 if [ $# -lt 1 ] || [ $# -gt 2 ]; then
 	echo "Usage: $0 [SRC uInitrd image] [DST initrd dir]"
@@ -10,24 +11,27 @@ if [ $# -lt 1 ] || [ $# -gt 2 ]; then
 	exit 1;
 fi
 
-IMAGE_NAME=$1
-[ $# -eq 2 ] && IMAGE_PATH=$2;
-
-echo "Unpacking  $IMAGE_NAME -> $IMAGE_UNPACK"
-
-if [ -e $IMAGE_UNPACK ]; then
-	rm $IMAGE_UNPACK
+if [ ! -f $IMAGE_IN ]; then
+	echo "No such file `realpath "$IMAGE_IN"`"
+	exit 1;
 fi
 
-dd if=$IMAGE_NAME of=$IMAGE_UNPACK skip=64 bs=1
+[ -d $IMAGE_DIR ] && rm -rf $IMAGE_DIR;
+mkdir -p $IMAGE_DIR
 
-if [ -d $IMAGE_PATH ]; then
-	echo "Remove     $IMAGE_PATH ..."
-	rm -rf $IMAGE_PATH
-fi
+IMAGE_IN=$(realpath "$IMAGE_IN")
+IMAGE_DIR=$(realpath "$IMAGE_DIR")
+IMAGE_GZ=$(realpath "$(dirname "$IMAGE_DIR")/initrd.gz")
 
-echo "Uncompress $IMAGE_UNPACK -> $IMAGE_PATH"
+echo "Unpacking : $IMAGE_IN"
+echo "       To : $IMAGE_GZ"
 
-mkdir -p $IMAGE_PATH
-cd $IMAGE_PATH
-zcat ../$IMAGE_UNPACK | cpio -id
+[ -f $IMAGE_GZ ] && rm $IMAGE_GZ;
+dd if=$IMAGE_IN of=$IMAGE_GZ skip=64 bs=1
+
+echo ""
+echo "Uncompress: $IMAGE_GZ"
+echo "       To : $IMAGE_DIR"
+
+cd $IMAGE_DIR
+zcat $IMAGE_GZ | cpio -id
