@@ -109,9 +109,9 @@ function make_ubi_image()
         local max_block_count=`expr $avail_size / $LEB`
 
 	local DIR=$(dirname $root)
-        local ubi_fs=`realpath $DIR/$vname.ubifs`
-        local ubi_image=`realpath $DIR/$vname.img`
-	local ubi_ini=`realpath $DIR/ubi.$vname.ini`
+        local ubi_fs=`realpath -s $DIR/$vname.ubifs`
+        local ubi_image=`realpath -s $DIR/$vname.img`
+	local ubi_ini=`realpath -s $DIR/ubi.$vname.ini`
 
 	echo -e "\033[0;33m ROOT dir = $root\033[0m"
 	echo -e "\033[0;33m UBI fs = $ubi_fs\033[0m"
