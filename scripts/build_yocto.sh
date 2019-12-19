@@ -452,6 +452,7 @@ function print_avail_lists () {
 	for i in "${!BUILD_RECIPES[@]}"; do
 		msg "\t$i (${BUILD_RECIPES[$i]})"
 	done
+	msg "\t< Recipe >"
 	msg ""
 	msg "COMMAND: '-c'"
 	for i in "${!BUILD_COMMANDS[@]}"; do
@@ -592,11 +593,7 @@ function parse_args () {
 				BB_TARGET_RECIPE=${BUILD_RECIPES[$i]}; shift 2; break;
 			done
 			if [ -z $BB_TARGET_RECIPE ]; then
-				err "Available Targets:"
-				for i in "${!BUILD_RECIPES[@]}"; do
-					err "\t$i\t: ${BUILD_RECIPES[$i]}"
-				done
-				exit 1;
+				BB_TARGET_RECIPE=$2; shift 2;
 			fi
 			;;
 		-c )
