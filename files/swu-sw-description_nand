@@ -2,4 +2,105 @@ software =
 {
 	version = "2.0";
 	hardware-compatibility: [ "1.0", "2.0" ];
+
+	images: (
+		{
+			name = "bl1";
+			filename = "bl1-nxp3220.bin.raw";
+			device = "/dev/mtd0";			/* mtd device */
+			type = "mtd-bootsector";		/* mtd-bootsector handler */
+			offset = "0x0";				/* offset from 'device', must be string */
+			sha256 = "@bl1-nxp3220.bin.raw";
+			version = "2.0";			/* compare with name '/misc/etc/sw-versions' */
+			install-if-different = true;
+		},
+		{
+			name = "bl2";
+			filename = "bl2.bin.raw";
+			device = "/dev/mtd0";			/* mtd device */
+			type = "mtd-bootsector";		/* mtd-bootsector handler */
+			offset = "0x20000";			/* offset from 'device', must be string */
+			sha256 = "@bl2.bin.raw";
+			version = "2.0";			/* compare with name '/misc/etc/sw-versions' */
+			install-if-different = true;
+		},
+		{
+			name = "bl32";
+			filename = "bl32.bin.raw";
+			device = "/dev/mtd0";			/* mtd device */
+			type = "mtd-bootsector";		/* mtd-bootsector handler */
+			offset = "0x40000";			/* offset from 'device', must be string */
+			sha256 = "@bl32.bin.raw";
+			version = "2.0";			/* compare with name '/misc/etc/sw-versions' */
+			install-if-different = true;
+		},
+		{
+			name = "bootloader";
+			filename = "u-boot.bin.raw";
+			device = "/dev/mtd0";			/* mtd device */
+			type = "mtd-bootsector";		/* mtd handler */
+			offset = "0x300000";			/* offset from 'device', must be string */
+			sha256 = "@u-boot.bin.raw";
+			version = "2.0";			/* compare with name '/misc/etc/sw-versions' */
+			install-if-different = true;
+		},
+		{
+			name = "env";
+			filename = "params_env.bin";
+			device = "/dev/mtd1";			/* mtd device */
+			type = "mtd";				/* for nand mtd partition */
+			offset = "0x0";				/* offset from 'device', must be string */
+			sha256 = "@params_env.bin";
+			version = "2.0";			/* compare with name '/misc/etc/sw-versions' */
+			install-if-different = true;
+		},
+		{
+			name = "bootimg";
+			filename = "boot.img";
+			device = "/dev/mtd2";			/* mtd device */
+			type = "ubi-img";
+			volume = "boot";
+			sha256 = "@boot.img";
+			version = "2.0";			/* compare with name '/misc/etc/sw-versions' */
+			install-if-different = true;
+		},
+		{
+			name = "rootimg";
+			filename = "rootfs.img";
+			device = "/dev/mtd4";			/* mtd device */
+			type = "ubi-img";
+			volume = "rootfs";
+			sha256 = "@rootfs.img";
+			version = "2.0";			/* compare with name '/misc/etc/sw-versions' */
+			install-if-different = true;
+		}
+	);
+
+	/* update files for version and key */
+	files: (
+		{
+			name = "hwrevision";
+			filename = "misc/etc/hwrevision";
+			path = "/misc/etc/hwrevision";		/* update file */
+			sha256 = "@misc/etc/hwrevision";
+			version = "3.0";			/* compare with name '/misc/etc/sw-versions' */
+			install-if-different = true;
+		},
+		{
+			name = "sw-versions";
+			filename = "misc/etc/sw-versions";
+			path = "/misc/etc/sw-versions";		/* update file */
+			sha256 = "@misc/etc/sw-versions";
+			version = "3.0";			/* compare with name '/misc/etc/sw-versions' */
+			install-if-different = true;
+		},
+		{
+			name = "swu.public.key";
+			filename = "misc/etc/swu.public.key";
+			path = "/misc/etc/swu.public.key";	/* update file */
+			sha256 = "@misc/etc/swu.public.key";
+			version = "3.0";			/* compare with name '/misc/etc/sw-versions' */
+			install-if-different = true;
+		}
+	);
 }
