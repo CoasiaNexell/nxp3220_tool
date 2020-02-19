@@ -87,6 +87,7 @@ export TOOL_FILES=(
 	"${BASEDIR}/tools/scripts/swu_hash.py"
 	"${BASEDIR}/tools/files/secure-bootkey.pem"
 	"${BASEDIR}/tools/files/secure-userkey.pem"
+	"${BASEDIR}/tools/files/secure-jtag-hash.txt"
 	"${BASEDIR}/tools/files/efuse_cfg-aes_enb.txt"
 	"${BASEDIR}/tools/files/efuse_cfg-verify_enb-hash0.txt"
 	"${BASEDIR}/tools/files/efuse_cfg-sjtag_enb.txt"
