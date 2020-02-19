@@ -12,3 +12,5 @@ flash=efuse,0:sbootkey1:raw:0x120,128:secure-bl32-enckey.txt;
 flash=efuse,0:sboothash0:raw:0x150,256:secure-bootkey.pem.pub.hash.txt;
 flash=efuse,0:aesenb:raw:0x1f0,32:efuse_cfg-aes_enb.txt;
 flash=efuse,0:verifyenb:raw:0x1f0,32:efuse_cfg-verify_enb-hash0.txt;
+flash=efuse,0:sjtaghash:raw:0x1d0,128:sjtag-hash.txt;
+flash=efuse,0:sjtagenb:raw:0x1f0,32:efuse_cfg-sjtag_enb.txt;

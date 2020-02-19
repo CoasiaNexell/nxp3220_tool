@@ -1,0 +1,42 @@
+;**************************************************
+;* Pyrope CortexA7MPCore
+;* Init Script for TRACE32
+;**************************************************
+
+sys.res
+SYStem.CPU CortexA7MPCore
+
+SYStem.JtagClock 10Mhz
+SYStem.Option ResBreak OFF
+SYStem.Option waitreset on
+SYStem.Option EnReset ON
+
+sys.config.COREBASE 0x80010000
+
+tronchip.set DABORT off
+tronchip.set PABORT off
+;tronchip.set RESET off
+tronchip.set UNDEF off
+
+sys.mode.a
+
+; non-secure password
+Data.Set EAPB:0x10300000 %LE %Long 0x595d3c40
+Data.Set EAPB:0x10300000 %LE %Long 0xdfbff35f
+Data.Set EAPB:0x10300000 %LE %Long 0xd7fa8b58
+Data.Set EAPB:0x10300000 %LE %Long 0x665a8099
+Data.Set EAPB:0x10300000 %LE %Long 0xcbcd04b0
+
+term.reset
+if !window.name("Term")
+(
+	TERM.SCROLL ON
+	TERM.SIZE 80 120
+;	TERM.GATE
+)
+
+map.DenyAccess 0xFFFE0000++0xFFFF
+
+if run()
+	break
+enddo
