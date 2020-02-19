@@ -165,7 +165,7 @@ static void print_usage(void)
 }
 
 #define SJTAG_SEED	"ARTIK310 SZBNT SJTAG password  "
-#define SJTAG_PREFIX	"sjtag"
+#define SJTAG_PREFIX	"secure-jtag"
 
 int main(int argc, char **argv)
 {
