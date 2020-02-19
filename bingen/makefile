@@ -1,5 +1,5 @@
 all:
-	gcc -o rsa_sign rsa_sign_pss.c entropy.c pk.c ctr_drbg.c pkparse.c	\
+	gcc -o bingen rsa_sign_pss.c entropy.c pk.c ctr_drbg.c pkparse.c	\
 		rsa.c md.c	\
 		sha512.c entropy_poll.c	\
 		pk_wrap.c aes.c asn1parse.c bignum.c ecp.c ecp_curves.c oid.c	\
@@ -9,4 +9,4 @@ all:
 		camellia.c blowfish.c libuser.c
 
 clean:
-	rm rsa_sign
+	rm bingen 

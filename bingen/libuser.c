@@ -217,6 +217,21 @@ int s_fwrite(char *fname, char *buf, int size)
 	}
 }
 
+int s_fprint(char *fname, char *buf, int size)
+{
+	FILE *hpbkf;
+	unsigned int *p = (unsigned int *)buf;
+	int i;
+
+	if ((hpbkf = fopen(fname, "wb+")) != NULL) {
+		for (i = 0; i < size/4; i++, p++)
+			fprintf(hpbkf, "%04x", *p);
+
+		fprintf(hpbkf, "\n");
+		fclose(hpbkf);
+	}
+}
+
 void dbg_dump_keyfile(mbedtls_rsa_context *ctx, char *key_name)
 {
 	int i;

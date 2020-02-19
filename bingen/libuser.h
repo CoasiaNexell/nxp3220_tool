@@ -18,6 +18,7 @@ void ltb_e(char *dst, char *src, int size);
 
 int get_fsize(char *fname);
 int s_fwrite(char *fname, char *buf, int size);
+int s_fprint(char *fname, char *buf, int size);
 
 void dbg_dump_keyfile(mbedtls_rsa_context *ctx, char *key_name);
 void dbg_dump_hash(unsigned int *hash, int size, int div_unit);

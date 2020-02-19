@@ -72,6 +72,7 @@ void help(void)
 	mbedtls_printf("-u <user key file>\n");
 	mbedtls_printf("-i <bl1 file>\n");
 	mbedtls_printf("-n <nand retry count> (default:64)\n");
+	mbedtls_printf("-e mark encrypted status to NSIH\n");
 //	mbedtls_printf("-l <bl1 load address> (default:0xFFFF0000)\n");
 //	mbedtls_printf("-s <bl1 start address> (default:0xFFFF0000)\n");
 #if defined(_WIN32)
@@ -107,7 +108,7 @@ struct bingen_managment {
 	char *bootkey_name;
 	char *userkey_name;
 	char *image_name;
-
+	int mark_encrypted;
 };
 
 struct bingen_managment bg_m;
@@ -171,6 +172,12 @@ static int efuse_bootkey_genhash(unsigned int *Nv, char* key_name)
 	mbedtls_printf("   .generating rsa public boot key hash file(%s)\n\n",
 			fname);
 	s_fwrite(fname, (char*)hash, sizeof(hash));
+
+	mbedtls_snprintf(fname, 512, "%s.pub.hash.txt", key_name);
+	mbedtls_printf("   .generating rsa public boot key hash ascii file(%s)\n\n",
+			fname);
+	s_fprint(fname, (char*)hash, sizeof(hash));
+
 	mbedtls_printf("rsa public boot key hash:\n");
 	dbg_dump_hash(hash, sizeof(hash), 4);
 
@@ -252,6 +259,7 @@ static int header_parser(char *tbi)
 		pbi->load_size = bg_m.image_size;
 		pbi->load_addr = bg_m.load_addr;
 		pbi->launch_addr = bg_m.launch_addr;
+		pbi->reserved2 = bg_m.mark_encrypted;
 		pbi->crc32 = calc_crc(bg_m.fbuf, bg_m.image_size);;
 	}
 	return ret ;
@@ -298,7 +306,7 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	while (-1 != (param_opt = getopt(argc, argv, "b:u:i:n:r:l:s:k:t"))) {
+	while (-1 != (param_opt = getopt(argc, argv, "b:u:i:n:r:l:s:k:te"))) {
 		switch (param_opt) {
 		case 'b':
 			bg_m.bootkey_name = strdup(optarg);
@@ -331,6 +339,9 @@ int main(int argc, char *argv[])
 			break;
 		case 't':
 			bg_m.testsample = 1;
+			break;
+		case 'e':
+			bg_m.mark_encrypted = 1;
 			break;
 
 		default:
