@@ -22,51 +22,53 @@ export KERNEL_DIR=${BASEDIR}/kernel-4.14
 export BR2_DIR=${BASEDIR}/buildroot
 
 export TOOL_BINGEN="${BASEDIR}/tools/bin/bingen"
-export TOOL_BINENC="${BASEDIR}/tools/bin/aescbc_enc"
+export TOOL_BINENC="openssl"
 export TOOL_BINECC="${BASEDIR}/tools/bin/nandbingen"
 export TOOL_MKPARAM="${BASEDIR}/tools/scripts/mk_bootparam.sh"
 export TOOL_MKUBIFS="${BASEDIR}/tools/scripts/mk_ubifs.sh"
 export TOOL_MKEXT4="make_ext4fs"
 
+# secure keys
+export SECURE_BOOTKEY="${BASEDIR}/tools/files/secure-bootkey.pem"
+export SECURE_USERKEY="${BASEDIR}/tools/files/secure-userkey.pem"
+export SECURE_BL1_ENCKEY="${BASEDIR}/tools/files/secure-bl1-enckey.txt"
+export SECURE_BL32_ENCKEY="${BASEDIR}/tools/files/secure-bl32-enckey.txt"
+export SECURE_BL32_IVECTOR="${BASEDIR}/tools/files/secure-bl32-ivector.txt"
+
+# b1 configs
 export BL1_BIN="bl1-nxp3220.bin"
 export BL1_LOADADDR=0xFFFF0000
 export BL1_NSIH="${BASEDIR}/tools/files/nsih_bl1.txt"
-export BL1_BOOTKEY="${BASEDIR}/tools/files/bootkey"
-export BL1_USERKEY="${BASEDIR}/tools/files/userkey"
-export BL1_AESKEY="${BASEDIR}/tools/files/aeskey.txt"
-export BL1_VECTOR="${BASEDIR}/tools/files/aesvector.txt"
 
+# b2 configs
 export BL2_BIN="bl2-${TARGET_BL2_BOARD}.bin"
 export BL2_LOADADDR=0xFFFF9000
 export BL2_NSIH="${BL2_DIR}/reference-nsih/$TARGET_BL2_NSIH"
-export BL2_BOOTKEY="${BASEDIR}/tools/files/bootkey"
-export BL2_USERKEY="${BASEDIR}/tools/files/userkey"
 export BL2_CHIP=${TARGET_BL2_CHIP}
 export BL2_BOARD=${TARGET_BL2_BOARD}
 export BL2_PMIC=${TARGET_BL2_PMIC}
 
+# b32 configs
 export BL32_BIN="bl32.bin"
 export BL32_LOADADDR=${TARGET_BL32_LOADADDR}
 export BL32_NSIH="${BL32_DIR}/reference-nsih/nsih_general.txt"
-export BL32_BOOTKEY="${BASEDIR}/tools/files/bootkey"
-export BL32_USERKEY="${BASEDIR}/tools/files/userkey"
-export BL32_AESKEY="${BASEDIR}/tools/files/aeskey.txt"
-export BL32_VECTOR="${BASEDIR}/tools/files/aesvector.txt"
 
+# uboot configs
 export UBOOT_BIN="u-boot.bin"
 export UBOOT_LOADADDR=0x43c00000
 export UBOOT_NSIH="${BASEDIR}/tools/files/nsih_uboot.txt"
 export UBOOT_DEFCONFIG=${TARGET_UBOOT_DEFCONFIG}
-export UBOOT_BOOTKEY="${BASEDIR}/tools/files/bootkey"
-export UBOOT_USERKEY="${BASEDIR}/tools/files/userkey"
 export UBOOT_LOGO_BMP="${BASEDIR}/tools/files/logo.bmp"
 
+# kernel configs
 export KERNEL_DEFCONFIG=${TARGET_KERNEL_DEFCONFIG}
 export KERNEL_BIN=${TARGET_KERNEL_IMAGE}
 export DTB_BIN=${TARGET_KERNEL_DTB}.dtb
 
+# buildroot configs
 export BR2_DEFCONFIG=${TARGET_BR2_DEFCONFIG}
 
+# images configs
 export IMAGE_TYPE=${TARGET_IMAGE_TYPE}
 export IMAGE_BOOT_SIZE=${TARGET_BOOT_IMAGE_SIZE}
 export IMAGE_ROOT_SIZE=${TARGET_ROOT_IMAGE_SIZE}
@@ -77,10 +79,15 @@ export TOOL_FILES=(
 	"${BASEDIR}/tools/scripts/partmap_diskimg.sh"
 	"${BASEDIR}/tools/scripts/usb-down.sh"
 	"${BASEDIR}/tools/scripts/configs/udown.bootloader.sh"
+	"${BASEDIR}/tools/scripts/configs/udown.bootloader-secure.sh"
 	"${BASEDIR}/tools/bin/linux-usbdownloader"
 	"${BASEDIR}/tools/bin/simg2dev"
 	"${BASEDIR}/tools/files/partmap_*.txt"
 	"${BASEDIR}/tools/scripts/swu_image.sh"
 	"${BASEDIR}/tools/scripts/swu_hash.py"
+	"${BASEDIR}/tools/files/secure-bootkey.pem"
+	"${BASEDIR}/tools/files/secure-userkey.pem"
+	"${BASEDIR}/tools/files/efuse_cfg-aes_enb.txt"
+	"${BASEDIR}/tools/files/efuse_cfg-verify_enb-hash0.txt"
+	"${BASEDIR}/tools/files/efuse_cfg-sjtag_enb.txt"
 )
-

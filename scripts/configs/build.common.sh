@@ -4,28 +4,51 @@
 #
 
 source $(realpath $(dirname "$0"))/configs/env_common.sh
+function msg() {
+	echo ""; echo  -e "\033[0;33m $@\033[0m"
+}
 
 # Add to build source at target script:
 # export BASEDIR=`realpath "$(cd "$(dirname "$0")" && pwd)/../.."`
 # TARGET_BL1_DIR=${BASEDIR}/firmwares/bl1-nxp3220
+
+SECURE_BL1_IVECTOR=73FC7B44B996F9990261A01C9CB93C8F
+
 function post_build_bl1 () {
 	local bl1_binary=${BL1_DIR}/${BL1_BIN}
+	local outdir=${BL1_DIR}
 
 	if [[ ! -z $TARGET_BL1_DIR ]]; then
 		bl1_binary=${BL1_DIR}/out/${BL1_BIN}
+		outdir=${BL1_DIR}/out
 	fi
 
+	# Copy encrypt keys
+	cp ${SECURE_BL1_ENCKEY}  ${outdir}/$(basename $SECURE_BL1_ENCKEY)
+	cp ${SECURE_BOOTKEY} ${outdir}/$(basename $SECURE_BOOTKEY)
+	cp ${SECURE_USERKEY} ${outdir}/$(basename $SECURE_USERKEY)
+
+	SECURE_BL1_ENCKEY=${outdir}/$(basename $SECURE_BL1_ENCKEY)
+	SECURE_BOOTKEY=${outdir}/$(basename $SECURE_BOOTKEY)
+	SECURE_USERKEY=${outdir}/$(basename $SECURE_USERKEY)
+
         # Encrypt binary : $BIN.enc
-        ${TOOL_BINENC} -n ${bl1_binary} -k $(cat ${BL1_AESKEY}) \
-		-v $(cat ${BL1_VECTOR}) -m enc -b 128;
+	msg "ENCRYPT: ${bl1_binary} -> ${bl1_binary}.enc"
+       ${TOOL_BINENC} enc -e -nosalt -aes-128-cbc -in ${bl1_binary} -out ${bl1_binary}.enc \
+		-K $(cat ${SECURE_BL1_ENCKEY}) -iv ${SECURE_BL1_IVECTOR};
 
         # (Encrypted binary) + NSIH : $BIN.bin.enc.raw
+	msg "BINGEN : ${bl1_binary}.enc -> ${bl1_binary}.enc.raw"
         ${TOOL_BINGEN} -k bl1 -n ${BL1_NSIH} -i ${bl1_binary}.enc \
-		-b ${BL1_BOOTKEY} -u ${BL1_USERKEY} -l ${BL1_LOADADDR} -s ${BL1_LOADADDR} -t;
+		-b ${SECURE_BOOTKEY} -u ${SECURE_USERKEY} -l ${BL1_LOADADDR} -s ${BL1_LOADADDR} -t;
 
         # Binary + NSIH : $BIN.raw
+	msg "BINGEN : ${bl1_binary} -> ${bl1_binary}.raw"
         ${TOOL_BINGEN} -k bl1 -n ${BL1_NSIH} -i ${bl1_binary} \
-		-b ${BL1_BOOTKEY} -u ${BL1_USERKEY} -l ${BL1_LOADADDR} -s ${BL1_LOADADDR} -t;
+		-b ${SECURE_BOOTKEY} -u ${SECURE_USERKEY} -l ${BL1_LOADADDR} -s ${BL1_LOADADDR} -t;
+
+	cp ${SECURE_BL1_ENCKEY} ${RESULT}
+	cp ${SECURE_BOOTKEY}.pub.hash.txt ${RESULT}
 
 	cp ${bl1_binary}.raw ${RESULT}
 	cp ${bl1_binary}.enc.raw ${RESULT}
@@ -33,26 +56,45 @@ function post_build_bl1 () {
 
 function post_build_bl2 () {
         # Binary + NSIH : $BIN.raw
+	msg "BINGEN : ${BL2_BIN} -> ${BL2_BIN}.raw"
         ${TOOL_BINGEN} -k bl2 -n ${BL2_NSIH} -i ${BL2_DIR}/out/${BL2_BIN} \
-		-b ${BL2_BOOTKEY} -u ${BL2_USERKEY} -l ${BL2_LOADADDR} -s ${BL2_LOADADDR} -t;
+		-b ${SECURE_BOOTKEY} -u ${SECURE_USERKEY} -l ${BL2_LOADADDR} -s ${BL2_LOADADDR} -t;
 
         cp ${BL2_DIR}/out/${BL2_BIN}.raw ${RESULT}/bl2.bin.raw;
 }
 
 function post_build_bl32 () {
+	# Copy encrype keys
+	cp ${SECURE_BL32_ENCKEY}  ${BL32_DIR}/out/$(basename $SECURE_BL32_ENCKEY)
+	cp ${SECURE_BL32_IVECTOR}  ${BL32_DIR}/out/$(basename $SECURE_BL32_IVECTOR)
+	cp ${SECURE_BOOTKEY} ${BL32_DIR}/out/$(basename $SECURE_BOOTKEY)
+	cp ${SECURE_USERKEY} ${BL32_DIR}/out/$(basename $SECURE_USERKEY)
+
+	SECURE_BL32_ENCKEY=${BL32_DIR}/out/$(basename $SECURE_BL32_ENCKEY)
+	SECURE_BL32_IVECTOR=${BL32_DIR}/out/$(basename $SECURE_BL32_IVECTOR)
+	SECURE_BOOTKEY=${BL32_DIR}/out/$(basename $SECURE_BOOTKEY)
+	SECURE_USERKEY=${BL32_DIR}/out/$(basename $SECURE_USERKEY)
+
         # Encrypt binary : $BIN.enc
-        ${TOOL_BINENC} -n ${BL32_DIR}/out/${BL32_BIN} \
-		-k $(cat ${BL32_AESKEY}) -v $(cat ${BL32_VECTOR}) -m enc -b 128;
+	msg "ENCRYPT: ${BL32_BIN} -> ${BL32_BIN}.enc"
+	${TOOL_BINENC} enc -e -nosalt -aes-128-cbc \
+		-in ${BL32_DIR}/out/${BL32_BIN} -out ${BL32_DIR}/out/${BL32_BIN}.enc \
+		-K $(cat ${SECURE_BL32_ENCKEY}) -iv $(cat ${SECURE_BL32_IVECTOR});
 
         # (Encrypted binary) + NSIH : $BIN.enc.raw
+	msg "BINGEN : ${BL32_BIN}.enc -> ${BL32_BIN}.enc.raw"
         ${TOOL_BINGEN} -k bl32 -n ${BL32_NSIH} -i ${BL32_DIR}/out/${BL32_BIN}.enc \
-		-b ${BL32_BOOTKEY} -u ${BL32_USERKEY} \
-		-l ${BL32_LOADADDR} -s ${BL32_LOADADDR} -t;
+		-b ${SECURE_BOOTKEY} -u ${SECURE_USERKEY} \
+		-l ${BL32_LOADADDR} -s ${BL32_LOADADDR} -t -e;
 
         # Binary + NSIH : $BIN.raw
+	msg "BINGEN : ${BL32_BIN} -> ${BL32_BIN}.raw"
         ${TOOL_BINGEN} -k bl32 -n ${BL32_NSIH} -i ${BL32_DIR}/out/${BL32_BIN} \
-		-b ${BL32_BOOTKEY} -u ${BL32_USERKEY} \
+		-b ${SECURE_BOOTKEY} -u ${SECURE_USERKEY} \
 		-l ${BL32_LOADADDR} -s ${BL32_LOADADDR} -t;
+
+	cp ${SECURE_BL32_ENCKEY} ${RESULT}
+	cp ${SECURE_BL32_IVECTOR} ${RESULT}
 
 	cp ${BL32_DIR}/out/${BL32_BIN}.raw ${RESULT}
 	cp ${BL32_DIR}/out/${BL32_BIN}.enc.raw ${RESULT}
@@ -66,8 +108,9 @@ function pre_build_uboot () {
 }
 
 function post_build_uboot () {
+	msg "BINGEN : ${UBOOT_BIN} -> ${UBOOT_BIN}.raw"
         ${TOOL_BINGEN} -k bl33 -n ${UBOOT_NSIH} -i ${UBOOT_DIR}/${UBOOT_BIN} \
-		-b ${UBOOT_BOOTKEY} -u ${UBOOT_USERKEY} \
+		-b ${SECURE_BOOTKEY} -u ${SECURE_USERKEY} \
 		-l ${UBOOT_LOADADDR} -s ${UBOOT_LOADADDR} -t;
 
 	cp ${UBOOT_DIR}/${UBOOT_BIN}.raw ${RESULT}
