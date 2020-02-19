@@ -82,6 +82,7 @@ BSP_TOOLS_FILES=(
 	"tools/files/secure-bl32-ivector.txt"
 	"tools/files/secure-bootkey.pem"
 	"tools/files/secure-userkey.pem"
+	"tools/files/secure-jtag-hash.txt"
 	"tools/files/secure-bootkey.pem.pub.hash.txt"
 	"tools/files/efuse_cfg-aes_enb.txt"
 	"tools/files/efuse_cfg-verify_enb-hash0.txt"
