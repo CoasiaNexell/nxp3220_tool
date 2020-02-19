@@ -64,6 +64,7 @@ BSP_RESULT_FILES=(
 	"swu.private.key"
 	"swu.public.key"
 	"*.swu"
+	"secure-bootkey.pem.pub.hash.txt"
 )
 
 # Copy from BSP tools to result dir
@@ -72,9 +73,19 @@ BSP_TOOLS_FILES=(
 	"tools/scripts/partmap_diskimg.sh"
 	"tools/scripts/usb-down.sh"
 	"tools/scripts/configs/udown.bootloader.sh"
+	"tools/scripts/configs/udown.bootloader-secure.sh"
 	"tools/bin/linux-usbdownloader"
 	"tools/bin/simg2dev"
 	"tools/files/partmap_*.txt"
+	"tools/files/secure-bl1-enckey.txt"
+	"tools/files/secure-bl32-enckey.txt"
+	"tools/files/secure-bl32-ivector.txt"
+	"tools/files/secure-bootkey.pem"
+	"tools/files/secure-userkey.pem"
+	"tools/files/secure-bootkey.pem.pub.hash.txt"
+	"tools/files/efuse_cfg-aes_enb.txt"
+	"tools/files/efuse_cfg-verify_enb-hash0.txt"
+	"tools/files/efuse_cfg-sjtag_enb.txt"
 )
 
 declare -A BUILD_RECIPES=(
