@@ -1,0 +1,6 @@
+; secure password
+Data.Set EAPB:0x10300000 %LE %Long 0x65e8bd06
+Data.Set EAPB:0x10300000 %LE %Long 0xf24872a1
+Data.Set EAPB:0x10300000 %LE %Long 0xcf22f815
+Data.Set EAPB:0x10300000 %LE %Long 0xa5a1d8a1
+Data.Set EAPB:0x10300000 %LE %Long 0x0ab29353

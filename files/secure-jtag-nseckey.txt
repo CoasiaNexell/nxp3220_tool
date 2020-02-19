@@ -1,0 +1,6 @@
+; non-secure password
+Data.Set EAPB:0x10300000 %LE %Long 0x595d3c40
+Data.Set EAPB:0x10300000 %LE %Long 0xdfbff35f
+Data.Set EAPB:0x10300000 %LE %Long 0xd7fa8b58
+Data.Set EAPB:0x10300000 %LE %Long 0x665a8099
+Data.Set EAPB:0x10300000 %LE %Long 0xcbcd04b0
