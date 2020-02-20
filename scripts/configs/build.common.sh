@@ -13,6 +13,7 @@ function msg() {
 # TARGET_BL1_DIR=${BASEDIR}/firmwares/bl1-nxp3220
 
 SECURE_BL1_IVECTOR=73FC7B44B996F9990261A01C9CB93C8F
+SECURE_BL32_IVECTOR=73FC7B44B996F9990261A01C9CB93C8F
 
 function post_build_bl1 () {
 	local bl1_binary=${BL1_DIR}/${BL1_BIN}
@@ -66,12 +67,10 @@ function post_build_bl2 () {
 function post_build_bl32 () {
 	# Copy encrype keys
 	cp ${SECURE_BL32_ENCKEY}  ${BL32_DIR}/out/$(basename $SECURE_BL32_ENCKEY)
-	cp ${SECURE_BL32_IVECTOR}  ${BL32_DIR}/out/$(basename $SECURE_BL32_IVECTOR)
 	cp ${SECURE_BOOTKEY} ${BL32_DIR}/out/$(basename $SECURE_BOOTKEY)
 	cp ${SECURE_USERKEY} ${BL32_DIR}/out/$(basename $SECURE_USERKEY)
 
 	SECURE_BL32_ENCKEY=${BL32_DIR}/out/$(basename $SECURE_BL32_ENCKEY)
-	SECURE_BL32_IVECTOR=${BL32_DIR}/out/$(basename $SECURE_BL32_IVECTOR)
 	SECURE_BOOTKEY=${BL32_DIR}/out/$(basename $SECURE_BOOTKEY)
 	SECURE_USERKEY=${BL32_DIR}/out/$(basename $SECURE_USERKEY)
 
@@ -79,7 +78,7 @@ function post_build_bl32 () {
 	msg "ENCRYPT: ${BL32_BIN} -> ${BL32_BIN}.enc"
 	${TOOL_BINENC} enc -e -nosalt -aes-128-cbc \
 		-in ${BL32_DIR}/out/${BL32_BIN} -out ${BL32_DIR}/out/${BL32_BIN}.enc \
-		-K $(cat ${SECURE_BL32_ENCKEY}) -iv $(cat ${SECURE_BL32_IVECTOR});
+		-K $(cat ${SECURE_BL32_ENCKEY}) -iv ${SECURE_BL32_IVECTOR};
 
         # (Encrypted binary) + NSIH : $BIN.enc.raw
 	msg "BINGEN : ${BL32_BIN}.enc -> ${BL32_BIN}.enc.raw"
@@ -94,7 +93,6 @@ function post_build_bl32 () {
 		-l ${BL32_LOADADDR} -s ${BL32_LOADADDR} -t;
 
 	cp ${SECURE_BL32_ENCKEY} ${RESULT}
-	cp ${SECURE_BL32_IVECTOR} ${RESULT}
 
 	cp ${BL32_DIR}/out/${BL32_BIN}.raw ${RESULT}
 	cp ${BL32_DIR}/out/${BL32_BIN}.enc.raw ${RESULT}

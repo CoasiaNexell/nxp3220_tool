@@ -33,7 +33,6 @@ export SECURE_BOOTKEY="${BASEDIR}/tools/files/secure-bootkey.pem"
 export SECURE_USERKEY="${BASEDIR}/tools/files/secure-userkey.pem"
 export SECURE_BL1_ENCKEY="${BASEDIR}/tools/files/secure-bl1-enckey.txt"
 export SECURE_BL32_ENCKEY="${BASEDIR}/tools/files/secure-bl32-enckey.txt"
-export SECURE_BL32_IVECTOR="${BASEDIR}/tools/files/secure-bl32-ivector.txt"
 
 # b1 configs
 export BL1_BIN="bl1-nxp3220.bin"
