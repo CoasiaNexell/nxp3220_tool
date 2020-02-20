@@ -141,10 +141,13 @@ function post_data_image () {
 }
 
 function post_ret_link () {
-	if [[ $RESULT != ${BASEDIR}/out/result ]]; then
-		rm -rf ${BASEDIR}/out/result
-		ln -s ${RESULT} ${BASEDIR}/out/result
+
+	if [[ -e ${BASEDIR}/out/result  ]] ||
+	   [[ -h ${BASEDIR}/out/result ]]; then
+		rm -f ${BASEDIR}/out/result
 	fi
+
+	ln -s ${RESULT} ${BASEDIR}/out/result
 }
 
 function pre_boot_image () {
