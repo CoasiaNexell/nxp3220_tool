@@ -24,18 +24,18 @@ if [ "$#" -ne 1 ]; then
 	echo  -e "\033[0;31m Set SDK PATH !!!\033[0m"
 	echo  -e ""
 	usage;
-	return 1
+	exit 0
 fi
 
 if [[ $1 == "-h" ]]; then
 	usage;
-	return 1
+	exit 0
 fi
 
 SDK_PATH=`readlink -e -n $1`
 if [ ! -e $SDK_PATH ]; then
 	echo  -e "\033[0;31m Not such SDK PATH: $SDK_PATH !!!\033[0m"
-	return 1
+	exit 0
 fi
 
 SDK_CROSS_COMPILE_PREFIX=arm-linux-gnueabihf
@@ -44,7 +44,7 @@ SDK_TARGET_OPTION="-march=armv7ve -mfpu=neon -mfloat-abi=hard -mcpu=cortex-a7"
 $SDK_PATH/usr/bin/$SDK_CROSS_COMPILE_PREFIX-gcc -v >/dev/null 2>&1
 if [ $? -ne 0 ]; then
 	echo  -e "\033[0;31m Not such: $SDK_PATH/usr/bin/$SDK_CROSS_COMPILE_PREFIX-gcc !!!\033[0m"
-	return 1;
+	exit 0
 fi
 
 export PATH=$SDK_PATH/usr/bin:$PATH
