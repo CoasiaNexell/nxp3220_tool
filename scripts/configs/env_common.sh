@@ -6,8 +6,13 @@ if [[ ! -z $TARGET_RESULT ]]; then
 	export RESULT="${BASEDIR}/out/${TARGET_RESULT}"
 fi
 
-export BL_TOOLCHAIN="${BASEDIR}/tools/crosstools/gcc-arm-none-eabi-6-2017-q2-update/bin/arm-none-eabi-"
-export LINUX_TOOLCHAIN="${BASEDIR}/tools/crosstools/gcc-linaro-7.2.1-2017.11-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-"
+if [[ -z $BL_TOOLCHAIN ]]; then
+	export BL_TOOLCHAIN="${BASEDIR}/tools/crosstools/gcc-arm-none-eabi-6-2017-q2-update/bin/arm-none-eabi-"
+fi
+
+if [[ -z $LINUX_TOOLCHAIN ]]; then
+	export LINUX_TOOLCHAIN="${BASEDIR}/tools/crosstools/gcc-linaro-7.2.1-2017.11-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-"
+fi
 
 if [[ -z $TARGET_BL1_DIR ]]; then
 	export BL1_DIR=${BASEDIR}/firmwares/binary
