@@ -51,6 +51,7 @@ function usage() {
 	echo "  -i : show build command info"
 	echo "  -l : listup build targets"
 	echo "  -j : set build jobs"
+	echo "  -o : set build options"
 	echo "  -m : run make"
 	echo "  -p : run pre command, before make (related with PRECMD)"
 	echo "  -s : run post command, after done (related with POSTCMD)"
@@ -68,13 +69,13 @@ function usage() {
 }
 
 function get_build_env() {
-	local ret=$1 prefix=$2 sep=$3
+	local ret=$1 prefix=$2 deli=$3
 	local -n array=$4
 
 	for i in "${array[@]}"
 	do
 		if [[ "$i" = *"$prefix"* ]]; then
-			local comp="$(echo $i| cut -d$sep -f 2)"
+			local comp="$(echo $i| cut -d$deli -f 2)"
 			comp="$(echo $comp| cut -d',' -f 1)"
 			comp="$(echo -e "${comp}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
 			eval "$ret=(\"${comp}\")"
@@ -84,13 +85,13 @@ function get_build_env() {
 }
 
 function get_build_targets() {
-	local ret=$1 sep=$2
+	local ret=$1 deli=$2
 	local -n array=$3
 
 	for i in "${array[@]}"
 	do
 		local add=true
-		local val="$(echo $i| cut -d$sep -f 1)"
+		local val="$(echo $i| cut -d$deli -f 1)"
 		val="$(echo -e "${val}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
 
 		# skip buil environments"
@@ -112,17 +113,17 @@ function get_build_targets() {
 }
 
 function get_target_prefix() {
-	local ret=$1 prefix=$2 sep=$3
+	local ret=$1 prefix=$2 deli=$3
 	local -n array=$4
 
 	for i in "${array[@]}"
 	do
 		if [[ "$i" = *"$prefix"* ]]; then
-			local comp="$(echo $(echo $i| cut -d$sep -f 1) | cut -d' ' -f 1)"
+			local comp="$(echo $(echo $i| cut -d$deli -f 1) | cut -d' ' -f 1)"
 			if [ "$prefix" != "$comp" ]; then
 				continue
 			fi
-			local pos=`expr index "$i" $sep`
+			local pos=`expr index "$i" $deli`
 			if [ $pos -eq 0 ]; then
 				return
 			fi
@@ -134,17 +135,17 @@ function get_target_prefix() {
 }
 
 function get_target_comp() {
-	local ret=$1 prefix=$2 sep=$3
-	local string=$4
+	local ret=$1 prefix=$2 deli=$3
+	local str=$4
 
-	local pos=`awk -v a="$string" -v b="$prefix" 'BEGIN{print index(a,b)}'`
+	local pos=`awk -v a="$str" -v b="$prefix" 'BEGIN{print index(a,b)}'`
 	if [ $pos -eq 0 ]; then
 		return
 	fi
 
-	local val=${string:$pos}
+	local val=${str:$pos}
 
-	pos=`awk -v a="$val" -v b="$sep" 'BEGIN{print index(a,b)}'`
+	pos=`awk -v a="$val" -v b="$deli" 'BEGIN{print index(a,b)}'`
 	val=${val:$pos}
 
 	pos=`awk -v a="$val" -v b="," 'BEGIN{print index(a,b)}'`
@@ -277,8 +278,9 @@ function copy_target() {
 }
 
 function parse_target() {
-	local prefix=$1 target
+	local prefix=$1
 	local -n image=$2
+	local target
 
 	get_target_prefix target "$prefix" "=" image
 
@@ -406,6 +408,8 @@ function build_target() {
 		TARGET_COMPONENTS["JOBS"]=$BUILD_OPT_JOBS
 	fi
 
+	TARGET_COMPONENTS["OPTION"]="${TARGET_COMPONENTS["OPTION"]} $BUILD_OPT_OPTION"
+
 	print_components $target
 
 	if [ $BUILD_OPT_INFO == true ]; then
@@ -501,6 +505,7 @@ case "$1" in
 			-p ) 	BUILD_OPT_PRECMD=true; shift 1;;
 			-s ) 	BUILD_OPT_POSTCMD=true; shift 1;;
 			-c )	BUILD_OPT_COPY=true; shift 1;;
+			-o )	BUILD_OPT_OPTION="$4"; shift 1;;
 			-e )
 				vim $bsp_file
 				exit 0;;
