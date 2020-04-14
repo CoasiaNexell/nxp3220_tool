@@ -505,7 +505,7 @@ case "$1" in
 			-p ) 	BUILD_OPT_PRECMD=true; shift 1;;
 			-s ) 	BUILD_OPT_POSTCMD=true; shift 1;;
 			-c )	BUILD_OPT_COPY=true; shift 1;;
-			-o )	BUILD_OPT_OPTION="$4"; shift 1;;
+			-o )	BUILD_OPT_OPTION="$4"; shift 2;;
 			-e )
 				vim $bsp_file
 				exit 0;;
