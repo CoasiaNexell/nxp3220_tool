@@ -243,14 +243,14 @@ function merge_conf_file () {
 			[[ $n == *+=* ]] && continue;
 			[[ ${n:0:1} = "#" ]] && continue;
 
-			ti=${i%=*} ti=${ti% *}
-			tn=${n%=*} tn=${tn% *}
+			ti=${i%=*} ti=${ti%% *}
+			tn=${n%=*} tn=${tn%% *}
 
 			# replace
                         if [[ $ti == $tn ]]; then
 				i=$(echo "$i" | sed -e "s/[[:space:]]\+/ /g")
 				n=$(echo "$n" | sed -e "s/[[:space:]]\+/ /g")
-                                sed -i "s/$n/$i/" $dst
+                                sed -i -e "s|$n|$i|" $dst
                                 merge=false
                                 break;
                         fi
