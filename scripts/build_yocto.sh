@@ -2,37 +2,35 @@
 # Copyright (c) 2018 Nexell Co., Ltd.
 # Author: Junghyun, Kim <jhkim@nexell.co.kr>
 #
-# $> build_yocto.sh <machine-board> <image> [options]
+# $> build_yocto.sh <machine> <image> [options]
 #
-
-BSP_YOCTO_VERSION="R2"
 
 # Input arguments
 TARGET_MACHINE=$1
 TARGET_IMAGE=$2
 
+# build macros
 MACHINE_SUPPORT=( "nxp3220" )
-MACHINE_NAME="$(echo $TARGET_MACHINE | cut -d'-' -f 1)"
+MACHINE_NAME=${MACHINE_SUPPORT}
 
-# Top path
 BSP_ROOT_DIR=`readlink -e -n "$(cd "$(dirname "$0")" && pwd)/../.."`
 BSP_YOCTO_DIR=$BSP_ROOT_DIR/yocto
 
-# yocto path
 YOCTO_DISTRO=$BSP_YOCTO_DIR/poky
-YOCTO_META_TARGET=$BSP_YOCTO_DIR/meta-nexell/meta-nxp3220
-YOCTO_RECIPE_IMAGE=$YOCTO_META_TARGET/recipes-core/images
-YOCTO_BUILD_OUT=$BSP_YOCTO_DIR/build/build-$TARGET_MACHINE
+YOCTO_MACHINE=$BSP_YOCTO_DIR/meta-nexell/meta-nxp3220
+YOCTO_BUILD=$BSP_YOCTO_DIR/build
+YOCTO_BUILD_TARGET=$YOCTO_BUILD/build-${TARGET_MACHINE}
+YOCTO_MACHINE_CONFIGS=$YOCTO_MACHINE/configs/machines
+YOCTO_FEATURE_CONFIGS=$YOCTO_MACHINE/configs/images
+YOCTO_IMAGE_ROOTFS=$YOCTO_MACHINE/recipes-core/images
 
-# Configure file path for available lists
-TARGET_CONF_MACHINE=$YOCTO_META_TARGET/configs/machines
-TARGET_CONF_IMAGE=$YOCTO_META_TARGET/configs/images
-
-# Parse to local.conf
-declare -A LOCAL_CONF_VALUES=(
-	["BSP_ROOT_DIR"]="$BSP_ROOT_DIR"
-	["BSP_TARGET_MACHINE"]="$TARGET_MACHINE"
-)
+BUILD_CONFIG=$YOCTO_BUILD/.config
+BUILD_TARGET_CONFIG=$YOCTO_BUILD_TARGET/.build_config
+RESULT_TOP=$BSP_YOCTO_DIR/out
+RESULT_IMAGE_DIR=$RESULT_TOP/result-${TARGET_MACHINE}
+RESULT_IMAGE_LINK="result"
+RESULT_SDK_DIR=$RESULT_TOP/SDK-result-${TARGET_MACHINE}
+RESULT_SDK_LINK="SDK"
 
 # Copy from yocto deploy to result dir
 BSP_RESULT_FILES=(
@@ -89,6 +87,7 @@ BSP_TOOLS_FILES=(
 	"tools/files/efuse_cfg-sjtag_enb.txt"
 )
 
+# Recipe alias
 declare -A BUILD_RECIPES=(
   	["bl1"]="bl1-nxp3220"
   	["bl2"]="bl2-nxp3220"
@@ -105,40 +104,48 @@ declare -A BUILD_RECIPES=(
 declare -A BUILD_COMMANDS=(
   	["clean"]="buildclean"
   	["distclean"]="cleansstate"
-	["cleanall"]="cleanall"		# clean and remove download files
-  	["menuconfig"]="menuconfig"
-  	["savedefconfig"]="savedefconfig"
 )
 
-# result path
-BSP_RESULT_OUT=$BSP_YOCTO_DIR/out
-BSP_RESULT_LINK=
+declare -A TARGET_LOCAL_CONF_VARIABLE=(
+	["BSP_ROOT_DIR"]="$BSP_ROOT_DIR"
+	["BSP_TARGET_MACHINE"]="$TARGET_MACHINE"
+)
+
+TARGET_BBLOCAL_CONF=$YOCTO_BUILD_TARGET/conf/local.conf
+TARGET_BBLAYER_CONF=$YOCTO_BUILD_TARGET/conf/bblayers.conf
+
+AVAIL_MACHINE="machine"
+AVAIL_IMAGE="image"
+AVAIL_FEATURE="feature"
+AVAIL_MACHINE_TABLE=""
+AVAIL_IMAGE_TABLE=""
+AVAIL_FEATURE_TABLE=""
+
+RESULT_DIR=""
 
 function usage () {
 	echo ""
-	echo "Usage: `basename $0` <machine>-<board> <image> [options]"
+	echo "Usage: `basename $0` [machine] [image] [option]"
 	echo ""
-	echo " [machine-board]"
-	echo "      : Located at '$(echo $TARGET_CONF_MACHINE | sed 's|'$BSP_ROOT_DIR'/||')'"
-	echo " [image]"
-	echo "      : Located at '$(echo $YOCTO_RECIPE_IMAGE | sed 's|'$BSP_ROOT_DIR'/||')'"
+	echo " machine"
+	echo "      : Located at '$(echo $YOCTO_MACHINE_CONFIGS | sed 's|'$BSP_ROOT_DIR'/||')'"
+	echo " image"
+	echo "      : Located at '$(echo $YOCTO_IMAGE_ROOTFS | sed 's|'$BSP_ROOT_DIR'/||')'"
 	echo "      : The image name is prefixed with 'nexell-image-', ex> 'nexell-image-<name>'"
 	echo ""
-	echo " [options]"
-	echo "  -l : Show available lists (machine-board, images, recipes, commands ...)"
-	echo "  -t : Set build recipe"
-	echo "  -i : Add features to <feature> ex> -i A,B,..."
-	echo "  -c : Build commands"
+	echo " option"
+	echo "  -l : Show available lists (machine, images, recipes, commands ...)"
+	echo "  -t : Recipe name to build"
+	echo "  -i : Add features to image ex> -i A,B,..."
+	echo "  -c : Bitbake build commands"
 	echo "  -o : Bitbake option"
-	echo "  -v : Set bitbake '-v' option"
-	echo "  -S : Build the SDK for image"
+	echo "  -v : Enable bitbake '-v' option"
+	echo "  -S : Build the SDK"
 	echo "  -p : Copy images from deploy dir to result dir"
-	echo "  -f : Force overwrite buid confing files ('local.conf' and 'bblayers.conf')"
+	echo "  -f : Force overwrite buid conf files to 'local.conf' and 'bblayers.conf'"
 	echo "  -j : Determines how many tasks bitbake should run in parallel"
 	echo "  -h : Help"
 	echo ""
-	print_avail_lists
-	exit 1;
 }
 
 function err() {
@@ -149,15 +156,10 @@ function msg() {
 	echo  -e "\033[0;33m $@\033[0m"
 }
 
-BBLOCAL_CONF_FILE=$YOCTO_BUILD_OUT/conf/local.conf
-BBLAYER_CONF_FILE=$YOCTO_BUILD_OUT/conf/bblayers.conf
-
-TARGET_AVAIL_TABLE=""
-IMAGE_AVAIL_TABLE=""
-FEATURE_AVAIL_TABLE=""
-
-function get_avail_types () {
-	local dir=$1 sep=$2 table=$3 val # store the value
+function parse_avail_table () {
+	local dir=$1 deli=$2
+	local table=$3	# parse table
+	local val
 	[[ $4 ]] && declare -n avail=$4;
 
 	[ ! -d $dir ] && return;
@@ -165,11 +167,11 @@ function get_avail_types () {
 	cd $dir
 	local value=$(find ./ -print \
 		2> >(grep -v 'No such file or directory' >&2) | \
-		grep -w ".*\.${sep}" | sort)
+		grep -w ".*\.${deli}" | sort)
 
 	for i in $value; do
 		i="$(echo "$i" | cut -d'/' -f2)"
-		if [ ! -z $(echo "$i" | awk -F".${sep}" '{print $2}') ]; then
+		if [ ! -z $(echo "$i" | awk -F".${deli}" '{print $2}') ]; then
 			continue
 		fi
 
@@ -191,37 +193,34 @@ function get_avail_types () {
 
 		[ $match != true ] && continue;
 
-		val="${val} $(echo "$i" | awk -F".${sep}" '{print $1}')"
+		val="${val} $(echo "$i" | awk -F".${deli}" '{print $1}')"
 		eval "$table=(\"${val}\")"
 	done
 }
 
 function check_avail_type () {
-	local name=$1 table=$2 msg=$3
+	local name=$1 table=$2 feature=$3
 	local comp=()
 
-	if [[ -z $name ]] &&
-	   [[ $msg == "feature" ]]; then
+	if [[ -z $name ]] && [[ $feature == "$AVAIL_FEATURE" ]]; then
 		return
 	fi
 
 	for i in ${table}; do
 		for n in ${name}; do
-			if [[ ${i} == ${n} ]]; then
-				comp+=($i)
-			fi
+			[[ ${i} == ${n} ]] && comp+=($i);
 		done
 	done
 
 	arr=($name)
-	if [ ${#comp[@]} -ne 0 ] &&
-	   [ ${#arr[@]} == ${#comp[@]} ]; then
-		return
-	fi
+	[ ${#comp[@]} -ne 0 ] && [ ${#arr[@]} == ${#comp[@]} ] && return;
 
-	err "Not support $msg: $name"
+	err ""
+	err "Not support $feature: $name"
 	err "Availiable: $table"
-	usage
+	err ""
+
+	show_avail_lists
 	exit 1;
 }
 
@@ -250,7 +249,7 @@ function merge_conf_file () {
                         if [[ $ti == $tn ]]; then
 				i=$(echo "$i" | sed -e "s/[[:space:]]\+/ /g")
 				n=$(echo "$n" | sed -e "s/[[:space:]]\+/ /g")
-                                sed -i -e "s|$n|$i|" $dst
+				sed -i -e "s|$n|$i|" $dst
                                 merge=false
                                 break;
                         fi
@@ -265,46 +264,44 @@ function merge_conf_file () {
 }
 
 function parse_conf_machine () {
-	local dst=$BBLOCAL_CONF_FILE
-        local src=$TARGET_CONF_MACHINE/local.conf
-	local target=$TARGET_CONF_MACHINE/$TARGET_MACHINE.conf
+	local dst=$TARGET_BBLOCAL_CONF
+	local src=$YOCTO_MACHINE_CONFIGS/$TARGET_MACHINE.conf
+        local conf=$YOCTO_MACHINE_CONFIGS/local.conf
 
 	msg "---------------------------------------------------------------------------"
-	msg " COPY     : $src"
+	msg " COPY     : $conf"
 	msg " TO       : $dst"
 	msg "---------------------------------------------------------------------------"
 
-	cp $src $dst
+	cp $conf $dst
 	[ $? -ne 0 ] && exit 1;
 
-	replace="\"$MACHINE_NAME\""
-	sed -i "s/^MACHINE.*/MACHINE = $replace/" $dst
+	rep="\"$MACHINE_NAME\""
+	sed -i "s/^MACHINE.*/MACHINE = $rep/" $dst
 	[ $? -ne 0 ] && exit 1;
 
 	msg "---------------------------------------------------------------------------"
-	msg " PARSE    : $target"
+	msg " PARSE    : $src"
 	msg " TO       : $dst"
 	msg "---------------------------------------------------------------------------"
 
 	echo "" >> $dst
-	echo "# PARSING: $target" >> $dst
-	merge_conf_file $src $target $dst
-
-	for i in ${!LOCAL_CONF_VALUES[@]}; do
-		prefix="$i"
-		replace="\"${LOCAL_CONF_VALUES[$i]//\//\\/}\""
-		sed -i "s/^$prefix =.*/$prefix = $replace/" $dst
+	echo "# PARSING: $src" >> $dst
+	merge_conf_file $conf $src $dst
+	for i in ${!TARGET_LOCAL_CONF_VARIABLE[@]}; do
+		key="$i"
+		rep="\"${TARGET_LOCAL_CONF_VARIABLE[$i]//\//\\/}\""
+		sed -i "s/^$key =.*/$key = $rep/" $dst
 	done
 	echo "# PARSING DONE" >> $dst
 }
 
 function parse_conf_image () {
-        local dst=$BBLOCAL_CONF_FILE
-	local src=( $TARGET_CONF_IMAGE/${TARGET_IMAGE##*-}.conf )
-	local type=$OPT_IMAGE_TYPE
+        local dst=$TARGET_BBLOCAL_CONF
+	local src=( $YOCTO_FEATURE_CONFIGS/${TARGET_IMAGE##*-}.conf )
 
-	for i in $type; do
-		src+=( $TARGET_CONF_IMAGE/$i.conf )
+	for i in $TARGET_FEATURES; do
+		src+=( $YOCTO_FEATURE_CONFIGS/$i.conf )
 	done
 
 	for i in "${src[@]}"; do
@@ -322,12 +319,10 @@ function parse_conf_image () {
 }
 
 function parse_conf_sdk () {
-	local dst=$BBLOCAL_CONF_FILE
-        local src=$TARGET_CONF_IMAGE/sdk.conf
+	local dst=$TARGET_BBLOCAL_CONF
+        local src=$YOCTO_FEATURE_CONFIGS/sdk.conf
 
-	if [ $OPT_BUILD_SDK != true ]; then
-		return
-	fi
+	[ $BB_SDK != true ] && return;
 
 	msg "---------------------------------------------------------------------------"
 	msg " PARSE    : $src"
@@ -341,30 +336,28 @@ function parse_conf_sdk () {
 }
 
 function parse_conf_ramfs () {
-	local dst=$BBLOCAL_CONF_FILE
-	local replace="\"$TARGET_IMAGE\""
+	local dst=$TARGET_BBLOCAL_CONF
+	local rep="\"$TARGET_IMAGE\""
 
-	sed -i "s/^INITRAMFS_IMAGE.*/INITRAMFS_IMAGE = $replace/" $dst
+	sed -i "s/^INITRAMFS_IMAGE.*/INITRAMFS_IMAGE = $rep/" $dst
 }
 
-function parse_conf_tasks () {
-	if [ -z $OPT_BUILD_TASKS ]; then
-		return
-	fi
+function parse_conf_jobs () {
+	[ -z $BB_JOBS ] && return;
 
-	local file=$BBLOCAL_CONF_FILE
-	if grep -q BB_NUMBER_THREADS "$file"; then
-		replace="\"$OPT_BUILD_TASKS\""
-		sed -i "s/^BB_NUMBER_THREADS.*/BB_NUMBER_THREADS = $replace/" $file
+	local conf=$TARGET_BBLOCAL_CONF
+	if grep -q BB_NUMBER_THREADS "$conf"; then
+		rep="\"$BB_JOBS\""
+		sed -i "s/^BB_NUMBER_THREADS.*/BB_NUMBER_THREADS = $rep/" $conf
 	else
-		echo "" >> $BBLOCAL_CONF_FILE
-		echo "BB_NUMBER_THREADS = \"${OPT_BUILD_TASKS}\"" >> $file
+		echo "" >> $TARGET_BBLOCAL_CONF
+		echo "BB_NUMBER_THREADS = \"${BB_JOBS}\"" >> $conf
 	fi
 }
 
 function parse_conf_bblayer () {
-        local dst=$BBLAYER_CONF_FILE
-	local src=$TARGET_CONF_MACHINE/bblayers.conf
+        local dst=$TARGET_BBLAYER_CONF
+	local src=$YOCTO_MACHINE_CONFIGS/bblayers.conf
 
 	msg "---------------------------------------------------------------------------"
 	msg " COPY     : $src"
@@ -374,128 +367,116 @@ function parse_conf_bblayer () {
         cp $src $dst
 	[ $? -ne 0 ] && exit 1;
 
-	local replace="\"${BSP_YOCTO_DIR//\//\\/}\""
-	sed -i "s/^BSPPATH :=.*/BSPPATH := $replace/" $dst
+	local rep="\"${BSP_YOCTO_DIR//\//\\/}\""
+	sed -i "s/^BSPPATH :=.*/BSPPATH := $rep/" $dst
 }
 
-function setup_bitbake_env () {
-	mkdir -p $(dirname $YOCTO_BUILD_OUT)
+function setup_build_env () {
+	mkdir -p $(dirname $YOCTO_BUILD_TARGET)
 
 	# run oe-init-build-env
-	source $YOCTO_DISTRO/oe-init-build-env $YOCTO_BUILD_OUT >/dev/null 2>&1
+	source $YOCTO_DISTRO/oe-init-build-env $YOCTO_BUILD_TARGET >/dev/null 2>&1
 	msg "---------------------------------------------------------------------------"
-	msg " bitbake environment set up command:"
-	msg " $> source $YOCTO_DISTRO/oe-init-build-env $YOCTO_BUILD_OUT"
+	msg " Bitbake Evironment Setup:"
+	msg " $> source $YOCTO_DISTRO/oe-init-build-env $YOCTO_BUILD_TARGET"
 	msg "---------------------------------------------------------------------------"
 }
 
-function check_bitbake_env () {
+function check_build_config () {
+	local result=$1 # return value
         local mach="$(echo $TARGET_MACHINE | cut -d'-' -f 1)"
-	local conf=$BBLOCAL_CONF_FILE
-	local file=$YOCTO_BUILD_OUT/.build_config
-	local new=${TARGET_MACHINE}_${TARGET_IMAGE}_${BSP_YOCTO_VERSION}
-	local old=""
+	local config=${TARGET_MACHINE}+${TARGET_IMAGE}
+	local previous
 
-        if [ ! -f $conf ]; then
-                err "Not build setup environment : '$conf' ..."
+        if [ ! -f $TARGET_BBLOCAL_CONF ]; then
+                err "Not build setup environment : '$TARGET_BBLOCAL_CONF' ..."
                 err "$> source poky/oe-init-build-env <build dir>/<machin type>"
 		exit 1;
 	fi
 
-	if [[ ! -z $OPT_IMAGE_TYPE ]]; then
-		for i in $OPT_IMAGE_TYPE; do
-			new="$new"_"$i"
+	if [[ ! -z $TARGET_FEATURES ]]; then
+		for i in $TARGET_FEATURES; do
+			config=${config}+${i}
 		done
 	fi
 
-	if [ $OPT_BUILD_SDK == true ]; then
-		new="${new}_SDK"
-	fi
+	[ $BB_SDK == true ] && config=${config}+SDK;
+	[ -e $BUILD_TARGET_CONFIG ] && previous="$(cat $BUILD_TARGET_CONFIG)";
 
-	if [ -e $file ]; then
-		old="$(cat $file)"
-	fi
+	local machine="$(echo $(echo $(find $TARGET_BBLOCAL_CONF -type f -exec grep -w -h 'MACHINE' {} \;) | \
+			cut -d'"' -f 2) | cut -d'"' -f 1)"
 
-	local vmach="$(echo $(echo $(find $conf -type f -exec grep -w -h 'MACHINE' {} \;) | \
-		cut -d'"' -f 2) | cut -d'"' -f 1)"
-
-        if [[ $mach == $vmach ]]; then
-		msg "PARSE: Already '$(echo $conf | sed 's|'$BSP_ROOT_DIR'/||')'"
-		if [[ $old != $new ]]; then
-			[ -e $file ] && rm $file;
-			echo $new >> $file;
-			msg "PARSE: New image '$new'"
-			return 1
+        if [[ $mach == $machine ]]; then
+		if [[ $previous != $config ]]; then
+			[ -e $BUILD_CONFIG ] && rm $BUILD_CONFIG;
+			[ -e $BUILD_TARGET_CONFIG ] && rm $BUILD_TARGET_CONFIG;
+			echo $config >> $BUILD_CONFIG;
+			echo $config >> $BUILD_TARGET_CONFIG;
+			eval "$result=(\"1\")"; return
         	fi
-        	return 0
+		eval "$result=(\"0\")"; return
         fi
 
-	echo $new >> $file;
+	echo $config >> $BUILD_CONFIG;
+	echo $config >> $BUILD_TARGET_CONFIG;
 
-	return 1
+	eval "$result=(\"1\")"
 }
 
-function print_avail_lists () {
+function show_avail_lists () {
+	local config
+	[ -e $BUILD_CONFIG ] && config="$(cat $BUILD_CONFIG)";
 	msg "=================================================================================="
-	msg "Version: $BSP_YOCTO_VERSION"
-	msg "Support:"
+	msg "Config - $config "
 	msg "=================================================================================="
 
-	msg "TARGET: <machine-board>"
-	msg "\t: '$(echo $TARGET_CONF_MACHINE | sed 's|'$BSP_ROOT_DIR'/||')'"
+	msg "[Machine]"
+	msg "\t- $(echo $YOCTO_MACHINE_CONFIGS | sed 's|'$BSP_ROOT_DIR'/||')"
 	msg "\t---------------------------------------------------------------------------"
-	msg "\t${TARGET_AVAIL_TABLE}"
-	msg "\t---------------------------------------------------------------------------"
-
-	msg "IMAGE: <image>"
-	msg "\t: '$(echo $YOCTO_RECIPE_IMAGE | sed 's|'$BSP_ROOT_DIR'/||')'"
-	msg "\t---------------------------------------------------------------------------"
-	msg "\t ${IMAGE_AVAIL_TABLE}"
+	msg "\t${AVAIL_MACHINE_TABLE}"
 	msg "\t---------------------------------------------------------------------------"
 
-	msg "FEATURES: -i <feature>,<feature>,..."
-	msg "\t: '$(echo $TARGET_CONF_IMAGE | sed 's|'$BSP_ROOT_DIR'/||')'"
+	msg "[Image]"
+	msg "\t- $(echo $YOCTO_IMAGE_ROOTFS | sed 's|'$BSP_ROOT_DIR'/||')"
 	msg "\t---------------------------------------------------------------------------"
-	msg "\t ${FEATURE_AVAIL_TABLE}"
+	msg "\t ${AVAIL_IMAGE_TABLE}"
+	msg "\t---------------------------------------------------------------------------"
+
+	msg "[Features] option: '-i a,b,...'"
+	msg "\t- $(echo $YOCTO_FEATURE_CONFIGS | sed 's|'$BSP_ROOT_DIR'/||')"
+	msg "\t---------------------------------------------------------------------------"
+	msg "\t ${AVAIL_FEATURE_TABLE}"
 	msg "\t---------------------------------------------------------------------------"
 
 	msg ""
-	msg "RECIPE: '-t'"
+	msg "[Recipe] option: '-t'"
 	for i in "${!BUILD_RECIPES[@]}"; do
 		msg "\t$i (${BUILD_RECIPES[$i]})"
 	done
-	msg "\t< Recipe >"
-	msg ""
-	msg "COMMAND: '-c'"
-	for i in "${!BUILD_COMMANDS[@]}"; do
-		msg "\t$i (${BUILD_COMMANDS[$i]})"
-	done
+	msg "\t... Else Recipe name"
 	msg ""
 }
 
-function copy_deploy_images () {
-	local deploy=$YOCTO_BUILD_OUT/tmp/deploy/images/$MACHINE_NAME
-	local result
+function copy_deploy_image () {
+	local deploy=$YOCTO_BUILD_TARGET/tmp/deploy/images/$MACHINE_NAME
+	local retdir="$(echo $TARGET_IMAGE | cut -d'.' -f 1)"
 
 	if [ ! -d $deploy ]; then
 		err "No directory : $deploy"
 		exit 1
 	fi
 
-	result="$(echo $TARGET_IMAGE | cut -d'.' -f 1)"
-	BSP_RESULT_LINK=result-$TARGET_MACHINE-${result##*-}
-	result=$BSP_RESULT_OUT/$BSP_RESULT_LINK
+	RESULT_DIR=${RESULT_IMAGE_DIR}-${retdir##*-}
 
 	msg "---------------------------------------------------------------------------"
 	msg " DEPLOY     : $deploy"
-	msg " RESULT     : $result"
+	msg " RESULT     : $RESULT_DIR"
 	msg "---------------------------------------------------------------------------"
 
-	mkdir -p $result
+	mkdir -p $RESULT_DIR
 	[ $? -ne 0 ] && exit 1;
 
 	cd $deploy
-
 	for file in "${BSP_RESULT_FILES[@]}"; do
 		local files=$(find $file -print \
 			2> >(grep -v 'No such file or directory' >&2) | sort)
@@ -503,7 +484,7 @@ function copy_deploy_images () {
 		for n in $files; do
 			[ ! -e $n ] && continue;
 
-			to=$result/$n
+			to=$RESULT_DIR/$n
 			if [[ -d $n ]]; then
 				mkdir -p $to
 				continue
@@ -520,35 +501,30 @@ function copy_deploy_images () {
 	done
 }
 
-function copy_sdk_images () {
-	local dir sdk=$YOCTO_BUILD_OUT/tmp/deploy/sdk
+function copy_deploy_sdk () {
+	local deploy=$YOCTO_BUILD_TARGET/tmp/deploy/sdk
+	local retdir="$(echo $TARGET_IMAGE | cut -d'.' -f 1)"
 
-	if [[ ! -d $sdk ]]; then
-		err "No directory : $sdk"
+	if [[ ! -d $deploy ]]; then
+		err "No directory : $deploy"
 		exit 1
 	fi
 
-	dir="$(echo $TARGET_IMAGE | cut -d'.' -f 1)"
-	BSP_RESULT_LINK=SDK-result-$TARGET_MACHINE-${dir##*-}
-	dir=$BSP_RESULT_OUT/$BSP_RESULT_LINK
-
-	mkdir -p $dir
+	RESULT_DIR=${RESULT_SDK_DIR}-${retdir##*-}
+	mkdir -p $RESULT_DIR
 	[ $? -ne 0 ] && exit 1;
 
-	cp -a $sdk/* $dir/
+	cp -a $deploy/* $RESULT_DIR/
 }
 
 function copy_tools_files () {
-	local result="$(echo $TARGET_IMAGE | cut -d'.' -f 1)"
+	local retdir="$(echo $TARGET_IMAGE | cut -d'.' -f 1)"
 
-	BSP_RESULT_LINK=result-$TARGET_MACHINE-${result##*-}
-	result=$BSP_RESULT_OUT/$BSP_RESULT_LINK
-
-	mkdir -p $result
+	RESULT_DIR=${RESULT_IMAGE_DIR}-${retdir##*-}
+	mkdir -p $RESULT_DIR
 	[ $? -ne 0 ] && exit 1;
 
 	cd $BSP_ROOT_DIR
-
 	for file in "${BSP_TOOLS_FILES[@]}"; do
 		local files=$(find $file -print \
 			2> >(grep -v 'No such file or directory' >&2) | sort)
@@ -558,7 +534,7 @@ function copy_tools_files () {
 				continue
 			fi
 
-			to=$result/$(basename $n)
+			to=$RESULT_DIR/$(basename $n)
 			if [ -f $to ]; then
 				ts="$(stat --printf=%y $n | cut -d. -f1)"
 				td="$(stat --printf=%y $to | cut -d. -f1)"
@@ -570,94 +546,97 @@ function copy_tools_files () {
 }
 
 function link_result_dir () {
-	link=$1
-	if [[ -e $BSP_RESULT_OUT/$link ]] ||
-	   [[ -h $BSP_RESULT_OUT/$link ]]; then
-		rm -f $BSP_RESULT_OUT/$link
-	fi
+	local link=$1
+	local ret=$(basename $RESULT_DIR)
 
-	cd $BSP_RESULT_OUT
-	ln -s $BSP_RESULT_LINK $link
+	cd $RESULT_TOP
+	[[ -e $to ]] && [[ $link ==  $ret ]] && return;
+
+	rm -f $link;
+	ln -s $ret $link
 }
 
-OPT_BUILD_PARSE=false
-OPT_BUILD_OPTION=""
-OPT_BUILD_VERBOSE=""
-OPT_BUILD_SDK=false
-OPT_BUILD_COPY=false
-OPT_IMAGE_TYPE=
-OPT_BUILD_TASKS=
+CMD_PARSE=false
+CMD_COPY=false
+BB_OPTION=""
+BB_VERBOSE=""
+BB_SDK=false
+BB_JOBS=
+BB_RECIPE=""
+BB_CMD=""
+TARGET_FEATURES=
 
-BB_TARGET_RECIPE=""
-BB_BUILD_CMD=""
-
-function parse_args () {
+function parse_arguments () {
 	ARGS=$(getopt -o lSfhpt:i:c:o:j:v -- "$@");
     	eval set -- "$ARGS";
 
     	while true; do
 		case "$1" in
 		-l )
-			print_avail_lists; exit 0;;
+			show_avail_lists
+			exit 0
+			;;
 		-t )
 			for i in ${!BUILD_RECIPES[@]}; do
 				[ $i != $2 ] && continue;
-				BB_TARGET_RECIPE=${BUILD_RECIPES[$i]}; shift 2; break;
+				BB_RECIPE=${BUILD_RECIPES[$i]}; shift 2;
+				break;
 			done
-			if [ -z $BB_TARGET_RECIPE ]; then
-				BB_TARGET_RECIPE=$2; shift 2;
+			if [ -z $BB_RECIPE ]; then
+				BB_RECIPE=$2; shift 2;
 			fi
+			;;
+		-i )
+			TARGET_FEATURES=""
+			local arr=(${2//,/ })
+			for i in "${arr[@]}"; do
+				TARGET_FEATURES="$TARGET_FEATURES $i"
+			done
+			shift 2
 			;;
 		-c )
 			for i in ${!BUILD_COMMANDS[@]}; do
 				[ $i != $2 ] && continue;
-				BB_BUILD_CMD="-c ${BUILD_COMMANDS[$i]}"; shift 2; break;
+				BB_CMD="-c ${BUILD_COMMANDS[$i]}"; shift 2;
+				break;
 			done
-			if [ -z "$BB_BUILD_CMD" ]; then
-				err "Available Targets:"
-				for i in "${!BUILD_COMMANDS[@]}"; do
-					err "\t$i\t: ${BUILD_COMMANDS[$i]}"
-				done
-				exit 1;
+			if [ -z $BB_CMD ]; then
+				BB_CMD="-c $2"; shift 2;
 			fi
 			;;
-		-i )	OPT_IMAGE_TYPE="";
-			local arr=(${2//,/ })
-			for i in "${arr[@]}"; do
-				OPT_IMAGE_TYPE="$OPT_IMAGE_TYPE $i"
-			done
-			shift 2;;
-		-o )	OPT_BUILD_OPTION=$2; shift 2;;
-		-S )	OPT_BUILD_SDK=true; shift 1;;
-		-f )	OPT_BUILD_PARSE=true; shift 1;;
-		-p )	OPT_BUILD_COPY=true; shift 1;;
-		-j )	OPT_BUILD_TASKS=$2; shift 2;;
-		-v )	OPT_BUILD_VERBOSE="-v"; shift 1;;
-		-h )	usage;	exit 1;;
-		-- ) 	break ;;
+		-o )	BB_OPTION=$2; shift 2;;
+		-S )	BB_SDK=true; shift 1;;
+		-f )	CMD_PARSE=true;	shift 1;;
+		-p )	CMD_COPY=true; shift 1;;
+		-j )	BB_JOBS=$2; shift 2;;
+		-v )	BB_VERBOSE="-v"; shift 1;;
+		-h )	usage
+			show_avail_lists
+			exit 1
+			;;
+		-- )
+			break ;;
 		esac
 	done
 }
 
 ###############################################################################
-# start shell commands
+# Run build commands
 ###############################################################################
-get_avail_types $TARGET_CONF_MACHINE "conf" TARGET_AVAIL_TABLE MACHINE_SUPPORT
-get_avail_types $YOCTO_RECIPE_IMAGE "bb" IMAGE_AVAIL_TABLE
-get_avail_types $TARGET_CONF_IMAGE "conf" FEATURE_AVAIL_TABLE
+parse_avail_table $YOCTO_MACHINE_CONFIGS "conf" AVAIL_MACHINE_TABLE MACHINE_SUPPORT
+parse_avail_table $YOCTO_FEATURE_CONFIGS "conf" AVAIL_FEATURE_TABLE
+parse_avail_table $YOCTO_IMAGE_ROOTFS "bb" AVAIL_IMAGE_TABLE
 
-# parsing input arguments
-parse_args $@
+parse_arguments $@
 
-check_avail_type "$TARGET_MACHINE" "$TARGET_AVAIL_TABLE" "target"
-check_avail_type "$TARGET_IMAGE" "$IMAGE_AVAIL_TABLE" "image"
-check_avail_type "$OPT_IMAGE_TYPE" "$FEATURE_AVAIL_TABLE" "feature"
+check_avail_type "$TARGET_MACHINE" "$AVAIL_MACHINE_TABLE" "$AVAIL_MACHINE"
+check_avail_type "$TARGET_IMAGE" "$AVAIL_IMAGE_TABLE" "$AVAIL_IMAGE"
+check_avail_type "$TARGET_FEATURES" "$AVAIL_FEATURE_TABLE" "$AVAIL_FEATURE"
 
-setup_bitbake_env
-check_bitbake_env
-local_conf_parse=$?
+setup_build_env
 
-if [ $local_conf_parse == 1 ] || [ $OPT_BUILD_PARSE == true ]; then
+check_build_config _reconfig_
+if [ $_reconfig_ == 1 ] || [ $CMD_PARSE == true ]; then
 	parse_conf_machine
 	parse_conf_image
 	parse_conf_sdk
@@ -665,50 +644,49 @@ if [ $local_conf_parse == 1 ] || [ $OPT_BUILD_PARSE == true ]; then
 fi
 
 parse_conf_ramfs
-parse_conf_tasks
+parse_conf_jobs
 
 msg "---------------------------------------------------------------------------"
 msg " TARGET     : $TARGET_MACHINE"
-msg " IMAGE      : $TARGET_IMAGE + $OPT_IMAGE_TYPE"
-msg " RECIPE     : $BB_TARGET_RECIPE"
-msg " COMMAND    : $BB_BUILD_CMD"
-msg " OPTION     : $OPT_BUILD_OPTION $OPT_BUILD_VERBOSE"
-msg " SDK        : $OPT_BUILD_SDK"
-msg " BUILD DIR  : $YOCTO_BUILD_OUT"
-msg " DEPLOY DIR : $YOCTO_BUILD_OUT/tmp/deploy/images/$MACHINE_NAME"
-msg " SDK DIR    : $YOCTO_BUILD_OUT/tmp/deploy/sdk"
+msg " IMAGE      : $TARGET_IMAGE + $TARGET_FEATURES"
+msg " RECIPE     : $BB_RECIPE"
+msg " COMMAND    : $BB_CMD"
+msg " OPTION     : $BB_OPTION $BB_VERBOSE"
+msg " SDK        : $BB_SDK"
+msg " BUILD DIR  : $YOCTO_BUILD_TARGET"
+msg " DEPLOY DIR : $YOCTO_BUILD_TARGET/tmp/deploy/images/$MACHINE_NAME"
+msg " SDK DIR    : $YOCTO_BUILD_TARGET/tmp/deploy/sdk"
 msg "---------------------------------------------------------------------------"
 
-if [ $OPT_BUILD_SDK != true ]; then
-	if [ $OPT_BUILD_COPY == false ]; then
-		if [ ! -z $BB_TARGET_RECIPE ]; then
-			bitbake $BB_TARGET_RECIPE $BB_BUILD_CMD $OPT_BUILD_OPTION $OPT_BUILD_VERBOSE
+# Build and copy result images
+if [ $BB_SDK != true ]; then
+	if [ $CMD_COPY == false ]; then
+		if [ ! -z $BB_RECIPE ]; then
+			bitbake $BB_RECIPE $BB_CMD $BB_OPTION $BB_VERBOSE
 		else
-			# not support buildclean for image
-			if [ "$BB_BUILD_CMD" == "-c buildclean" ]; then
-				BB_BUILD_CMD="-c cleanall"
-			fi
-
-			bitbake $TARGET_IMAGE $BB_BUILD_CMD $OPT_BUILD_OPTION $OPT_BUILD_VERBOSE
+			bitbake $TARGET_IMAGE $BB_CMD $BB_OPTION $BB_VERBOSE
 			[ $? -ne 0 ] && exit 1;
 		fi
 	fi
 
-	if [ -z "$BB_BUILD_CMD" ]; then
-		copy_deploy_images
+	if [ -z $BB_CMD ]; then
+		copy_deploy_image
 		copy_tools_files
-		link_result_dir "result"
+		link_result_dir $RESULT_IMAGE_LINK
 	fi
 else
-	bitbake -c populate_sdk $TARGET_IMAGE $OPT_BUILD_OPTION $OPT_BUILD_VERBOSE
-	[ $? -ne 0 ] && exit 1;
-	copy_sdk_images
-	link_result_dir "SDK"
+	if [ $CMD_COPY == false ]; then
+		bitbake -c populate_sdk $TARGET_IMAGE $BB_OPTION $BB_VERBOSE
+		[ $? -ne 0 ] && exit 1;
+	fi
+
+	copy_deploy_sdk
+	link_result_dir $RESULT_SDK_LINK
 fi
 
 msg "---------------------------------------------------------------------------"
-msg " RESULT DIR : $BSP_RESULT_OUT/$BSP_RESULT_LINK"
+msg " RESULT DIR : $RESULT_DIR"
 msg "---------------------------------------------------------------------------"
-msg " Bitbake environment set up command:"
-msg " $> source $YOCTO_DISTRO/oe-init-build-env $YOCTO_BUILD_OUT"
+msg " Bitbake Environment Setup:"
+msg " $> source $YOCTO_DISTRO/oe-init-build-env $YOCTO_BUILD_TARGET"
 msg "---------------------------------------------------------------------------"
