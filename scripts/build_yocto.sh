@@ -661,7 +661,7 @@ msg "---------------------------------------------------------------------------
 # Build and copy result images
 if [ $BB_SDK != true ]; then
 	if [ $CMD_COPY == false ]; then
-		if [ ! -z $BB_RECIPE ]; then
+		if [[ ! -z $BB_RECIPE ]]; then
 			bitbake $BB_RECIPE $BB_CMD $BB_OPTION $BB_VERBOSE
 		else
 			bitbake $TARGET_IMAGE $BB_CMD $BB_OPTION $BB_VERBOSE
@@ -669,7 +669,7 @@ if [ $BB_SDK != true ]; then
 		fi
 	fi
 
-	if [ -z $BB_CMD ]; then
+	if [[ -z $BB_CMD ]]; then
 		copy_deploy_image
 		copy_tools_files
 		link_result_dir $RESULT_IMAGE_LINK
