@@ -3,7 +3,7 @@
 # Author: Junghyun, Kim <jhkim@nexell.co.kr>
 #
 
-source $(realpath $(dirname "$0"))/configs/env_common.sh
+source $(dirname `realpath ${2}`)/env_common.sh
 function msg() {
 	echo ""; echo  -e "\033[0;33m $@\033[0m"
 }
@@ -139,13 +139,14 @@ function post_data_image () {
 }
 
 function post_ret_link () {
+	local link=result
+	local ret=$(basename $BSP_RESULT)
 
-	if [[ -e ${BSP_BASEDIR}/out/result  ]] ||
-	   [[ -h ${BSP_BASEDIR}/out/result ]]; then
-		rm -f ${BSP_BASEDIR}/out/result
-	fi
+	cd $(dirname $BSP_RESULT)
+	[[ -e $link ]] && [[ $link ==  $ret ]] && return;
 
-	ln -s ${BSP_RESULT} ${BSP_BASEDIR}/out/result
+	rm -f $link;
+	ln -s $(basename $BSP_RESULT) result
 }
 
 function pre_boot_image () {

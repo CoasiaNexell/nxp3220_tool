@@ -1,9 +1,10 @@
 #!/bin/bash
-export BSP_BASEDIR=`realpath "$(cd "$(dirname "$0")" && pwd)/../.."`
-export BSP_RESULT="${BSP_BASEDIR}/out/result"
+export BSP_BASEDIR="$(dirname `realpath ${2}`)/../../.."
+export BSP_RESULT_TOP="${BSP_BASEDIR}/out"
+export BSP_RESULT="${BSP_RESULT_TOP}/result"
 
 if [[ ! -z $TARGET_RESULT ]]; then
-	export BSP_RESULT="${BSP_BASEDIR}/out/${TARGET_RESULT}"
+	export BSP_RESULT="${BSP_RESULT_TOP}/${TARGET_RESULT}"
 fi
 
 if [[ -z $BSP_TOOLCHAIN_BL ]]; then

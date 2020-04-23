@@ -29,5 +29,6 @@ TARGET_ROOT_IMAGE_SIZE=1G
 TARGET_DATA_IMAGE_SIZE=6G
 
 # build script
-BUILD_CONFIG_DIR="$(cd "$(dirname "$0")" && pwd)"/configs
+echo "[$(dirname "$2")]"
+BUILD_CONFIG_DIR="$(dirname `realpath ${2}`)"
 source $BUILD_CONFIG_DIR/build.common.sh
