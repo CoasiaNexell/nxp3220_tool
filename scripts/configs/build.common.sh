@@ -4,9 +4,7 @@
 #
 
 source $(dirname `realpath ${2}`)/env_common.sh
-function msg() {
-	echo ""; echo  -e "\033[0;33m $@\033[0m"
-}
+function msg () { echo -e "\033[0;33m$@\033[0m"; }
 
 # Add to build source at target script:
 # export BSP_BASEDIR=`realpath "$(cd "$(dirname "$0")" && pwd)/../.."`
@@ -142,6 +140,7 @@ function post_ret_link () {
 	local link=result
 	local ret=$(basename $BSP_RESULT)
 
+	msg "RETDIR : $BSP_RESULT"
 	cd $(dirname $BSP_RESULT)
 	[[ -e $link ]] && [[ $link ==  $ret ]] && return;
 
