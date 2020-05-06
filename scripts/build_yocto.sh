@@ -15,7 +15,6 @@ TARGET_IMAGE=$2
 
 # build macros
 MACHINE_SUPPORT=( "nxp3220" )
-MACHINE_NAME=${MACHINE_SUPPORT}
 
 BSP_ROOT_DIR=$(realpath $(dirname `realpath ${0}`)/../..)
 BSP_YOCTO_DIR=$BSP_ROOT_DIR/yocto
@@ -43,7 +42,7 @@ BSP_RESULT_FILES=(
 	"bl32.bin.enc.raw"
 	"bl32.bin.raw.ecc"
 	"bl32.bin.enc.raw.ecc"
-	"u-boot-${MACHINE_NAME}-1.0-r0.bin"
+	"u-boot-BUILD_MACHINE_NAME-1.0-r0.bin"
 	"u-boot.bin"
 	"u-boot.bin.raw"
 	"u-boot.bin.raw.ecc"
@@ -110,8 +109,6 @@ declare -A BB_LOCAL_CONF_CONFIGURE=(
 	["BSP_TARGET_MACHINE"]=""
 )
 
-BUILD_CONFIG=$YOCTO_BUILD_DIR/.config
-
 AVAIL_MACHINE="machine"
 AVAIL_IMAGE="image"
 AVAIL_FEATURE="feature"
@@ -119,8 +116,11 @@ AVAIL_MACHINE_TABLE=""
 AVAIL_IMAGE_TABLE=""
 AVAIL_FEATURE_TABLE=""
 
+BUILD_CONFIG=$YOCTO_BUILD_DIR/.config
+
 function setup_env () {
 	# update global variables
+	BUILD_MACHINE_NAME="$(echo $TARGET_MACHINE | cut -d'-' -f 1)"
 	BUILD_TARGET_DIR=$YOCTO_BUILD_DIR/build-${TARGET_MACHINE}
 	BUILD_TARGET_CONFIG=$BUILD_TARGET_DIR/.config
 	TARGET_LOCAL_CONF=$BUILD_TARGET_DIR/conf/local.conf
@@ -280,7 +280,7 @@ function parse_conf_machine () {
 	cp $src $dst
 	[ $? -ne 0 ] && exit 1;
 
-	rep="\"$MACHINE_NAME\""
+	rep="\"$BUILD_MACHINE_NAME\""
 	sed -i "s/^MACHINE.*/MACHINE = $rep/" $dst
 	[ $? -ne 0 ] && exit 1;
 
@@ -399,7 +399,7 @@ function menu_sdk () {
 	local result=$1 # return value
 	local default=""
 
-	[[ ${!result} == true ]] && default="--defaultno";
+	[ ${!result} == true ] && default="--defaultno";
 	if (whiptail --title "Image type" --yesno --yes-button "rootfs" --no-button "sdk" \
 		$default "Build image type" 8 78); then
 		eval "$result=(\"false\")"
@@ -416,9 +416,7 @@ function menu_feature () {
 
 	for i in ${table}; do
 		[[ $i == "$(echo $TARGET_IMAGE | cut -d'-' -f 3-)" ]] && continue;
-		if [[ $TARGET_SDK == false ]]; then
-			[[ $i == *"sdk"* ]] && continue;
-		fi
+		[[ $i == *"sdk"* ]] && continue;
 		entry+=" ${i}\n"
 	done
 
@@ -472,6 +470,7 @@ function check_build_config () {
 	local result=$1 # return value
 	local newconfig="${TARGET_MACHINE}:${TARGET_IMAGE}:"
 	local oldconfig
+	local match=false
 
         if [ ! -f $TARGET_LOCAL_CONF ]; then
                 err " Not build setup: '$TARGET_LOCAL_CONF' ..."
@@ -480,7 +479,7 @@ function check_build_config () {
 	fi
 
 	[[ -n $TARGET_FEATURES ]] && newconfig+="$TARGET_FEATURES";
-	if [[ $TARGET_SDK == true ]];
+	if [ $TARGET_SDK == true ];
 	then newconfig+=":true";
 	else newconfig+=":false";
 	fi
@@ -497,7 +496,17 @@ function check_build_config () {
 	set_config_value "$BUILD_CONFIG" "$TARGET_MACHINE" "$TARGET_IMAGE" "$TARGET_FEATURES" "$TARGET_SDK"
 	set_config_value "$BUILD_TARGET_CONFIG" "$TARGET_MACHINE" "$TARGET_IMAGE" "$TARGET_FEATURES" "$TARGET_SDK"
 
-	if [[ $newconfig == $oldconfig ]]; then
+	local machine=$(echo $(grep ^MACHINE $TARGET_LOCAL_CONF) | cut -d'"' -f 2 | tr -d ' ')
+	if [ ${#MACHINE_SUPPORT[@]} -ne 0 ]; then
+		for n in "${MACHINE_SUPPORT[@]}"; do
+			if [[ $machine == $n ]]; then
+				match=true
+				break;
+			fi
+		done
+	fi
+
+	if [[ $newconfig == $oldconfig ]] && [ $match == true ]; then
 		eval "$result=(\"0\")"
 	else
 		eval "$result=(\"1\")"
@@ -510,7 +519,7 @@ function show_avail_lists () {
 		message+="-i "
 		message+=$(echo ${TARGET_FEATURES} | tr " " ",")
 	fi
-	[[ $TARGET_SDK == true ]] && message+=" -S";
+	[ $TARGET_SDK == true ] && message+=" -S";
 
 	msg "=================================================================================="
 	msg " MACHINE   = $TARGET_MACHINE"
@@ -545,7 +554,7 @@ function show_avail_lists () {
 }
 
 function copy_result_image () {
-	local deploy=$BUILD_TARGET_DIR/tmp/deploy/images/$MACHINE_NAME
+	local deploy=$BUILD_TARGET_DIR/tmp/deploy/images/$BUILD_MACHINE_NAME
 	local retdir="$(echo $TARGET_IMAGE | cut -d'.' -f 1)"
 
 	if [ ! -d $deploy ]; then
@@ -564,6 +573,8 @@ function copy_result_image () {
 
 	cd $deploy
 	for file in "${BSP_RESULT_FILES[@]}"; do
+		[[ $file == *BUILD_MACHINE_NAME* ]] && file=$(echo $file | sed "s/BUILD_MACHINE_NAME/$BUILD_MACHINE_NAME/")
+
 		local files=$(find $file -print \
 			2> >(grep -v 'No such file or directory' >&2) | sort)
 
@@ -730,7 +741,7 @@ function run_build ()
 	msg " Recipe    = $BB_RECIPE"
 	msg " Command   = $BB_CMD"
 	msg " Option    = $BB_OPTION $BB_VERBOSE"
-	msg " Image dir = $BUILD_TARGET_DIR/tmp/deploy/images/$MACHINE_NAME"
+	msg " Image dir = $BUILD_TARGET_DIR/tmp/deploy/images/$BUILD_MACHINE_NAME"
 	msg " SDK   dir = $BUILD_TARGET_DIR/tmp/deploy/sdk"
 
 	if [ $CMD_COPY == false ]; then
