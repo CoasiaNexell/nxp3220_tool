@@ -116,6 +116,9 @@ AVAIL_MACHINE_TABLE=""
 AVAIL_IMAGE_TABLE=""
 AVAIL_FEATURE_TABLE=""
 
+TARGET_DEPLOY_DIR=""
+RESULT_TARGET_DIR=""
+RESULT_LINK_NAME=""
 BUILD_CONFIG=$YOCTO_BUILD_DIR/.config
 
 function setup_env () {
@@ -127,7 +130,6 @@ function setup_env () {
 	TARGET_LAYER_CONF=$BUILD_TARGET_DIR/conf/bblayers.conf
 	RESULT_IMAGE_DIR=$RESULT_DIR/result-${TARGET_MACHINE}
 	RESULT_SDK_DIR=$RESULT_DIR/SDK-result-${TARGET_MACHINE}
-	RESULT_TARGET_DIR=""
 
 	BB_LOCAL_CONF_CONFIGURE["BSP_TARGET_MACHINE"]=$TARGET_MACHINE
 }
@@ -562,11 +564,9 @@ function copy_result_image () {
 		exit 1
 	fi
 
+	TARGET_DEPLOY_DIR=$deploy
 	RESULT_TARGET_DIR=${RESULT_IMAGE_DIR}-${retdir##*-}
-	msg "---------------------------------------------------------------------------"
-	msg " DEPLOY     : $deploy"
-	msg " RESULT     : $RESULT_TARGET_DIR"
-	msg "---------------------------------------------------------------------------"
+	RESULT_LINK_NAME=$RESULT_IMAGE_LINK
 
 	mkdir -p $RESULT_TARGET_DIR
 	[ $? -ne 0 ] && exit 1;
@@ -607,11 +607,9 @@ function copy_result_sdk () {
 		exit 1
 	fi
 
+	TARGET_DEPLOY_DIR=$deploy
 	RESULT_TARGET_DIR=${RESULT_SDK_DIR}-${retdir##*-}
-	msg "---------------------------------------------------------------------------"
-	msg " DEPLOY     : $deploy"
-	msg " RESULT     : $RESULT_TARGET_DIR"
-	msg "---------------------------------------------------------------------------"
+	RESULT_LINK_NAME=$RESULT_SDK_LINK
 
 	mkdir -p $RESULT_TARGET_DIR
 	[ $? -ne 0 ] && exit 1;
@@ -648,14 +646,15 @@ function copy_result_tools () {
 }
 
 function link_result_dir () {
-	local link=$1
 	local ret=$(basename $RESULT_TARGET_DIR)
 
-	cd $RESULT_DIR
-	[[ -e $to ]] && [[ $link ==  $ret ]] && return;
+	[[ -z $RESULT_LINK_NAME ]] && return;
 
-	rm -f $link;
-	ln -s $ret $link
+	cd $RESULT_DIR
+	[[ -e $to ]] && [[ $RESULT_LINK_NAME ==  $ret ]] && return;
+
+	rm -f $RESULT_LINK_NAME;
+	ln -s $ret $RESULT_LINK_NAME
 }
 
 CMD_PARSE=false
@@ -746,17 +745,17 @@ function run_build ()
 
 	if [ $CMD_COPY == false ]; then
 		if [[ -n $BB_RECIPE ]]; then
-			__TARGET=$BB_RECIPE
+			BB_TARGET=$BB_RECIPE
 		else
-			__TARGET=$TARGET_IMAGE
+			BB_TARGET=$TARGET_IMAGE
 			[ $TARGET_SDK == true ] && BB_CMD="-c populate_sdk"
 		fi
 
 		msg "---------------------------------------------------------------------------"
-		msg " $> bitbake $__TARGET $BB_CMD $BB_OPTION $BB_VERBOSE"
+		msg " $> bitbake $BB_TARGET $BB_CMD $BB_OPTION $BB_VERBOSE"
 		msg "---------------------------------------------------------------------------\n"
 
-		bitbake $__TARGET $BB_CMD $BB_OPTION $BB_VERBOSE
+		bitbake $BB_TARGET $BB_CMD $BB_OPTION $BB_VERBOSE
 		[ $? -ne 0 ] && exit 1;
 	fi
 
@@ -764,11 +763,16 @@ function run_build ()
 		if [ $TARGET_SDK == false ]; then
 			copy_result_image
 			copy_result_tools
-			link_result_dir $RESULT_IMAGE_LINK
 		else
 			copy_result_sdk
-			link_result_dir $RESULT_SDK_LINK
 		fi
+
+		link_result_dir
+		msg "---------------------------------------------------------------------------"
+		msg " DEPLOY     : $TARGET_DEPLOY_DIR"
+		msg " RESULT     : $RESULT_TARGET_DIR"
+		msg " Link       : $RESULT_DIR/$RESULT_LINK_NAME"
+		msg "---------------------------------------------------------------------------"
 	fi
 
 	msg "---------------------------------------------------------------------------"
