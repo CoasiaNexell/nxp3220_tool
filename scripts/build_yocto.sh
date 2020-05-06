@@ -160,7 +160,7 @@ function usage () {
 	echo ""
 }
 
-function parse_avail_table () {
+function parse_avail_target () {
 	local dir=$1 deli=$2
 	local table=$3	# parse table
 	local val
@@ -202,7 +202,7 @@ function parse_avail_table () {
 	done
 }
 
-function check_avail_type () {
+function check_avail_target () {
 	local name=$1 table=$2 feature=$3
 	local comp=()
 
@@ -781,9 +781,9 @@ function run_build ()
 # Run build
 ###############################################################################
 
-parse_avail_table $YOCTO_MACHINE_CONFIGS "conf" AVAIL_MACHINE_TABLE MACHINE_SUPPORT
-parse_avail_table $YOCTO_FEATURE_CONFIGS "conf" AVAIL_FEATURE_TABLE
-parse_avail_table $YOCTO_IMAGE_ROOTFS "bb" AVAIL_IMAGE_TABLE
+parse_avail_target $YOCTO_MACHINE_CONFIGS "conf" AVAIL_MACHINE_TABLE MACHINE_SUPPORT
+parse_avail_target $YOCTO_FEATURE_CONFIGS "conf" AVAIL_FEATURE_TABLE
+parse_avail_target $YOCTO_IMAGE_ROOTFS "bb" AVAIL_IMAGE_TABLE
 
 if [[ $1 == "menuconfig" ]] || [[ -z $TARGET_MACHINE ]] || [[ -z $TARGET_IMAGE ]]; then
 	parse_build_config
@@ -799,9 +799,9 @@ if [[ $1 == "menuconfig" ]]; then
 	menu_save
 fi
 
-check_avail_type "$TARGET_MACHINE" "$AVAIL_MACHINE_TABLE" "$AVAIL_MACHINE"
-check_avail_type "$TARGET_IMAGE" "$AVAIL_IMAGE_TABLE" "$AVAIL_IMAGE"
-check_avail_type "$TARGET_FEATURES" "$AVAIL_FEATURE_TABLE" "$AVAIL_FEATURE"
+check_avail_target "$TARGET_MACHINE" "$AVAIL_MACHINE_TABLE" "$AVAIL_MACHINE"
+check_avail_target "$TARGET_IMAGE" "$AVAIL_IMAGE_TABLE" "$AVAIL_IMAGE"
+check_avail_target "$TARGET_FEATURES" "$AVAIL_FEATURE_TABLE" "$AVAIL_FEATURE"
 
 setup_bitbake
 
