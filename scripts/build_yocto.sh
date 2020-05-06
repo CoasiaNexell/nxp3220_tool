@@ -322,8 +322,12 @@ function parse_conf_image () {
 		merge_conf_file $dst $i $dst
 		echo "# PARSING DONE" >> $dst
         done
+}
 
-        src=$YOCTO_FEATURE_CONFIGS/sdk.conf
+function parse_conf_sdk () {
+        local dst=$TARGET_LOCAL_CONF
+        local src=$YOCTO_FEATURE_CONFIGS/sdk.conf
+
 	[ $TARGET_SDK != true ] && return;
 
 	msg "---------------------------------------------------------------------------"
@@ -813,6 +817,7 @@ check_build_config _ret_
 if [ $_ret_ == 1 ] || [ $CMD_PARSE == true ]; then
 	parse_conf_machine
 	parse_conf_image
+	parse_conf_sdk
 	parse_conf_bblayer
 fi
 parse_conf_opts
