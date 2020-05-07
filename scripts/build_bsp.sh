@@ -17,7 +17,6 @@
 
 eval $(locale | sed -e 's/\(.*\)=.*/export \1=en_US.UTF-8/')
 
-#set -x
 declare -A BUILD_ENVIRONMENT=(
 	["ARCH"]=" "
   	["MACHINE"]=" "
@@ -25,7 +24,7 @@ declare -A BUILD_ENVIRONMENT=(
   	["RESULT"]=" "
 )
 
-declare -A TARGET_COMPONENTS=(
+declare -A BUILD_ENTRY=(
   	["PATH"]=" "	# build path
 	["CONFIG"]=" "	# default condig (defconfig) for make build
 	["IMAGE"]=" "	# target image name for make build
@@ -39,119 +38,125 @@ declare -A TARGET_COMPONENTS=(
 )
 
 BUILD_TARGETS=()
+BUILD_LOG_DIR=$(realpath $(dirname `realpath ${0}`))/.build
+
+function err () { echo -e "\033[0;31m$@\033[0m"; }
+function msg () { echo -e "\033[0;33m$@\033[0m"; }
 
 function usage() {
-	echo -n "Usage: `basename $0` [-f file]"
-	for i in "${BUILD_TARGETS[@]}"
-	do
-		echo -n "[$i]";
-	done
-	echo -e " [options] [command]";
-	echo "[options]"
-	echo "  -i : show build command info"
-	echo "  -l : listup build targets"
-	echo "  -j : set build jobs"
-	echo "  -o : set build options"
-	echo "  -m : run make"
-	echo "  -p : run pre command, before make (related with PRECMD)"
-	echo "  -s : run post command, after done (related with POSTCMD)"
-	echo "  -c : run copy to result (related with COPY)"
-	echo "  -e : open file with vim"
+	echo "Usage: `basename $0` [-f config] <targets> <command> <options>"
 	echo ""
-	echo "[command] if not set, build 'IMAGE'"
-	echo " defconfig    : set default config"
-	echo " menuconfig   : menuconfig "
-	echo " clean        : clean"
-	echo " distclean    : distclean"
-	echo " cleanbuild   : clean and build"
-	echo " rebuild      : distclean and defconfig and build"
-	echo " ...          : build command supported by target"
-}
-
-function get_build_env() {
-	local ret=$1 prefix=$2 deli=$3
-	local -n array=$4
-
-	for i in "${array[@]}"
-	do
-		if [[ "$i" = *"$prefix"* ]]; then
-			local comp="$(echo $i| cut -d$deli -f 2)"
-			comp="$(echo $comp| cut -d',' -f 1)"
-			comp="$(echo -e "${comp}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
-			eval "$ret=(\"${comp}\")"
-			break
-		fi
+	echo " target:";
+	echo -ne "\t";
+	for i in "${BUILD_TARGETS[@]}"; do
+		echo -n "$i ";
 	done
+	echo ""	
+	echo " options:"
+	echo -e "\t-i : show build command info"
+	echo -e "\t-l : listup build targets"
+	echo -e "\t-j : build jobs"
+	echo -e "\t-o : build options"
+	echo -e "\t-m : only execute make"
+	echo -e "\t-p : only execute pre command, before make (related with PRECMD)"
+	echo -e "\t-s : only execute post command, after done (related with POSTCMD)"
+	echo -e "\t-c : only execute copy to result (related with COPY)"
+	echo -e "\t-e : open config file with vim (with -f 'config')"
+	echo -e "\t-v : print build log"
+	echo -e "\t-vv: print build log and enable external shell tasks tracing (with 'set -x')"
+	echo ""
+	echo " command:"
+	echo -e "\tdefconfig"
+	echo -e "\tmenuconfig"
+	echo -e "\tclean"
+	echo -e "\tdistclean"
+	echo -e "\tcleanbuild"
+	echo -e "\trebuild"
+	echo -e "\t- else command supported by target"
 }
 
-function get_build_targets() {
-	local ret=$1 deli=$2
+function print_env () {
+	msg "=================================================================="
+	for key in ${!BUILD_ENVIRONMENT[@]}; do
+		[[ -z ${BUILD_ENVIRONMENT[$key]} ]] && continue;
+		message=$(printf " %-8s = %s\n" $key ${BUILD_ENVIRONMENT[$key]})
+		msg "$message"
+	done
+	msg "=================================================================="
+}
+
+function parse_env_value () {
+	local key=$1 ret=$2
 	local -n array=$3
 
-	for i in "${array[@]}"
-	do
-		local add=true
-		local val="$(echo $i| cut -d$deli -f 1)"
-		val="$(echo -e "${val}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
-
-		# skip buil environments"
-		for n in ${!BUILD_ENVIRONMENT[@]}
-		do
-			if [ "$n" == $val ]; then
-				add=false
-				break
-			fi
-			[ $? -ne 0 ] && exit 1;
-		done
-
-		[ $add != true ] && continue;
-
-		if [[ "$i" == *"="* ]];then
-			eval "${ret}+=(\"${val}\")"
-		fi
-	done
-}
-
-function get_target_prefix() {
-	local ret=$1 prefix=$2 deli=$3
-	local -n array=$4
-
-	for i in "${array[@]}"
-	do
-		if [[ "$i" = *"$prefix"* ]]; then
-			local comp="$(echo $(echo $i| cut -d$deli -f 1) | cut -d' ' -f 1)"
-			if [ "$prefix" != "$comp" ]; then
-				continue
-			fi
-			local pos=`expr index "$i" $deli`
-			if [ $pos -eq 0 ]; then
-				return
-			fi
-			comp=${i:$pos}
-			eval "$ret=(\"${comp}\")"
+	for i in "${array[@]}"; do
+		if [[ $i = *"$key"* ]]; then
+			local ent="$(echo $i| cut -d'=' -f 2)"
+			ent="$(echo $ent| cut -d',' -f 1)"
+			ent="$(echo -e "${ent}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+			eval "$ret=(\"${ent}\")"
 			break
 		fi
 	done
 }
 
-function get_target_comp() {
-	local ret=$1 prefix=$2 deli=$3
-	local str=$4
+function parse_env () {
+	local list=("${@}")	# $1 = search array
 
-	local pos=`awk -v a="$str" -v b="$prefix" 'BEGIN{print index(a,b)}'`
-	if [ $pos -eq 0 ]; then
-		return
+	for key in ${!BUILD_ENVIRONMENT[@]}; do
+		local val=""
+		parse_env_value $key val list
+		BUILD_ENVIRONMENT[$key]=$val
+	done
+
+	if [[ -n ${BUILD_ENVIRONMENT["RESULT"]} ]]; then
+                mkdir -p ${BUILD_ENVIRONMENT["RESULT"]}
+		[ $? -ne 0 ] && exit 1;
 	fi
+}
+
+function setup_env () {
+	[[ -z $1 ]] && return;
+
+	local path=`realpath $(dirname "$1")`
+	if [[ -z $path ]]; then
+		err " No such 'TOOL': $(dirname "$1")"
+		exit 1
+	fi
+	export PATH=$path:$PATH
+}
+
+function print_target () {
+	local target=$1
+
+	msg ""
+	msg "------------------------------------------------------------------"
+	echo -e "\033[1;31m [$target]\033[0m";
+	for key in ${!BUILD_ENTRY[@]}; do
+		[[ -z ${BUILD_ENTRY[$key]} ]] && continue;
+		if [[ $key == "PATH" ]]; then
+			message=$(printf " %-8s = %s\n" $key `realpath ${BUILD_ENTRY[$key]}`)
+		else
+			message=$(printf " %-8s = %s\n" $key "${BUILD_ENTRY[$key]}")
+		fi
+		msg "$message"
+	done
+	msg "------------------------------------------------------------------"
+}
+
+function parse_target_value () {
+	local str=$1 key=$2
+	local ret=$3
+
+	local pos=`awk -v a="$str" -v b="$key" 'BEGIN{print index(a,b)}'`
+	[ $pos -eq 0 ] && return;
 
 	local val=${str:$pos}
 
-	pos=`awk -v a="$val" -v b="$deli" 'BEGIN{print index(a,b)}'`
+	pos=`awk -v a="$val" -v b=":" 'BEGIN{print index(a,b)}'`
 	val=${val:$pos}
-
 	pos=`awk -v a="$val" -v b="," 'BEGIN{print index(a,b)}'`
-	if [ $pos -ne 0 ]; then
-		val=${val:0:$pos}
-	fi
+	[ $pos -ne 0 ] && val=${val:0:$pos};
 
 	if [ `expr "$val" : ".*[*].*"` -eq 0 ]; then
 		val="$(echo $val| cut -d',' -f 1)"
@@ -162,114 +167,216 @@ function get_target_comp() {
 	eval "$ret=(\"${val}\")"
 }
 
-function parse_environment() {
-	local image=("${@}")	# $1 = search array
+function parse_target_ent () {
+	local target=$1 ret=$2
 
-	for key in ${!BUILD_ENVIRONMENT[@]}
-	do
-		local val=""
-		get_build_env val "$key" "=" image
-		BUILD_ENVIRONMENT[$key]=$val
+	for i in "${BUILD_IMAGES[@]}"; do
+		if [[ $i = *"$target"* ]]; then
+			local ent="$(echo $(echo $i| cut -d'=' -f 1) | cut -d' ' -f 1)"
+			[[ $target != $ent ]] && continue;
+
+			local pos=`expr index "$i" '='`
+			[ $pos -eq 0 ] && return;
+
+			ent=${i:$pos}
+			eval "$ret=(\"${ent}\")"
+			break
+		fi
 	done
-
-	if [[ -n ${BUILD_ENVIRONMENT["RESULT"]} ]]; then
-                mkdir -p ${BUILD_ENVIRONMENT["RESULT"]}
-	fi
 }
 
-function print_environments() {
-	echo -e "\n\033[0;33m++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ \033[0m"
-	for key in ${!BUILD_ENVIRONMENT[@]}
-	do
-		if [ -z "${BUILD_ENVIRONMENT[$key]}" ]; then
+function parse_target () {
+	local target=$1 entry
+
+	parse_target_ent $target entry
+
+	for key in ${!BUILD_ENTRY[@]}; do
+		local value=""
+
+		parse_target_value "$entry" "$key" value
+		BUILD_ENTRY[$key]=$value
+
+		if [[ $key == PRECMD ]] || [[ $key == POSTCMD ]] ||
+			[[ $key == OPTION ]]; then
 			continue
 		fi
-  		echo -e "$key\t: ${BUILD_ENVIRONMENT[$key]}"
+
+		# remove space
+		local pos=`awk -v a="$value" -v b="[" 'BEGIN{print index(a,b)}'`
+		[ $pos -ne 0 ] && continue;
+
+		BUILD_ENTRY[$key]="$(echo "$value" | sed 's/[[:space:]]//g')"
 	done
-	echo -e "\033[0;33m++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ \033[0m"
 }
 
-function print_components() {
-	local target=$1
-	echo -e "\n\033[0;33m================================================================== \033[0m"
-	echo -e "\033[0;33m $target \033[0m"
-	echo -e ""
-	for key in ${!TARGET_COMPONENTS[@]}
-	do
-		if [ -z "${TARGET_COMPONENTS[$key]}" ]; then
-			continue
-		fi
-		if [ $key == "PATH" ]; then
-			echo -e "$key\t: `realpath ${TARGET_COMPONENTS[$key]}`"
+function exec_shell () {
+	local log=$BUILD_LOG_DIR/${2}.script.log
+	local ret
+
+	rm -f $log
+	msg " $> ${1} "
+	[[ $OPT_TRACE == true ]] && set -x;
+
+	if type "${1}" 2>/dev/null | grep -q 'function'; then
+		if [ $OPT_VERBOSE == false ]; then
+			${1} >> $log 2>&1
 		else
-			echo -e "$key\t: ${TARGET_COMPONENTS[$key]}"
+			${1}
 		fi
-	done
-	echo -e "\033[0;33m================================================================== \033[0m"
-}
-
-function setup_path() {
-	if [[ -z $1 ]]; then
-		return
+	else
+		if [ $OPT_VERBOSE == false ]; then
+			bash -c "${1}" >> $log 2>&1
+		else
+			bash -c "${1}"
+		fi
 	fi
 
-	local path=`readlink -e -n "$(dirname "$1")"`
-	if [[ -z $path ]]; then
-		echo -e "\033[47;31m No such 'TOOL': $(dirname "$1") \033[0m"
-		exit 1
-	fi
+	ret=$?
+	[[ $OPT_TRACE == true ]] && set +x;
 
-	export PATH=$path:$PATH
+	[ $ret -ne 0 ] && err " ERROR: script '${2}':$log\n";
+	return $ret
 }
 
-function copy_target() {
+function exec_make () {
+	local log=$BUILD_LOG_DIR/${2}.make.log
+	local ret
+
+	rm -f $log
+	msg " $> make ${1}"
+
+	if [ $OPT_VERBOSE == false ] && [[ ${1} != *menuconfig* ]]; then
+		make ${1} >> $log  2>&1
+	else
+		make ${1}
+	fi
+
+	ret=$?
+	if [ $ret -eq 2 ] && [[ ${1} != *"clean"* ]]; then
+		err " ERROR: make '${2}':$log\n";
+	else
+		ret=0
+	fi
+	return $ret
+}
+
+function make_target () {
+	local target=$1 cmd=$2
+	local tool=${BUILD_ENTRY["TOOL"]}
+	local path=${BUILD_ENTRY["PATH"]}
+	local image=${BUILD_ENTRY["IMAGE"]}
+	local defconfig=${BUILD_ENTRY["CONFIG"]}
+	local option=${BUILD_ENTRY["OPTION"]}
+	local jobs="-j ${BUILD_ENTRY["JOBS"]}"
+
+	[[ -z $path ]] && return;
+
+	path=`realpath ${BUILD_ENTRY["PATH"]}`
+	if [ ! -d $path ]; then
+		err " Invalid 'PATH' $target: '$path' ..."
+		exit 1;
+	fi
+
+	if [ ! -f "$path/makefile" ] && [ ! -f "$path/Makefile" ]; then
+		msg " Not found Makefile for $target: '$path' ..."
+		return;
+	fi
+
+	if [[ $image != *".dtb"* ]]; then
+		if [[ $cmd == distclean ]] || [[ $cmd == rebuild ]]; then
+			exec_make "-C $path distclean" ${target}
+			exec_make "-C $path clean" ${target}
+		fi
+
+		if [[ $cmd == clean ]] || [[ $cmd == cleanbuild ]]; then
+			exec_make "-C $path clean" ${target}
+		fi
+
+		if  [[ $cmd == rebuild ]] || [[ $cmd == cleanbuild ]] &&
+		    [[ -n ${BUILD_ENTRY["PRECMD"]} ]]; then
+			exec_shell "${BUILD_ENTRY["PRECMD"]}" ${target}
+			[ $? -ne 0 ] && exit 1;
+		fi
+	fi
+
+	if [[ $cmd == distclean ]] || [[ $cmd == clean ]]; then
+		exit 0;
+	fi
+
+	local mach=${BUILD_ENVIRONMENT["MACHINE"]}
+	local arch=${BUILD_ENVIRONMENT["ARCH"]}
+
+	if [[ -n $defconfig ]]; then
+		setup_env $tool
+
+		if [[ $cmd == defconfig ]] || [ ! -f $path/.config ]; then
+			exec_make "-C $path ARCH=$arch CROSS_COMPILE=$tool $defconfig" ${target}
+			[ $? -ne 0 ] && exit 1;
+		fi
+
+		if [[ $cmd == menuconfig ]]; then
+			exec_make "-C $path ARCH=$arch CROSS_COMPILE=$tool menuconfig" ${target}
+			[ $? -ne 0 ] && exit 1;
+		fi
+	fi
+
+	if [[ $cmd == distclean ]] || [[ $cmd == clean ]] ||
+	   [[ $cmd == defconfig ]] || [[ $cmd == menuconfig ]]; then
+		exit 0;
+	fi
+
+	if [[ -n $cmd ]] && [[ $cmd != rebuild ]] && [[ $cmd != cleanbuild ]] ; then
+		jobs="" option=""
+	else
+		cmd=${BUILD_ENTRY["IMAGE"]}
+	fi
+
+	exec_make "-C $path ARCH=$arch CROSS_COMPILE=$tool $cmd $option $job" ${target}
+}
+
+function copy_result () {
 	local out=$2 src=$1/$out
 	local dir=$3 dst=$4
 
 	if [ "$(ls $src| wc -l 2>/dev/null)" -eq 0 ]; then
-		echo -e "\033[47;31m No such to copy : '$src' ... \033[0m"
+		err " No such to copy : '$src' ..."
 		return
 	fi
 
-	if [ "$src" == "/" ]; then
-		echo -e "\033[47;31m Invalid directory : '$src' ... \033[0m"
+	if [[ $src == "/" ]]; then
+		err " Invalid directory : '$src' ..."
 		return
 	fi
 
-	if [ -z "$out" ]; then
-		echo -e "\033[47;31m No 'OUTPUT' ... \033[0m"
+	if [[ -z $out ]]; then
+		err " Not declared 'OUTPUT' ..."
 		return
 	fi
 
 	if [ `expr "$out" : ".*[*].*"` -eq 0 ]; then
-		if [ -z "$dst" ]; then
+		if [[ -z $dst ]]; then
 			dst=$dir/$(basename $out)
 		else
 			dst=$dir/$dst
 		fi
 	else
-		if [ ! -z $dst ]; then
+		if [[ -n $dst ]]; then
 			dst=$dir/$dst
 		else
 			dst=$dir/
 		fi
 	fi
 
-	echo -e "\n\033[2;32m ----------------------------------------------------------------- \033[0m"
-	echo -e " COPY     : `realpath $src`"
-	echo -e " TO       : `realpath $dst`"
-	echo -e "\033[1;32m ----------------------------------------------------------------- \033[0m"
+	msg "------------------------------------------------------------------"
+	message=$(printf " %-8s = %s\n" "RESULT" `realpath $src`)
+	msg "$message"
+	message=$(printf " %-8s = %s\n" "COPY" `realpath $dst`)
+	msg "$message"
+	msg "------------------------------------------------------------------"
 
 	mkdir -p $dir
-
-	if [ ! -d $dir ]; then
-		echo -e "\033[47;31m Faild mkdir: '$dir' ... \033[0m"
-		return
-	fi
-
-	if [ -d "$src" ]; then
-		rm -rf $dst
-	fi
+	[ ! -d $dir ] && return;
+	[ -d $src ] && rm -rf $dst;
 
 	local pos=`awk -v a="$src" -v b="[" 'BEGIN{print index(a,b)}'`
 	if [ $pos -eq 0 ]; then
@@ -277,218 +384,109 @@ function copy_target() {
 	fi
 }
 
-function parse_target() {
-	local prefix=$1
-	local -n image=$2
-	local target
-
-	get_target_prefix target "$prefix" "=" image
-
-	for key in ${!TARGET_COMPONENTS[@]}
-	do
-		local comp=""
-		get_target_comp comp "$key" ":" "$target"
-		TARGET_COMPONENTS[$key]=$comp
-
-		if [ "$key" == "PRECMD" ] || [ "$key" == "POSTCMD" ] ||
-			[ "$key" == "OPTION" ]; then
-			continue
-		fi
-
-		# remove space
-		local pos=`awk -v a="$comp" -v b="[" 'BEGIN{print index(a,b)}'`
-		if [ $pos -ne 0 ]; then
-			continue
-		fi
-		TARGET_COMPONENTS[$key]="$(echo "$comp" | sed 's/[[:space:]]//g')"
-	done
-}
-
-function make_target() {
-	local target=$1 cmd=$2
-	local tool=${TARGET_COMPONENTS["TOOL"]}
-	local path=${TARGET_COMPONENTS["PATH"]}
-	local image=${TARGET_COMPONENTS["IMAGE"]}
-	local defconfig=${TARGET_COMPONENTS["CONFIG"]}
-	local jobs="-j ${TARGET_COMPONENTS["JOBS"]}"
-	local option=${TARGET_COMPONENTS["OPTION"]}
-
-	if [[ -z $path ]]; then
-		return
-	fi
-
-	path=`realpath ${TARGET_COMPONENTS["PATH"]}`
-
-	if [[ ! -d $path ]]; then
-		echo -e "\033[47;31m Invalid 'PATH' $target: '$path' ... \033[0m"
-		exit 1;
-	fi
-
-	if [ ! -f "$path/makefile" ] && [ ! -f "$path/Makefile" ]; then
-		echo -e "\033[47;31m Not found Makefile $target: '$path' ... \033[0m"
-		return;
-	fi
-
-	if [[ $image != *".dtb"* ]]; then
-		if [ "$cmd" == "distclean" ] || [ "$cmd" == "rebuild" ]; then
-			make -C $path distclean
-		fi
-
-		if [ "$cmd" == "clean" ] || [ "$cmd" == "cleanbuild" ] ||
-		   [ "$cmd" == "rebuild" ]; then
-			make -C $path clean
-		fi
-
-		if  [ "$cmd" == "rebuild" ] || [ "$cmd" == "cleanbuild" ] &&
-		    [ ! -z "${TARGET_COMPONENTS["PRECMD"]}" ]; then
-			local exec=${TARGET_COMPONENTS["PRECMD"]}
-			echo -e "\033[47;34m PRECMD : ${exec} \033[0m"
-			if type "${exec}" 2>/dev/null | grep -q 'function'; then
-				${exec}
-			else
-				bash -c "${exec}"
-			fi
-			[ $? -ne 0 ] && exit 1;
-			echo -e "\033[47;34m PRECMD : DONE \033[0m"
-		fi
-	fi
-
-	# exit after excute default build commands
-	if [ "$cmd" == "distclean" ] || [ "$cmd" == "clean" ]; then
-		exit 1; # Exit to skip next build step
-	fi
-
-	local mach=${BUILD_ENVIRONMENT["MACHINE"]}
-	local arch=${BUILD_ENVIRONMENT["ARCH"]}
-
-	if [ ! -z $defconfig ]; then
-
-		setup_path $tool
-
-		if [ "$cmd" == "defconfig" ] || [ ! -f "$path/.config" ]; then
-			make -C $path ARCH=$arch CROSS_COMPILE=$tool $defconfig
-			[ $? -ne 0 ] && exit 1;
-		fi
-
-		if [ "$cmd" == "menuconfig" ]; then
-			make -C $path ARCH=$arch CROSS_COMPILE=$tool menuconfig
-			[ $? -ne 0 ] && exit 1;
-		fi
-	fi
-
-	# exit after excute default build commands
-	if [ "$cmd" == "distclean" ] || [ "$cmd" == "clean" ] ||
-	   [ "$cmd" == "defconfig" ] || [ "$cmd" == "menuconfig" ]; then
-		exit 1; # Exit to skip next build step
-	fi
-
-	if [ ! -z "$cmd" ] && [ "$cmd" != "rebuild" ] && [ "$cmd" != "cleanbuild" ] ; then
-		jobs="" option=""
-	else
-		cmd=${TARGET_COMPONENTS["IMAGE"]}
-	fi
-
-	echo -e "\n\033[0;33m------------------------------------------------------------------ \033[0m"
-	echo -e "make -C $path ARCH=$arch CROSS_COMPILE=$tool $cmd $option $jobs"
-	echo -e "\033[0;33m------------------------------------------------------------------ \033[0m"
-
-	make -C $path ARCH=$arch CROSS_COMPILE=$tool $cmd $option $jobs
-}
-
-function build_target() {
+function run_build () {
 	local target=$1 command=$2
 
-	parse_target "$target" BUILD_IMAGES
+	parse_target $target
 
-	if [ -z ${TARGET_COMPONENTS["TOOL"]} ]; then
-		TARGET_COMPONENTS["TOOL"]=${BUILD_ENVIRONMENT["TOOL"]}
-	fi
+	[[ -z ${BUILD_ENTRY["TOOL"]} ]] && BUILD_ENTRY["TOOL"]=${BUILD_ENVIRONMENT["TOOL"]};
+	[[ -z ${BUILD_ENTRY["JOBS"]} ]] && BUILD_ENTRY["JOBS"]=$OPT_JOBS;
+	BUILD_ENTRY["OPTION"]="${BUILD_ENTRY["OPTION"]} $OPT_OPTION"
 
-	if [ -z ${TARGET_COMPONENTS["JOBS"]} ]; then
-		TARGET_COMPONENTS["JOBS"]=$BUILD_OPT_JOBS
-	fi
+	print_target $target
 
-	TARGET_COMPONENTS["OPTION"]="${TARGET_COMPONENTS["OPTION"]} $BUILD_OPT_OPTION"
-
-	print_components $target
-
-	if [ $BUILD_OPT_INFO == true ]; then
-		return
-	fi
+	[ $OPT_INFO == true ] && return;
 
 	mkdir -p ${BUILD_ENVIRONMENT["RESULT"]}
+	[ $? -ne 0 ] && exit 1;
 
-	if [ $BUILD_OPT_PRECMD == true ] && [ ! -z "${TARGET_COMPONENTS["PRECMD"]}" ]; then
-		local exec=${TARGET_COMPONENTS["PRECMD"]}
-		echo -e "\033[47;34m PRECMD : ${exec} \033[0m"
-		if type "${exec}" 2>/dev/null | grep -q 'function'; then
-			${exec}
-		else
-			bash -c "${exec}"
-		fi
+	mkdir -p $BUILD_LOG_DIR
+	[ $? -ne 0 ] && exit 1;
+
+	if [ $OPT_PRECMD == true ] && [[ -n ${BUILD_ENTRY["PRECMD"]} ]]; then
+		exec_shell "${BUILD_ENTRY["PRECMD"]}" ${target}
 		[ $? -ne 0 ] && exit 1;
-		echo -e "\033[47;34m PRECMD : DONE \033[0m"
 	fi
 
-	if [ $BUILD_OPT_MAKE == true ]; then
+	if [ $OPT_MAKE == true ]; then
 		make_target "$target" "$command"
 		[ $? -ne 0 ] && exit 1;
 	fi
 
 
-	if [ $BUILD_OPT_COPY == true ]; then
-		local path=${TARGET_COMPONENTS["PATH"]} out=${TARGET_COMPONENTS["OUTPUT"]}
-		local dir=${BUILD_ENVIRONMENT["RESULT"]} ret=${TARGET_COMPONENTS["COPY"]}
+	if [ $OPT_COPY == true ]; then
+		local path=${BUILD_ENTRY["PATH"]} out=${BUILD_ENTRY["OUTPUT"]}
+		local dir=${BUILD_ENVIRONMENT["RESULT"]} ret=${BUILD_ENTRY["COPY"]}
 
-		if [ ! -z "$out" ]; then
-			copy_target "$path" "$out" "$dir" "$ret"
+		if [[ -n $out ]]; then
+			copy_result "$path" "$out" "$dir" "$ret"
 			[ $? -ne 0 ] && exit 1;
 		fi
 	fi
 
-	if [ $BUILD_OPT_POSTCMD == true ] && [ ! -z "${TARGET_COMPONENTS["POSTCMD"]}" ]; then
-		local exec=${TARGET_COMPONENTS["POSTCMD"]}
-		echo -e "\033[47;34m POSTCMD: ${exec} \033[0m"
-		if type "${exec}" 2>/dev/null | grep -q 'function'; then
-			${exec}
-		else
-			bash -c "${exec}"
-		fi
+	if [ $OPT_POSTCMD == true ] && [[ -n ${BUILD_ENTRY["POSTCMD"]} ]]; then
+		exec_shell "${BUILD_ENTRY["POSTCMD"]}" ${target}
 		[ $? -ne 0 ] && exit 1;
-		echo -e "\033[47;34m POSTCMD: DONE \033[0m"
 	fi
 }
 
-BUILD_OPT_JOBS=`grep processor /proc/cpuinfo | wc -l`
-BUILD_OPT_INFO=false
-BUILD_OPT_MAKE=false
-BUILD_OPT_PRECMD=false
-BUILD_OPT_POSTCMD=false
-BUILD_OPT_COPY=false
+function parse_targets () {
+	local ret=$1
+
+	for i in "${BUILD_IMAGES[@]}"; do
+		local add=true
+		local val="$(echo $i| cut -d'=' -f 1)"
+		val="$(echo -e "${val}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+
+		# skip buil environments"
+		for n in ${!BUILD_ENVIRONMENT[@]}; do
+			if [[ $n == $val ]]; then
+				add=false
+				break
+			fi
+			[ $? -ne 0 ] && exit 1;
+		done
+
+		[ $add != true ] && continue;
+
+		if [[ $i == *"="* ]];then
+			eval "${ret}+=(\"${val}\")"
+		fi
+	done
+}
+
+OPT_INFO=false
+OPT_MAKE=false
+OPT_PRECMD=false
+OPT_POSTCMD=false
+OPT_COPY=false
+OPT_VERBOSE=false
+OPT_TRACE=false
+OPT_JOBS=`grep processor /proc/cpuinfo | wc -l`
 
 case "$1" in
 	-f )
-		bsp_file=$2
-		bsp_targets=()
-		command=""
-		dump_lists=false
+		build_config=$2
+		build_target=()
+		build_command=""
+		show_list=false
 
-		if [ ! -f $bsp_file ]; then
-			echo -e "\033[47;31m Not found build config: $bsp_file \033[0m"
+		if [ ! -f $build_config ]; then
+			err " Not found build config: $build_config"
 			exit 1;
 		fi
 
 		# include input file
-		source $bsp_file
+		source $build_config
 
-		get_build_targets BUILD_TARGETS "=" BUILD_IMAGES
+		parse_targets BUILD_TARGETS
 
 		while [ "$#" -gt 2 ]; do
 			count=0
 			while true
 			do
-				if [ "${BUILD_TARGETS[$count]}" == "$3" ]; then
-					bsp_targets+=("${BUILD_TARGETS[$count]}");
+				if [[ ${BUILD_TARGETS[$count]} == $3 ]]; then
+					build_target+=("${BUILD_TARGETS[$count]}");
 					((count=0))
 					shift 1
 					continue
@@ -498,77 +496,73 @@ case "$1" in
 			done
 
 			case "$3" in
-			-l )	dump_lists=true; shift 2;;
-			-j )	BUILD_OPT_JOBS=$4; shift 2;;
-			-i ) 	BUILD_OPT_INFO=true; shift 1;;
-			-m )	BUILD_OPT_MAKE=true; shift 1;;
-			-p ) 	BUILD_OPT_PRECMD=true; shift 1;;
-			-s ) 	BUILD_OPT_POSTCMD=true; shift 1;;
-			-c )	BUILD_OPT_COPY=true; shift 1;;
-			-o )	BUILD_OPT_OPTION="$4"; shift 2;;
+			-l )	show_list=true; shift 2;;
+			-j )	OPT_JOBS=$4; shift 2;;
+			-i ) 	OPT_INFO=true; shift 1;;
+			-m )	OPT_MAKE=true; shift 1;;
+			-p ) 	OPT_PRECMD=true; shift 1;;
+			-s ) 	OPT_POSTCMD=true; shift 1;;
+			-c )	OPT_COPY=true; shift 1;;
+			-o )	OPT_OPTION="$4"; shift 2;;
+			-v )	OPT_VERBOSE=true; shift 1;;
+			-vv)	OPT_VERBOSE=true; OPT_TRACE=true; shift 1;;
 			-e )
-				vim $bsp_file
+				vim $build_config
 				exit 0;;
-			-h )	usage;	exit 1;;
-			*)	[[ ! -z $3 ]] && command=$3;
+			-h )	usage;
+				exit 1;;
+			*)	[[ -n $3 ]] && build_command=$3;
 				shift;;
 			esac
 		done
 
-		if [ ${#bsp_targets[@]} -eq 0 ] && [ ! -z $command ]; then
-			if [ "$command" != "clean" ] &&
-			   [ "$command" != "cleanbuild" ] &&
-			   [ "$command" != "rebuild" ]; then
-				echo -e "\033[47;31m Unknown target or command: $command ... \033[0m"
-				echo -e " Check command : clean, cleanbuild, rebuild"
+		if [ ${#build_target[@]} -eq 0 ] && [ -n $build_command ]; then
+			if [[ $build_command != clean ]] &&
+			   [[ $build_command != cleanbuild ]] &&
+			   [[ $build_command != rebuild ]]; then
+				err "------------------------------------------------------------------"
+				err " Unknown target or command: $build_command ...\n"
+				echo -e  " Check command : clean, cleanbuild, rebuild"
 				echo -en " Check targets : "
-				for i in "${BUILD_TARGETS[@]}"
-				do
+				for i in "${BUILD_TARGETS[@]}"; do
 					echo -n "$i "
 				done
-				echo ""
+				err "\n------------------------------------------------------------------"
 				exit 1;
 			fi
 		fi
 
-		if [ $BUILD_OPT_MAKE == false ] &&
-		   [ $BUILD_OPT_COPY == false ] &&
-		   [ $BUILD_OPT_PRECMD == false ] &&
-		   [ $BUILD_OPT_POSTCMD == false ]; then
-			BUILD_OPT_MAKE=true
-			BUILD_OPT_COPY=true
-			BUILD_OPT_PRECMD=true
-			BUILD_OPT_POSTCMD=true
+		if [ $OPT_MAKE == false ] && [ $OPT_COPY == false ] &&
+		   [ $OPT_PRECMD == false ] && [ $OPT_POSTCMD == false ];
+		then
+			OPT_MAKE=true
+			OPT_COPY=true
+			OPT_PRECMD=true
+			OPT_POSTCMD=true
 		fi
 
-		# build all
-		if [ ${#bsp_targets[@]} -eq 0 ]; then
-			bsp_targets=(${BUILD_TARGETS[@]})
-		fi
+		# target all
+		[ ${#build_target[@]} -eq 0 ] && build_target=(${BUILD_TARGETS[@]});
 
 		# parse environment
-		parse_environment "${BUILD_IMAGES[@]}"
-		setup_path ${BUILD_ENVIRONMENT["TOOL"]}
+		parse_env "${BUILD_IMAGES[@]}"
+		setup_env ${BUILD_ENVIRONMENT["TOOL"]}
 
-		if [ $dump_lists == true ]; then
-			echo -e "\033[0;33m------------------------------------------------------------------ \033[0m"
-			echo -en "\033[47;30m Build targets: \033[0m"
-			for i in "${BUILD_TARGETS[@]}"
-			do
+		if [ $show_list == true ]; then
+			msg "------------------------------------------------------------------"
+			msg " Targets:"
+			for i in "${BUILD_TARGETS[@]}"; do
 				echo -n " $i"
 			done
-			echo -e "\n\033[0;33m------------------------------------------------------------------ \033[0m"
+			msg "\n------------------------------------------------------------------"
 			exit 0;
 		fi
 
-		if [ $BUILD_OPT_INFO == true ]; then
-			print_environments
-		fi
+		[ $OPT_INFO == true ] && print_env;
 
 		# build
-		for i in "${bsp_targets[@]}"
-		do
-			build_target "$i" "$command"
+		for i in "${build_target[@]}"; do
+			run_build "$i" "$build_command"
 		done
 		;;
 

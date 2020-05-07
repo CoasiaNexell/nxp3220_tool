@@ -4,7 +4,6 @@
 #
 
 source $(dirname `realpath ${2}`)/env_common.sh
-function msg () { echo -e "\033[0;33m$@\033[0m"; }
 
 # Add to build source at target script:
 # export BSP_BASEDIR=`realpath "$(cd "$(dirname "$0")" && pwd)/../.."`
@@ -32,17 +31,17 @@ function post_build_bl1 () {
 	SECURE_USERKEY=${outdir}/$(basename $SECURE_USERKEY)
 
         # Encrypt binary : $BIN.enc
-	msg "ENCRYPT: ${bl1_binary} -> ${bl1_binary}.enc"
+	msg " ENCRYPT: ${bl1_binary} -> ${bl1_binary}.enc"
        ${TOOL_BINENC} enc -e -nosalt -aes-128-cbc -in ${bl1_binary} -out ${bl1_binary}.enc \
 		-K $(cat ${SECURE_BL1_ENCKEY}) -iv ${SECURE_BL1_IVECTOR};
 
         # (Encrypted binary) + NSIH : $BIN.bin.enc.raw
-	msg "BINGEN : ${bl1_binary}.enc -> ${bl1_binary}.enc.raw"
+	msg " BINGEN : ${bl1_binary}.enc -> ${bl1_binary}.enc.raw"
         ${TOOL_BINGEN} -k bl1 -n ${BL1_NSIH} -i ${bl1_binary}.enc \
 		-b ${SECURE_BOOTKEY} -u ${SECURE_USERKEY} -l ${BL1_LOADADDR} -s ${BL1_LOADADDR} -t;
 
         # Binary + NSIH : $BIN.raw
-	msg "BINGEN : ${bl1_binary} -> ${bl1_binary}.raw"
+	msg " BINGEN : ${bl1_binary} -> ${bl1_binary}.raw"
         ${TOOL_BINGEN} -k bl1 -n ${BL1_NSIH} -i ${bl1_binary} \
 		-b ${SECURE_BOOTKEY} -u ${SECURE_USERKEY} -l ${BL1_LOADADDR} -s ${BL1_LOADADDR} -t;
 
@@ -55,7 +54,7 @@ function post_build_bl1 () {
 
 function post_build_bl2 () {
         # Binary + NSIH : $BIN.raw
-	msg "BINGEN : ${BL2_BIN} -> ${BL2_BIN}.raw"
+	msg " BINGEN : ${BL2_BIN} -> ${BL2_BIN}.raw"
         ${TOOL_BINGEN} -k bl2 -n ${BL2_NSIH} -i ${BSP_BL2_DIR}/out/${BL2_BIN} \
 		-b ${SECURE_BOOTKEY} -u ${SECURE_USERKEY} -l ${BL2_LOADADDR} -s ${BL2_LOADADDR} -t;
 
@@ -73,19 +72,19 @@ function post_build_bl32 () {
 	SECURE_USERKEY=${BSP_BL32_DIR}/out/$(basename $SECURE_USERKEY)
 
         # Encrypt binary : $BIN.enc
-	msg "ENCRYPT: ${BL32_BIN} -> ${BL32_BIN}.enc"
+	msg " ENCRYPT: ${BL32_BIN} -> ${BL32_BIN}.enc"
 	${TOOL_BINENC} enc -e -nosalt -aes-128-cbc \
 		-in ${BSP_BL32_DIR}/out/${BL32_BIN} -out ${BSP_BL32_DIR}/out/${BL32_BIN}.enc \
 		-K $(cat ${SECURE_BL32_ENCKEY}) -iv ${SECURE_BL32_IVECTOR};
 
         # (Encrypted binary) + NSIH : $BIN.enc.raw
-	msg "BINGEN : ${BL32_BIN}.enc -> ${BL32_BIN}.enc.raw"
+	msg " BINGEN : ${BL32_BIN}.enc -> ${BL32_BIN}.enc.raw"
         ${TOOL_BINGEN} -k bl32 -n ${BL32_NSIH} -i ${BSP_BL32_DIR}/out/${BL32_BIN}.enc \
 		-b ${SECURE_BOOTKEY} -u ${SECURE_USERKEY} \
 		-l ${BL32_LOADADDR} -s ${BL32_LOADADDR} -t -e;
 
         # Binary + NSIH : $BIN.raw
-	msg "BINGEN : ${BL32_BIN} -> ${BL32_BIN}.raw"
+	msg " BINGEN : ${BL32_BIN} -> ${BL32_BIN}.raw"
         ${TOOL_BINGEN} -k bl32 -n ${BL32_NSIH} -i ${BSP_BL32_DIR}/out/${BL32_BIN} \
 		-b ${SECURE_BOOTKEY} -u ${SECURE_USERKEY} \
 		-l ${BL32_LOADADDR} -s ${BL32_LOADADDR} -t;
@@ -104,7 +103,7 @@ function pre_build_uboot () {
 }
 
 function post_build_uboot () {
-	msg "BINGEN : ${UBOOT_BIN} -> ${UBOOT_BIN}.raw"
+	msg " BINGEN : ${UBOOT_BIN} -> ${UBOOT_BIN}.raw"
         ${TOOL_BINGEN} -k bl33 -n ${UBOOT_NSIH} -i ${BSP_UBOOT_DIR}/${UBOOT_BIN} \
 		-b ${SECURE_BOOTKEY} -u ${SECURE_USERKEY} \
 		-l ${UBOOT_LOADADDR} -s ${UBOOT_LOADADDR} -t;
@@ -140,12 +139,12 @@ function post_ret_link () {
 	local link=result
 	local ret=$(basename $BSP_RESULT)
 
-	msg "RETDIR : $BSP_RESULT"
+	msg " RETDIR : $BSP_RESULT"
 	cd $(dirname $BSP_RESULT)
-	[[ -e $link ]] && [[ $link ==  $ret ]] && return;
+	[[ -e $link ]] && [[ $(readlink $link) ==  $ret ]] && return;
 
 	rm -f $link;
-	ln -s $(basename $BSP_RESULT) result
+	ln -s $ret $link
 }
 
 function pre_boot_image () {
