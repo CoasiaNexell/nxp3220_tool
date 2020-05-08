@@ -650,15 +650,16 @@ function copy_result_tools () {
 }
 
 function link_result_dir () {
+	local link=$RESULT_LINK_NAME
 	local ret=$(basename $RESULT_TARGET_DIR)
 
-	[[ -z $RESULT_LINK_NAME ]] && return;
+	[[ -z $link ]] && return;
 
 	cd $RESULT_DIR
-	[[ -e $to ]] && [[ $RESULT_LINK_NAME ==  $ret ]] && return;
+	[[ -e $link ]] && [[ $(readlink $link) ==  $ret ]] && return;
 
-	rm -f $RESULT_LINK_NAME;
-	ln -s $ret $RESULT_LINK_NAME
+	rm -f $link;
+	ln -s $ret $link
 }
 
 CMD_PARSE=false
