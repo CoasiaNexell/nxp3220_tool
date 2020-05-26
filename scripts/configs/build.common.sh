@@ -6,7 +6,7 @@
 source $(dirname `realpath ${2}`)/env_common.sh
 
 # Add to build source at target script:
-# export BSP_BASEDIR=`realpath "$(cd "$(dirname "$0")" && pwd)/../.."`
+# export BSP_BASEDIR=$(realpath $(dirname $(realpath ${2}))/../../..)
 # TARGET_BL1_DIR=${BSP_BASEDIR}/firmwares/bl1-nxp3220
 
 SECURE_BL1_IVECTOR=73FC7B44B996F9990261A01C9CB93C8F
