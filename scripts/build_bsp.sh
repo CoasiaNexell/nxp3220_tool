@@ -100,7 +100,7 @@ function parse_env_value () {
 	done
 }
 
-function parse_env () {
+function parse_build_env () {
 	local list=("${@}")	# $1 = search array
 
 	for key in ${!BUILD_ENVIRONMENT[@]}; do
@@ -115,7 +115,7 @@ function parse_env () {
 	fi
 }
 
-function setup_env () {
+function setup_build_env () {
 	[[ -z $1 ]] && return;
 
 	local path=`realpath $(dirname "$1")`
@@ -211,7 +211,7 @@ function parse_target () {
 
 function exec_shell () {
 	local log=$BUILD_LOG_DIR/${2}.script.log
-	local ret
+	local result
 
 	rm -f $log
 	msg " $> ${1} "
@@ -231,16 +231,16 @@ function exec_shell () {
 		fi
 	fi
 
-	ret=$?
+	result=$?
 	[[ $OPT_TRACE == true ]] && set +x;
+	[ $OPT_VERBOSE == false ] && [ $result -ne 0 ] && err " ERROR: script '${2}':$log\n";
 
-	[ $ret -ne 0 ] && err " ERROR: script '${2}':$log\n";
-	return $ret
+	return $result
 }
 
 function exec_make () {
 	local log=$BUILD_LOG_DIR/${2}.make.log
-	local ret
+	local result
 
 	rm -f $log
 	msg " $> make ${1}"
@@ -251,87 +251,87 @@ function exec_make () {
 		make ${1}
 	fi
 
-	ret=$?
-	if [ $ret -eq 2 ] && [[ ${1} != *"clean"* ]]; then
+	result=$?
+	if [ $OPT_VERBOSE == false ] && [ $result -eq 2 ] && [[ ${1} != *"clean"* ]]; then
 		err " ERROR: make '${2}':$log\n";
 	else
-		ret=0
+		result=0
 	fi
-	return $ret
+
+	return $result
 }
 
+BUILD_COMMAND_EXCEPTION=(
+	"*".dtb"*"
+)
+
 function make_target () {
-	local target=$1 cmd=$2
+	local target=$1
+	local command=$2
+	local arch=${BUILD_ENVIRONMENT["ARCH"]}
 	local tool=${BUILD_ENTRY["TOOL"]}
 	local path=${BUILD_ENTRY["PATH"]}
 	local image=${BUILD_ENTRY["IMAGE"]}
-	local defconfig=${BUILD_ENTRY["CONFIG"]}
-	local option=${BUILD_ENTRY["OPTION"]}
-	local jobs="-j ${BUILD_ENTRY["JOBS"]}"
+	local config=${BUILD_ENTRY["CONFIG"]}
+	local option="-j ${BUILD_ENTRY["JOBS"]} ${BUILD_ENTRY["OPTION"]}"
 
 	[[ -z $path ]] && return;
 
-	path=`realpath ${BUILD_ENTRY["PATH"]}`
+	path=$(realpath $path)
 	if [ ! -d $path ]; then
-		err " Invalid 'PATH' $target: '$path' ..."
+		err " Invalid 'PATH' '$path' for $target ..."
 		exit 1;
 	fi
 
-	if [ ! -f "$path/makefile" ] && [ ! -f "$path/Makefile" ]; then
-		msg " Not found Makefile for $target: '$path' ..."
+	if [[ ! -f $path/makefile ]] && [[ ! -f $path/Makefile ]]; then
+		msg " Not found Makefile for $target in '$path' ..."
 		return;
 	fi
 
+	# make clean
 	if [[ $image != *".dtb"* ]]; then
-		if [[ $cmd == distclean ]] || [[ $cmd == rebuild ]]; then
+		if [[ $command == distclean ]] || [[ $command == rebuild ]]; then
 			exec_make "-C $path distclean" ${target}
 			exec_make "-C $path clean" ${target}
 		fi
 
-		if [[ $cmd == clean ]] || [[ $cmd == cleanbuild ]]; then
+		if [[ $command == clean ]] || [[ $command == cleanbuild ]]; then
 			exec_make "-C $path clean" ${target}
 		fi
 
-		if  [[ $cmd == rebuild ]] || [[ $cmd == cleanbuild ]] &&
+		if  [[ $command == rebuild ]] || [[ $command == cleanbuild ]] &&
 		    [[ -n ${BUILD_ENTRY["PRECMD"]} ]]; then
 			exec_shell "${BUILD_ENTRY["PRECMD"]}" ${target}
 			[ $? -ne 0 ] && exit 1;
 		fi
 	fi
 
-	if [[ $cmd == distclean ]] || [[ $cmd == clean ]]; then
-		exit 0;
-	fi
+	# exit clean
+	[[ $command == distclean ]] || [[ $command == clean ]] && exit 0;
 
-	local mach=${BUILD_ENVIRONMENT["MACHINE"]}
-	local arch=${BUILD_ENVIRONMENT["ARCH"]}
-
-	if [[ -n $defconfig ]]; then
-		setup_env $tool
-
-		if [[ $cmd == defconfig ]] || [ ! -f $path/.config ]; then
-			exec_make "-C $path ARCH=$arch CROSS_COMPILE=$tool $defconfig" ${target}
+	# default config : defconfg
+	if [[ -n $config ]]; then
+		if [[ $command == defconfig ]] || [[ ! -f $path/.config ]]; then
+			exec_make "-C $path ARCH=$arch CROSS_COMPILE=$tool $config" ${target}
 			[ $? -ne 0 ] && exit 1;
 		fi
 
-		if [[ $cmd == menuconfig ]]; then
+		if [[ $command == menuconfig ]]; then
 			exec_make "-C $path ARCH=$arch CROSS_COMPILE=$tool menuconfig" ${target}
 			[ $? -ne 0 ] && exit 1;
 		fi
 	fi
 
-	if [[ $cmd == distclean ]] || [[ $cmd == clean ]] ||
-	   [[ $cmd == defconfig ]] || [[ $cmd == menuconfig ]]; then
-		exit 0;
-	fi
+	# exit config
+	[[ $command == defconfig ]] || [[ $command == menuconfig ]] && exit 0;
 
-	if [[ -n $cmd ]] && [[ $cmd != rebuild ]] && [[ $cmd != cleanbuild ]] ; then
-		jobs="" option=""
+	if [[ -n $command ]] && [[ $command != rebuild ]] && [[ $command != cleanbuild ]] ; then
+		option=""
 	else
-		cmd=${BUILD_ENTRY["IMAGE"]}
+		command=$image
 	fi
 
-	exec_make "-C $path ARCH=$arch CROSS_COMPILE=$tool $cmd $option $job" ${target}
+	exec_make "-C $path ARCH=$arch CROSS_COMPILE=$tool $command $option" ${target}
 }
 
 function copy_result () {
@@ -388,12 +388,11 @@ function run_build () {
 	local target=$1 command=$2
 
 	parse_target $target
+	print_target $target
 
 	[[ -z ${BUILD_ENTRY["TOOL"]} ]] && BUILD_ENTRY["TOOL"]=${BUILD_ENVIRONMENT["TOOL"]};
 	[[ -z ${BUILD_ENTRY["JOBS"]} ]] && BUILD_ENTRY["JOBS"]=$OPT_JOBS;
 	BUILD_ENTRY["OPTION"]="${BUILD_ENTRY["OPTION"]} $OPT_OPTION"
-
-	print_target $target
 
 	[ $OPT_INFO == true ] && return;
 
@@ -430,7 +429,7 @@ function run_build () {
 	fi
 }
 
-function parse_targets () {
+function parse_build_targets () {
 	local ret=$1
 
 	for i in "${BUILD_IMAGES[@]}"; do
@@ -479,7 +478,7 @@ case "$1" in
 		# include input file
 		source $build_config
 
-		parse_targets BUILD_TARGETS
+		parse_build_targets BUILD_TARGETS
 
 		while [ "$#" -gt 2 ]; do
 			count=0
@@ -516,12 +515,12 @@ case "$1" in
 			esac
 		done
 
-		if [ ${#build_target[@]} -eq 0 ] && [ -n $build_command ]; then
+		if [ ${#build_target[@]} -eq 0 ] && [[ -n $build_command ]]; then
 			if [[ $build_command != clean ]] &&
 			   [[ $build_command != cleanbuild ]] &&
 			   [[ $build_command != rebuild ]]; then
 				err "------------------------------------------------------------------"
-				err " Unknown target or command: $build_command ...\n"
+				err " Not support command: $build_command ...\n"
 				echo -e  " Check command : clean, cleanbuild, rebuild"
 				echo -en " Check targets : "
 				for i in "${BUILD_TARGETS[@]}"; do
@@ -545,8 +544,8 @@ case "$1" in
 		[ ${#build_target[@]} -eq 0 ] && build_target=(${BUILD_TARGETS[@]});
 
 		# parse environment
-		parse_env "${BUILD_IMAGES[@]}"
-		setup_env ${BUILD_ENVIRONMENT["TOOL"]}
+		parse_build_env "${BUILD_IMAGES[@]}"
+		setup_build_env ${BUILD_ENVIRONMENT["TOOL"]}
 
 		if [ $show_list == true ]; then
 			msg "------------------------------------------------------------------"
