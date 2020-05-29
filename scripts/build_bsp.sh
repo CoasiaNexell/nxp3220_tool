@@ -270,14 +270,11 @@ function make_target () {
 	local command=$2
 	local arch=${BUILD_ENVIRONMENT["ARCH"]}
 	local tool=${BUILD_ENTRY["TOOL"]}
-	local path=${BUILD_ENTRY["PATH"]}
+	local path=$(realpath ${BUILD_ENTRY["PATH"]})
 	local image=${BUILD_ENTRY["IMAGE"]}
 	local config=${BUILD_ENTRY["CONFIG"]}
 	local option="-j ${BUILD_ENTRY["JOBS"]} ${BUILD_ENTRY["OPTION"]}"
 
-	[[ -z $path ]] && return;
-
-	path=$(realpath $path)
 	if [ ! -d $path ]; then
 		err " Invalid 'PATH' '$path' for $target ..."
 		exit 1;
@@ -407,7 +404,7 @@ function run_build () {
 		[ $? -ne 0 ] && exit 1;
 	fi
 
-	if [ $OPT_MAKE == true ]; then
+	if [ $OPT_MAKE == true ] && [[ -n ${BUILD_ENTRY["PATH"]} ]]; then
 		make_target "$target" "$command"
 		[ $? -ne 0 ] && exit 1;
 	fi
@@ -475,7 +472,7 @@ case "$1" in
 			exit 1;
 		fi
 
-		# include input file
+		# include config script file
 		source $build_config
 
 		parse_build_targets BUILD_TARGETS
