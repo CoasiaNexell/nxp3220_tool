@@ -527,12 +527,12 @@ function show_avail_lists () {
 	fi
 	[ $TARGET_SDK == true ] && message+=" -S";
 
+	BUILD_TARGET_DIR=$YOCTO_BUILD_DIR/build-${TARGET_MACHINE}
 	msg "=================================================================================="
 	msg " MACHINE   = $TARGET_MACHINE"
 	msg " IMAGE     = $TARGET_IMAGE"
 	msg " FEATURES  = $TARGET_FEATURES"
 	msg " SDK       = $TARGET_SDK"
-	msg " Command   = $> ./tools/scripts/`basename $0` $message"
 	msg "=================================================================================="
 
 	msg " [MACHINE]  $(echo $YOCTO_MACHINE_CONFIGS | sed 's|'$BSP_ROOT_DIR'/||')"
@@ -557,6 +557,13 @@ function show_avail_lists () {
 		msg "\t  ${BB_RECIPE_ALIAS[$i]}"
 	done
 	msg ""
+
+	msg "----------------------------------------------------------------------------------"
+	msg " Command Build:"
+	msg " $> ./tools/scripts/`basename $0` $message\n"
+	msg " Bitbake Setup:"
+	msg " $> source $YOCTO_DISTRO/oe-init-build-env $BUILD_TARGET_DIR"
+	msg "----------------------------------------------------------------------------------"
 }
 
 function copy_result_image () {
@@ -736,8 +743,7 @@ function setup_bitbake () {
 	msg " $> source $YOCTO_DISTRO/oe-init-build-env $BUILD_TARGET_DIR\n"
 }
 
-function run_build ()
-{
+function run_build () {
 	msg " MACHINE   = $TARGET_MACHINE"
 	msg " IMAGE     = $TARGET_IMAGE"
 	msg " FEATURES  = $TARGET_FEATURES"
