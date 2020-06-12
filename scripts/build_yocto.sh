@@ -139,7 +139,9 @@ function msg () { echo -e "\033[0;33m$@\033[0m"; }
 
 function usage () {
 	echo ""
-	echo "Usage: `basename $0` [machine] [image] [option] / menuconfig"
+	echo "Usage: `basename $0` [machine] [image] [option]"
+	echo "Usage: `basename $0` menuconfig"
+	echo "       `basename $0` [option]"
 	echo ""
 	echo " machine"
 	echo "      : Located at '$(echo $YOCTO_MACHINE_CONFIGS | sed 's|'$BSP_ROOT_DIR'/||')'"
@@ -527,43 +529,48 @@ function show_avail_lists () {
 	fi
 	[ $TARGET_SDK == true ] && message+=" -S";
 
-	BUILD_TARGET_DIR=$YOCTO_BUILD_DIR/build-${TARGET_MACHINE}
-	msg "=================================================================================="
-	msg " MACHINE   = $TARGET_MACHINE"
-	msg " IMAGE     = $TARGET_IMAGE"
-	msg " FEATURES  = $TARGET_FEATURES"
-	msg " SDK       = $TARGET_SDK"
-	msg "=================================================================================="
-
-	msg " [MACHINE]  $(echo $YOCTO_MACHINE_CONFIGS | sed 's|'$BSP_ROOT_DIR'/||')"
+	msg ""
+	msg " [MACHINE]"
+	msg "\tPATH : $(echo $YOCTO_MACHINE_CONFIGS | sed 's|'$BSP_ROOT_DIR'/||')"
 	msg "\t---------------------------------------------------------------------------"
 	msg "\t${AVAIL_MACHINE_TABLE}"
 	msg "\t---------------------------------------------------------------------------"
 	msg " "
-	msg " [IMAGE]    $(echo $YOCTO_IMAGE_ROOTFS | sed 's|'$BSP_ROOT_DIR'/||')"
+	msg " [IMAGE]"
+	msg "\tPATH : $(echo $YOCTO_IMAGE_ROOTFS | sed 's|'$BSP_ROOT_DIR'/||')"
 	msg "\t---------------------------------------------------------------------------"
 	msg "\t ${AVAIL_IMAGE_TABLE}"
 	msg "\t---------------------------------------------------------------------------"
 	msg " "
-	msg " [FEATURES] $(echo $YOCTO_FEATURE_CONFIGS | sed 's|'$BSP_ROOT_DIR'/||')"
-	msg "            '-i feature_a,feature_b,...'"
+	msg " [FEATURES]"
+	msg "\tPATH : $(echo $YOCTO_FEATURE_CONFIGS | sed 's|'$BSP_ROOT_DIR'/||')"
+	msg "\t- option '-i'"
 	msg "\t---------------------------------------------------------------------------"
 	msg "\t ${AVAIL_FEATURE_TABLE}"
 	msg "\t---------------------------------------------------------------------------"
 	msg ""
-	msg " [RECIPE]   '-t recipe'"
+	msg " [RECIPE]"
+	msg "\t- option '-t'"
 	msg "\t- Recipe alias:"
 	for i in "${!BB_RECIPE_ALIAS[@]}"; do
 		msg "\t  ${BB_RECIPE_ALIAS[$i]}"
 	done
 	msg ""
 
-	msg "----------------------------------------------------------------------------------"
+	if [[ -n $TARGET_MACHINE ]] && [[ -n $TARGET_IMAGE ]]; then
+	BUILD_TARGET_DIR=$YOCTO_BUILD_DIR/build-${TARGET_MACHINE}
+	msg "=================================================================================="
+	msg " MACHINE   = $TARGET_MACHINE"
+	msg " IMAGE     = $TARGET_IMAGE"
+	msg " FEATURES  = $TARGET_FEATURES"
+	msg " SDK       = $TARGET_SDK"
+	msg ""
 	msg " Command Build:"
-	msg " $> ./tools/scripts/`basename $0` $message\n"
+	msg "  $> ./tools/scripts/`basename $0` $message\n"
 	msg " Bitbake Setup:"
-	msg " $> source $YOCTO_DISTRO/oe-init-build-env $BUILD_TARGET_DIR"
-	msg "----------------------------------------------------------------------------------"
+	msg "  $> source $YOCTO_DISTRO/oe-init-build-env $BUILD_TARGET_DIR"
+	msg "=================================================================================="
+	fi
 }
 
 function copy_result_image () {
@@ -723,7 +730,6 @@ function parse_arguments () {
 		-j )	BB_JOBS=$2; shift 2;;
 		-v )	BB_VERBOSE="-v"; shift 1;;
 		-h )	usage
-			show_avail_lists
 			exit 1
 			;;
 		-- )
