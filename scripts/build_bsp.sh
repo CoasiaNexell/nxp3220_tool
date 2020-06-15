@@ -39,6 +39,7 @@ declare -A BUILD_ENTRY=(
 
 BUILD_TARGETS=()
 BUILD_LOG_DIR=$(realpath $(dirname `realpath ${0}`))/.build
+BUILD_PROGRESS_PID=$BUILD_LOG_DIR/progress_pid
 
 function err () { echo -e "\033[0;31m$@\033[0m"; }
 function msg () { echo -e "\033[0;33m$@\033[0m"; }
@@ -76,17 +77,18 @@ function usage() {
 }
 
 function print_env () {
-	msg "=================================================================="
+	msg "==============================================================================="
 	for key in ${!BUILD_ENVIRONMENT[@]}; do
 		[[ -z ${BUILD_ENVIRONMENT[$key]} ]] && continue;
 		message=$(printf " %-8s = %s\n" $key ${BUILD_ENVIRONMENT[$key]})
 		msg "$message"
 	done
-	msg "=================================================================="
+	msg "==============================================================================="
 }
 
 function parse_env_value () {
-	local key=$1 ret=$2
+	local key=$1
+	local ret=$2
 	local -n array=$3
 
 	for i in "${array[@]}"; do
@@ -130,28 +132,29 @@ function print_target () {
 	local target=$1
 
 	msg ""
-	msg "------------------------------------------------------------------"
-	echo -e "\033[1;31m [$target]\033[0m";
+	msg "-------------------------------------------------------------------------------"
+	echo -e "\033[1;32m Build Target : $target\033[0m";
 	for key in ${!BUILD_ENTRY[@]}; do
 		[[ -z ${BUILD_ENTRY[$key]} ]] && continue;
 		if [[ $key == "PATH" ]]; then
-			message=$(printf " %-8s = %s\n" $key `realpath ${BUILD_ENTRY[$key]}`)
+			message=$(printf " %-12s = %s\n" $key `realpath ${BUILD_ENTRY[$key]}`)
 		else
-			message=$(printf " %-8s = %s\n" $key "${BUILD_ENTRY[$key]}")
+			message=$(printf " %-12s = %s\n" $key "${BUILD_ENTRY[$key]}")
 		fi
 		msg "$message"
 	done
-	msg "------------------------------------------------------------------"
+	msg "-------------------------------------------------------------------------------"
 }
 
 function parse_target_value () {
-	local str=$1 key=$2
+	local ent=$1
+	local key=$2
 	local ret=$3
 
-	local pos=`awk -v a="$str" -v b="$key" 'BEGIN{print index(a,b)}'`
+	local pos=`awk -v a="$ent" -v b="$key" 'BEGIN{print index(a,b)}'`
 	[ $pos -eq 0 ] && return;
 
-	local val=${str:$pos}
+	local val=${ent:$pos}
 
 	pos=`awk -v a="$val" -v b=":" 'BEGIN{print index(a,b)}'`
 	val=${val:$pos}
@@ -168,7 +171,8 @@ function parse_target_value () {
 }
 
 function parse_target_ent () {
-	local target=$1 ret=$2
+	local target=$1
+	local ret=$2
 
 	for i in "${BUILD_IMAGES[@]}"; do
 		if [[ $i = *"$target"* ]]; then
@@ -186,7 +190,8 @@ function parse_target_ent () {
 }
 
 function parse_target () {
-	local target=$1 entry
+	local target=$1
+	local entry
 
 	parse_target_ent $target entry
 
@@ -209,13 +214,50 @@ function parse_target () {
 	done
 }
 
+function show_progress () {
+	local spin='-\|/'
+	local pos=0
+	local delay=0.3
+	local start=$SECONDS
+
+	while true; do
+		local hrs=$(( (SECONDS-start)/3600 ));
+		local min=$(( (SECONDS-start-hrs*3600)/60));
+		local sec=$(( (SECONDS-start)-hrs*3600-min*60 ))
+
+		pos=$(( (pos + 1) % 4 ))
+		printf "\r Progress |${spin:$pos:1}| Time: %d:%02d:%02d" $hrs $min $sec
+		sleep $delay
+	done
+}
+
+function kill_progress () {
+	[ ! -e $BUILD_PROGRESS_PID ] && return;
+
+	local pid=$(cat $BUILD_PROGRESS_PID)
+	if [ $pid -ne 0 ] && [ -e /proc/$pid ]; then
+		kill $pid 2> /dev/null
+		wait $pid 2> /dev/null
+		rm -f $BUILD_PROGRESS_PID
+		echo ""
+	fi
+}
+
+function run_progress () {
+	kill_progress
+	show_progress &
+	echo $! > $BUILD_PROGRESS_PID
+}
+
 function exec_shell () {
 	local log=$BUILD_LOG_DIR/${2}.script.log
-	local result
+	local ret
+
+	msg " "; msg " $> ${1} "
 
 	rm -f $log
-	msg " $> ${1} "
 	[[ $OPT_TRACE == true ]] && set -x;
+	[ $OPT_VERBOSE == false ] && run_progress;
 
 	if type "${1}" 2>/dev/null | grep -q 'function'; then
 		if [ $OPT_VERBOSE == false ]; then
@@ -231,39 +273,40 @@ function exec_shell () {
 		fi
 	fi
 
-	result=$?
+	ret=$?
 	[[ $OPT_TRACE == true ]] && set +x;
-	[ $OPT_VERBOSE == false ] && [ $result -ne 0 ] && err " ERROR: script '${2}':$log\n";
+	if [ $OPT_VERBOSE == false ] && [ $ret -ne 0 ]; then
+		err " ERROR: script '${2}':$log\n";
+	fi
 
-	return $result
+	kill_progress
+	return $ret
 }
 
 function exec_make () {
 	local log=$BUILD_LOG_DIR/${2}.make.log
-	local result
+	local ret
+
+	msg " "; msg " $> make ${1}"
 
 	rm -f $log
-	msg " $> make ${1}"
-
 	if [ $OPT_VERBOSE == false ] && [[ ${1} != *menuconfig* ]]; then
+		run_progress
 		make ${1} >> $log  2>&1
 	else
 		make ${1}
 	fi
 
-	result=$?
-	if [ $OPT_VERBOSE == false ] && [ $result -eq 2 ] && [[ ${1} != *"clean"* ]]; then
+	ret=$?
+	if [ $OPT_VERBOSE == false ] && [ $ret -eq 2 ] && [[ ${1} != *"clean"* ]]; then
 		err " ERROR: make '${2}':$log\n";
 	else
-		result=0
+		ret=0
 	fi
 
-	return $result
+	kill_progress
+	return $ret
 }
-
-BUILD_COMMAND_EXCEPTION=(
-	"*".dtb"*"
-)
 
 function make_target () {
 	local target=$1
@@ -332,57 +375,37 @@ function make_target () {
 }
 
 function copy_result () {
-	local out=$2 src=$1/$out
-	local dir=$3 dst=$4
+	local path=$1
+	local src=$2
+	local retdir=$3
+	local dst=$4
 
-	if [ "$(ls $src| wc -l 2>/dev/null)" -eq 0 ]; then
-		err " No such to copy : '$src' ..."
-		return
+	[[ -z $src ]] && return;
+
+	local from=$(realpath ${path}/${src})
+	local to=$(realpath ${retdir}/${dst})
+
+	mkdir -p $retdir
+	[ $? -ne 0 ] && exit 1;
+
+	if [[ -d $from ]] && [[ -d $to ]]; then
+		rm -rf $to;
 	fi
 
-	if [[ $src == "/" ]]; then
-		err " Invalid directory : '$src' ..."
-		return
-	fi
+	msg ""
+	msg " $> cp -a ${from} ${to}"
+	cp -a ${from} ${to}
+}
 
-	if [[ -z $out ]]; then
-		err " Not declared 'OUTPUT' ..."
-		return
-	fi
-
-	if [ `expr "$out" : ".*[*].*"` -eq 0 ]; then
-		if [[ -z $dst ]]; then
-			dst=$dir/$(basename $out)
-		else
-			dst=$dir/$dst
-		fi
-	else
-		if [[ -n $dst ]]; then
-			dst=$dir/$dst
-		else
-			dst=$dir/
-		fi
-	fi
-
-	msg "------------------------------------------------------------------"
-	message=$(printf " %-8s = %s\n" "RESULT" `realpath $src`)
-	msg "$message"
-	message=$(printf " %-8s = %s\n" "COPY" `realpath $dst`)
-	msg "$message"
-	msg "------------------------------------------------------------------"
-
-	mkdir -p $dir
-	[ ! -d $dir ] && return;
-	[ -d $src ] && rm -rf $dst;
-
-	local pos=`awk -v a="$src" -v b="[" 'BEGIN{print index(a,b)}'`
-	if [ $pos -eq 0 ]; then
-		cp -a $src $dst
-	fi
+function trap_sighandle () {
+	kill_progress
+	echo "";
+	exit 1;
 }
 
 function run_build () {
-	local target=$1 command=$2
+	local target=$1
+	local command=$2
 
 	parse_target $target
 	print_target $target
@@ -399,6 +422,8 @@ function run_build () {
 	mkdir -p $BUILD_LOG_DIR
 	[ $? -ne 0 ] && exit 1;
 
+	trap trap_sighandle SIGINT
+
 	if [ $OPT_PRECMD == true ] && [[ -n ${BUILD_ENTRY["PRECMD"]} ]]; then
 		exec_shell "${BUILD_ENTRY["PRECMD"]}" ${target}
 		[ $? -ne 0 ] && exit 1;
@@ -409,13 +434,12 @@ function run_build () {
 		[ $? -ne 0 ] && exit 1;
 	fi
 
-
 	if [ $OPT_COPY == true ]; then
-		local path=${BUILD_ENTRY["PATH"]} out=${BUILD_ENTRY["OUTPUT"]}
-		local dir=${BUILD_ENVIRONMENT["RESULT"]} ret=${BUILD_ENTRY["COPY"]}
+		local path=${BUILD_ENTRY["PATH"]} src=${BUILD_ENTRY["OUTPUT"]}
+		local retdir=${BUILD_ENVIRONMENT["RESULT"]} dst=${BUILD_ENTRY["COPY"]}
 
-		if [[ -n $out ]]; then
-			copy_result "$path" "$out" "$dir" "$ret"
+		if [[ -n $src ]]; then
+			copy_result "$path" "$src" "$retdir" "$dst"
 			[ $? -ne 0 ] && exit 1;
 		fi
 	fi
@@ -424,6 +448,14 @@ function run_build () {
 		exec_shell "${BUILD_ENTRY["POSTCMD"]}" ${target}
 		[ $? -ne 0 ] && exit 1;
 	fi
+}
+
+function show_build_time () {
+	local hrs=$(( SECONDS/3600 ));
+	local min=$(( (SECONDS-hrs*3600)/60));
+	local sec=$(( SECONDS-hrs*3600-min*60 ));
+
+	printf "\n Total: %d:%02d:%02d\n" $hrs $min $sec
 }
 
 function parse_build_targets () {
@@ -516,14 +548,14 @@ case "$1" in
 			if [[ $build_command != clean ]] &&
 			   [[ $build_command != cleanbuild ]] &&
 			   [[ $build_command != rebuild ]]; then
-				err "------------------------------------------------------------------"
+				err "-------------------------------------------------------------------------------"
 				err " Not support command: $build_command ...\n"
 				echo -e  " Check command : clean, cleanbuild, rebuild"
 				echo -en " Check targets : "
 				for i in "${BUILD_TARGETS[@]}"; do
 					echo -n "$i "
 				done
-				err "\n------------------------------------------------------------------"
+				err "\n-------------------------------------------------------------------------------"
 				exit 1;
 			fi
 		fi
@@ -545,12 +577,12 @@ case "$1" in
 		setup_build_env ${BUILD_ENVIRONMENT["TOOL"]}
 
 		if [ $show_list == true ]; then
-			msg "------------------------------------------------------------------"
+			msg "-------------------------------------------------------------------------------"
 			msg " Targets:"
 			for i in "${BUILD_TARGETS[@]}"; do
 				echo -n " $i"
 			done
-			msg "\n------------------------------------------------------------------"
+			msg "\n-------------------------------------------------------------------------------"
 			exit 0;
 		fi
 
@@ -560,6 +592,8 @@ case "$1" in
 		for i in "${build_target[@]}"; do
 			run_build "$i" "$build_command"
 		done
+
+		show_build_time
 		;;
 
 	-h | * )
