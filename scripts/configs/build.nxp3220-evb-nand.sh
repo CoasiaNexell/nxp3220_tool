@@ -32,5 +32,5 @@ FLASH_BLOCK_SIZE=128K
 FLASH_DEVICE_SIZE=128M
 
 # build script
-BUILD_CONFIG_DIR="$(dirname `realpath ${2}`)"
+BUILD_CONFIG_DIR="$(dirname `realpath $BASH_SOURCE`)"
 source $BUILD_SRC_DIR/build.common.sh

@@ -3,7 +3,7 @@
 # Author: Junghyun, Kim <jhkim@nexell.co.kr>
 #
 
-source $(dirname `realpath ${2}`)/env_common.sh
+source $(dirname `realpath $BASH_SOURCE`)/env_common.sh
 
 # Add to build source at target script:
 # export BSP_BASEDIR=$(realpath $(dirname $(realpath ${2}))/../../..)

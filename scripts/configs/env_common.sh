@@ -1,5 +1,5 @@
 #!/bin/bash
-export BSP_BASEDIR=$(realpath $(dirname $(realpath ${2}))/../../..)
+export BSP_BASEDIR=$(realpath $(dirname $(realpath $BASH_SOURCE))/../../..)
 export BSP_RESULT_TOP=${BSP_BASEDIR}/out
 export BSP_RESULT=${BSP_RESULT_TOP}/result
 
