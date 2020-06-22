@@ -405,13 +405,29 @@ function exec_make () {
 	return $ret
 }
 
-function do_make () {
+function precmd_target () {
+	local target=$1
+
+	if [[ -n ${BUILD_TARGET_ELEMENT["PRECMD"]} ]] &&
+	   [[ ${BUILD_STAGE_COMMAND["precmd"]} == true ]]; then
+		if ! exec_shell "${BUILD_TARGET_ELEMENT["PRECMD"]}" "$target"; then
+			exit 1;
+		fi
+	fi
+}
+
+function make_target () {
 	local target=$1 command=$2
 	local path=${BUILD_TARGET_ELEMENT["PATH"]}
 	local crosstool="ARCH=${BUILD_ENV_ELEMENT["ARCH"]} CROSS_COMPILE=${BUILD_TARGET_ELEMENT["TOOL"]}"
 	local image=${BUILD_TARGET_ELEMENT["IMAGE"]}
 	local config=${BUILD_TARGET_ELEMENT["CONFIG"]}
 	local opt="${BUILD_TARGET_ELEMENT["OPTION"]} -j${BUILD_TARGET_ELEMENT["JOBS"]}"
+
+	if [[ -z ${BUILD_TARGET_ELEMENT["PATH"]} ]] ||
+	   [[ ${BUILD_STAGE_COMMAND["make"]} == false ]]; then
+		return;
+	fi
 
 	if [[ ! -d $path ]]; then
 		err " Invalid 'PATH' '$path' for $target ..."
@@ -423,7 +439,7 @@ function do_make () {
 		return;
 	fi
 
-	# make clean
+	# clean commands
 	if [[ $image != *".dtb"* ]]; then
 		if [[ $command == distclean ]] || [[ $command == rebuild ]]; then
 			exec_make "-C $path clean" "$target"
@@ -443,10 +459,10 @@ function do_make () {
 		fi
 	fi
 
-	# exit clean
+	# exit clean commands
 	[[ $command == distclean ]] || [[ $command == clean ]] && exit 0;
 
-	# default config : defconfg
+	# config commands
 	if [[ -n $config ]]; then
 		if [[ $command == defconfig ]] || [[ ! -f $path/.config ]]; then
 			if ! exec_make "-C $path $crosstool $config" "$target";
@@ -466,13 +482,38 @@ function do_make () {
 	# exit config
 	[[ $command == defconfig ]] || [[ $command == menuconfig ]] && exit 0;
 
-	if [[ -n $command ]] && [[ $command != rebuild ]] && [[ $command != cleanbuild ]] ; then
-		opt=""
-	else
-		command=$image
+	# set command with image
+	if [[ $command == rebuild ]] || [[ $command == cleanbuild ]]; then
+		command=$image;
 	fi
 
-	exec_make "-C $path $crosstool $command $opt" "$target"
+	if ! exec_make "-C $path $crosstool $command $opt" "$target";
+	then
+		exit 1
+	fi
+}
+
+function copy_target () {
+	if [[ -n ${BUILD_TARGET_ELEMENT["OUTPUT"]} ]] &&
+	   [[ ${BUILD_STAGE_COMMAND["copy"]} == true ]]; then
+		if ! copy_result "${BUILD_TARGET_ELEMENT["PATH"]}" \
+			    "${BUILD_TARGET_ELEMENT["OUTPUT"]}" \
+			    "${BUILD_ENV_ELEMENT["RESULT"]}" \
+			    "${BUILD_TARGET_ELEMENT["COPY"]}"; then
+			exit 1;
+		fi
+	fi
+}
+
+function postcmd_target () {
+	local target=$1
+
+	if [[ -n ${BUILD_TARGET_ELEMENT["POSTCMD"]} ]] &&
+	   [[ ${BUILD_STAGE_COMMAND["postcmd"]} == true ]]; then
+		if ! exec_shell "${BUILD_TARGET_ELEMENT["POSTCMD"]}" "$target"; then
+			exit 1;
+		fi
+	fi
 }
 
 function build_target () {
@@ -486,34 +527,11 @@ function build_target () {
 	if ! mkdir -p "${BUILD_ENV_ELEMENT["RESULT"]}"; then exit 1; fi
 	if ! mkdir -p "$BUILD_LOG_DIR"; then exit 1; fi
 
-	if [[ -n ${BUILD_TARGET_ELEMENT["PRECMD"]} ]] &&
-	   [[ ${BUILD_STAGE_COMMAND["precmd"]} == true ]]; then
-		if ! exec_shell "${BUILD_TARGET_ELEMENT["PRECMD"]}" "$target"; then
-			exit 1;
-		fi
-	fi
-
-	if [[ -n ${BUILD_TARGET_ELEMENT["PATH"]} ]] &&
-	   [[ ${BUILD_STAGE_COMMAND["make"]} == true ]]; then
-		if ! do_make "$target" "$command"; then exit 1; fi
-	fi
-
-	if [[ -n ${BUILD_TARGET_ELEMENT["OUTPUT"]} ]] &&
-	   [[ ${BUILD_STAGE_COMMAND["copy"]} == true ]]; then
-		if ! copy_result "${BUILD_TARGET_ELEMENT["PATH"]}" \
-			    "${BUILD_TARGET_ELEMENT["OUTPUT"]}" \
-			    "${BUILD_ENV_ELEMENT["RESULT"]}" \
-			    "${BUILD_TARGET_ELEMENT["COPY"]}"; then
-			exit 1;
-		fi
-	fi
-
-	if [[ -n ${BUILD_TARGET_ELEMENT["POSTCMD"]} ]] &&
-	   [[ ${BUILD_STAGE_COMMAND["postcmd"]} == true ]]; then
-		if ! exec_shell "${BUILD_TARGET_ELEMENT["POSTCMD"]}" "$target"; then
-			exit 1;
-		fi
-	fi
+	# build commands
+	precmd_target "$target"
+	make_target "$target" "$command"
+	copy_target
+	postcmd_target "$target"
 }
 
 function run_build () {
