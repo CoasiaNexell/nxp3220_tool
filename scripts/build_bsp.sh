@@ -408,11 +408,13 @@ function exec_make () {
 function precmd_target () {
 	local target=$1
 
-	if [[ -n ${BUILD_TARGET_ELEMENT["PRECMD"]} ]] &&
-	   [[ ${BUILD_STAGE_COMMAND["precmd"]} == true ]]; then
-		if ! exec_shell "${BUILD_TARGET_ELEMENT["PRECMD"]}" "$target"; then
-			exit 1;
-		fi
+	if [[ -z ${BUILD_TARGET_ELEMENT["PRECMD"]} ]] ||
+	   [[ ${BUILD_STAGE_COMMAND["precmd"]} == false ]]; then
+		return;
+	fi
+
+	if ! exec_shell "${BUILD_TARGET_ELEMENT["PRECMD"]}" "$target"; then
+		exit 1;
 	fi
 }
 
@@ -494,25 +496,29 @@ function make_target () {
 }
 
 function copy_target () {
-	if [[ -n ${BUILD_TARGET_ELEMENT["OUTPUT"]} ]] &&
-	   [[ ${BUILD_STAGE_COMMAND["copy"]} == true ]]; then
-		if ! copy_result "${BUILD_TARGET_ELEMENT["PATH"]}" \
-			    "${BUILD_TARGET_ELEMENT["OUTPUT"]}" \
-			    "${BUILD_ENV_ELEMENT["RESULT"]}" \
-			    "${BUILD_TARGET_ELEMENT["COPY"]}"; then
-			exit 1;
-		fi
+	if [[ -z ${BUILD_TARGET_ELEMENT["OUTPUT"]} ]] ||
+	   [[ ${BUILD_STAGE_COMMAND["copy"]} == false ]]; then
+		return;
+	fi
+
+	if ! copy_result "${BUILD_TARGET_ELEMENT["PATH"]}" \
+		    "${BUILD_TARGET_ELEMENT["OUTPUT"]}" \
+		    "${BUILD_ENV_ELEMENT["RESULT"]}" \
+		    "${BUILD_TARGET_ELEMENT["COPY"]}"; then
+		exit 1;
 	fi
 }
 
 function postcmd_target () {
 	local target=$1
 
-	if [[ -n ${BUILD_TARGET_ELEMENT["POSTCMD"]} ]] &&
-	   [[ ${BUILD_STAGE_COMMAND["postcmd"]} == true ]]; then
-		if ! exec_shell "${BUILD_TARGET_ELEMENT["POSTCMD"]}" "$target"; then
-			exit 1;
-		fi
+	if [[ -z ${BUILD_TARGET_ELEMENT["POSTCMD"]} ]] ||
+	   [[ ${BUILD_STAGE_COMMAND["postcmd"]} == false ]]; then
+		return;
+	fi
+
+	if ! exec_shell "${BUILD_TARGET_ELEMENT["POSTCMD"]}" "$target"; then
+		exit 1;
 	fi
 }
 
