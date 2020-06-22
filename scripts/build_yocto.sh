@@ -480,7 +480,6 @@ function check_build_config () {
 	local oldconfig
 	local machine
 	local match=false
-	local ret # return value
 
         if [[ ! -f $TARGET_LOCAL_CONF ]]; then
                 err " Not build setup: '$TARGET_LOCAL_CONF' ..."
@@ -516,6 +515,7 @@ function check_build_config () {
 		done
 	fi
 
+	# return 1: require re-configiuration
 	if [[ $newconfig == "$oldconfig" ]] && [[ $match == true ]]; then
 		echo 0;	return
 	else
