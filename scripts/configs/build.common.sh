@@ -95,13 +95,6 @@ function post_build_bl32 () {
 	cp ${BSP_BL32_DIR}/out/${BL32_BIN}.enc.raw ${BSP_RESULT}
 }
 
-function pre_build_uboot () {
-	file=${BSP_UBOOT_DIR}/.uboot_defconfig
-	[ -e ${file} ] && [[ $(cat ${file}) == "${UBOOT_DEFCONFIG}+bsp" ]] && return;
-	rm -f ${file}; echo "${UBOOT_DEFCONFIG}+bsp" >> ${file};
-	make -C ${BSP_UBOOT_DIR} distclean
-}
-
 function post_build_uboot () {
 	msg " BINGEN : ${UBOOT_BIN} -> ${UBOOT_BIN}.raw"
         ${TOOL_BINGEN} -k bl33 -n ${UBOOT_NSIH} -i ${BSP_UBOOT_DIR}/${UBOOT_BIN} \
@@ -112,13 +105,6 @@ function post_build_uboot () {
 
 	# create param.bin
 	${TOOL_MKPARAM} ${BSP_UBOOT_DIR} ${BSP_TOOLCHAIN_LINUX} ${BSP_RESULT}
-}
-
-function pre_build_kernel () {
-	file=${BSP_KERNEL_DIR}/.kernel_defconfig
-	[ -e ${file} ] && [[ $(cat ${file}) == "${KERNEL_DEFCONFIG}+bsp" ]] && return;
-	rm -f ${file}; echo "${KERNEL_DEFCONFIG}+bsp" >> ${file};
-	make -C ${BSP_KERNEL_DIR} distclean
 }
 
 function post_copy_tools () {
@@ -192,7 +178,6 @@ BUILD_IMAGES=(
 		PATH  	: ${BSP_UBOOT_DIR},
 		CONFIG	: ${UBOOT_DEFCONFIG},
 		OUTPUT	: u-boot.bin,
-		PRECMD	: pre_build_uboot,
 		POSTCMD	: post_build_uboot"
 	"br2   	=
 		PATH  	: ${BSP_BR2_DIR},
@@ -203,8 +188,7 @@ BUILD_IMAGES=(
 		PATH  	: ${BSP_KERNEL_DIR},
 		CONFIG	: ${KERNEL_DEFCONFIG},
 		IMAGE 	: ${KERNEL_BIN},
-		OUTPUT	: arch/arm/boot/${KERNEL_BIN},
-		PRECMD	: pre_build_kernel",
+		OUTPUT	: arch/arm/boot/${KERNEL_BIN}",
 	"dtb   	=
 		PATH  	: ${BSP_KERNEL_DIR},
 		IMAGE 	: ${DTB_BIN},

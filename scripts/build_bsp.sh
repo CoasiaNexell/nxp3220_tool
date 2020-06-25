@@ -318,27 +318,27 @@ function parse_targets () {
 	done
 }
 
-function setup_config () {
-	local config=$1
+function set_build_stage () {
+	for i in "${!BUILD_STAGE_COMMAND[@]}"; do
+		if [[ $i == "$1" ]]; then
+			for n in "${!BUILD_STAGE_COMMAND[@]}"; do
+				BUILD_STAGE_COMMAND[$n]=false
+			done
+			BUILD_STAGE_COMMAND[$i]=true
+			return
+		fi
+	done
 
-	if [[ ! -f $config ]]; then
-		err " Not found build config: $config"
-		usage;
-		exit 1;
-	fi
-
-	# include config script file
-	source "$config"
-	if [[ -z $BUILD_IMAGES ]]; then
-		err "Not defined 'BUILD_IMAGES'"
-		exit 1
-	fi
-
-	BUILD_CONFIG_IMAGES=("${BUILD_IMAGES[@]}");
+	echo -ne "\n\033[1;31m Not Support Stage Command: $i ( \033[0m"
+	for i in "${!BUILD_STAGE_COMMAND[@]}"; do
+		echo -n "$i "
+	done
+	echo -e "\033[1;31m)\033[0m\n"
+	exit 1;
 }
 
 function exec_shell () {
-	local command=$1 target=$2 
+	local command=$1 target=$2
 	local log="$BUILD_LOG_DIR/$target.script.log"
 	local ret
 
@@ -444,7 +444,6 @@ function make_target () {
 	# clean commands
 	if [[ $image != *".dtb"* ]]; then
 		if [[ $command == distclean ]] || [[ $command == rebuild ]]; then
-			exec_make "-C $path clean" "$target"
 			exec_make "-C $path distclean" "$target"
 		fi
 
@@ -464,9 +463,20 @@ function make_target () {
 	# exit clean commands
 	[[ $command == distclean ]] || [[ $command == clean ]] && exit 0;
 
-	# config commands
+	# set config
 	if [[ -n $config ]]; then
-		if [[ $command == defconfig ]] || [[ ! -f $path/.config ]]; then
+		local oldconfig newconfig
+
+		# Check previous build config and save current build config
+		oldconfig=${path}/.${target}_defconfig
+		newconfig="BSP:${config}"
+		if [[ ! -e $oldconfig ]] || [[ $(cat "$oldconfig") != "$newconfig" ]]; then
+			rm -f "$oldconfig";
+			exec_make "-C $path distclean" "$target"
+			echo  "$newconfig" >> $oldconfig;
+		fi
+
+		if [[ ! -f $path/.config ]] || [[ $command == defconfig ]]; then
 			if ! exec_make "-C $path $crosstool $config" "$target";
 			then
 				exit 1;
@@ -481,7 +491,7 @@ function make_target () {
 		fi
 	fi
 
-	# exit config
+	# exit config command
 	[[ $command == defconfig ]] || [[ $command == menuconfig ]] && exit 0;
 
 	# set command with image
@@ -594,23 +604,23 @@ function run_build () {
 	show_build_time
 }
 
-function set_build_stage () {
-	for i in "${!BUILD_STAGE_COMMAND[@]}"; do
-		if [[ $i == "$1" ]]; then
-			for n in "${!BUILD_STAGE_COMMAND[@]}"; do
-				BUILD_STAGE_COMMAND[$n]=false
-			done
-			BUILD_STAGE_COMMAND[$i]=true
-			return
-		fi
-	done
+function setup_config () {
+	local config=$1
 
-	echo -ne "\n\033[1;31m Not Support Stage Command: $i ( \033[0m"
-	for i in "${!BUILD_STAGE_COMMAND[@]}"; do
-		echo -n "$i "
-	done
-	echo -e "\033[1;31m)\033[0m\n"
-	exit 1;
+	if [[ ! -f $config ]]; then
+		err " Not found build config: $config"
+		usage;
+		exit 1;
+	fi
+
+	# include config script file
+	source "$config"
+	if [[ -z $BUILD_IMAGES ]]; then
+		err "Not defined 'BUILD_IMAGES'"
+		exit 1
+	fi
+
+	BUILD_CONFIG_IMAGES=("${BUILD_IMAGES[@]}");
 }
 
 function parse_arguments () {
