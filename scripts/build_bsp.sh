@@ -495,7 +495,8 @@ function make_target () {
 	[[ $command == defconfig ]] || [[ $command == menuconfig ]] && exit 0;
 
 	# set command with image
-	if [[ $command == rebuild ]] || [[ $command == cleanbuild ]]; then
+	if [[ -z $command ]] ||
+	   [[ $command == rebuild ]] || [[ $command == cleanbuild ]]; then
 		command=$image;
 	fi
 
