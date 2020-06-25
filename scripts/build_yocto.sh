@@ -779,15 +779,16 @@ function run_build () {
 			[ $TARGET_SDK == true ] && BB_CMD="-c populate_sdk"
 		fi
 
-		msg "---------------------------------------------------------------------------"
 		local cmd;
 		cmd="$BB_TARGET $BB_CMD $BB_OPTION $BB_VERBOSE"
 		cmd="$(echo "$cmd" | sed 's/^[ \t]*//;s/[ \t]*$//')"
 		cmd="$(echo "$cmd" | sed 's/\s\s*/ /g')"
+
+		msg "---------------------------------------------------------------------------"
 		msg " $> bitbake $cmd"
 		msg "---------------------------------------------------------------------------\n"
 
-		if ! bitbake $BB_TARGET $BB_CMD $BB_OPTION $BB_VERBOSE; then exit 1; fi
+		if ! bitbake $cmd; then exit 1; fi
 	fi
 
 	if [[ -z $BB_CMD ]]; then
