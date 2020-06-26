@@ -426,75 +426,61 @@ function make_target () {
 	local config=${BUILD_TARGET_ELEMENT["CONFIG"]}
 	local opt="${BUILD_TARGET_ELEMENT["OPTION"]} -j${BUILD_TARGET_ELEMENT["JOBS"]}"
 
-	if [[ -z ${BUILD_TARGET_ELEMENT["PATH"]} ]] ||
-	   [[ ${BUILD_STAGE_COMMAND["make"]} == false ]]; then
-		return;
-	fi
+	[[ -z ${BUILD_TARGET_ELEMENT["PATH"]} ]] ||
+	[[ ${BUILD_STAGE_COMMAND["make"]} == false ]] && return;
 
 	if [[ ! -d $path ]]; then
-		err " Invalid 'PATH' '$path' for $target ..."
+		err " Not found 'PATH': '$path'"
 		exit 1;
 	fi
 
 	if [[ ! -f $path/makefile ]] && [[ ! -f $path/Makefile ]]; then
-		msg " Not found Makefile for $target in '$path' ..."
+		msg " Not found Makefile in '$path' ..."
 		return;
 	fi
 
-	# clean commands
 	if [[ $image != *".dtb"* ]]; then
 		if [[ $command == distclean ]] || [[ $command == rebuild ]]; then
+			exec_make "-C $path clean" "$target"
 			exec_make "-C $path distclean" "$target"
 		fi
 
 		if [[ $command == clean ]] || [[ $command == cleanbuild ]]; then
 			exec_make "-C $path clean" "$target"
 		fi
-
-		if  [[ $command == rebuild ]] || [[ $command == cleanbuild ]] &&
-		    [[ -n ${BUILD_TARGET_ELEMENT["PRECMD"]} ]]; then
-			if ! exec_shell "${BUILD_TARGET_ELEMENT["PRECMD"]}" "$target";
-			then
-				exit 1;
-			fi
-		fi
 	fi
 
-	# exit clean commands
-	[[ $command == distclean ]] || [[ $command == clean ]] && exit 0;
+	if [[ $command == distclean ]] || [[ $command == clean ]]; then
+		exit 0;
+	fi
 
-	# set config
 	if [[ -n $config ]]; then
-		local oldconfig newconfig
+		local old new
 
-		# Check previous build config and save current build config
-		oldconfig=${path}/.${target}_defconfig
-		newconfig="BSP:${config}"
-		if [[ ! -e $oldconfig ]] || [[ $(cat "$oldconfig") != "$newconfig" ]]; then
-			rm -f "$oldconfig";
+		# Check previous build config.
+		old="${path}/.${target}_defconfig"
+		new="BSP:${config}"
+
+		if [[ ! -e $old ]] || [[ $(cat "$old") != "$new" ]]; then
+			rm -f "$old";
 			exec_make "-C $path distclean" "$target"
-			echo  "$newconfig" >> $oldconfig;
+			echo  "$new" >> $old;
 		fi
 
-		if [[ ! -f $path/.config ]] || [[ $command == defconfig ]]; then
+		if [[ $command == defconfig ]] || [[ ! -f $path/.config ]]; then
 			if ! exec_make "-C $path $crosstool $config" "$target";
 			then
 				exit 1;
 			fi
+			[[ $command == defconfig ]] && exit 0;
 		fi
 
 		if [[ $command == menuconfig ]]; then
-			if ! exec_make "-C $path $crosstool menuconfig" "$target";
-			then
-				exit 1;
-			fi
+			exec_make "-C $path $crosstool menuconfig" "$target";
+			exit 0;
 		fi
 	fi
 
-	# exit config command
-	[[ $command == defconfig ]] || [[ $command == menuconfig ]] && exit 0;
-
-	# set command with image
 	if [[ -z $command ]] ||
 	   [[ $command == rebuild ]] || [[ $command == cleanbuild ]]; then
 		command=$image;
