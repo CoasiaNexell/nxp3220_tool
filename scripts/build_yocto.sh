@@ -689,7 +689,6 @@ function link_result_dir () {
 CMD_PARSE=false
 CMD_COPY=false
 BB_OPTION=""
-BB_VERBOSE=""
 BB_JOBS=
 BB_RECIPE=""
 BB_CMD=""
@@ -733,12 +732,12 @@ function parse_arguments () {
 				BB_CMD="-c $2"; shift 2;
 			fi
 			;;
-		-o )	BB_OPTION=$2; shift 2;;
 		-S )	TARGET_SDK=true; shift 1;;
+		-v )	BB_OPTION+="-v "; shift 1;;
+		-o )	BB_OPTION+="$2 "; shift 2;;
+		-j )	BB_JOBS=$2; shift 2;;
 		-f )	CMD_PARSE=true;	shift 1;;
 		-p )	CMD_COPY=true; shift 1;;
-		-j )	BB_JOBS=$2; shift 2;;
-		-v )	BB_VERBOSE="-v"; shift 1;;
 		-h )	usage
 			exit 1
 			;;
@@ -767,7 +766,7 @@ function run_build () {
 	msg " SDK       = $TARGET_SDK"
 	msg " Recipe    = $BB_RECIPE"
 	msg " Command   = $BB_CMD"
-	msg " Option    = $BB_OPTION $BB_VERBOSE"
+	msg " Option    = $BB_OPTION"
 	msg " Image dir = $BUILD_TARGET_DIR/tmp/deploy/images/$BUILD_MACHINE_NAME"
 	msg " SDK   dir = $BUILD_TARGET_DIR/tmp/deploy/sdk"
 
@@ -780,7 +779,7 @@ function run_build () {
 		fi
 
 		local cmd;
-		cmd="$BB_TARGET $BB_CMD $BB_OPTION $BB_VERBOSE"
+		cmd="$BB_TARGET $BB_CMD $BB_OPTION"
 		cmd="$(echo "$cmd" | sed 's/^[ \t]*//;s/[ \t]*$//')"
 		cmd="$(echo "$cmd" | sed 's/\s\s*/ /g')"
 
