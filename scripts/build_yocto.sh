@@ -524,10 +524,10 @@ function check_build_config () {
 }
 
 function show_avail_lists () {
-	message="$TARGET_MACHINE $TARGET_IMAGE "
+	message="$TARGET_MACHINE $TARGET_IMAGE"
 
 	if [[ -n $TARGET_FEATURES ]]; then
-		message+="-i "
+		message+=" -i "
 		message+=$(echo "${TARGET_FEATURES}" | tr " " ",")
 	fi
 	[[ $TARGET_SDK == true ]] && message+=" -S";
@@ -567,12 +567,13 @@ function show_avail_lists () {
 	msg " IMAGE     = $TARGET_IMAGE"
 	msg " FEATURES  = $TARGET_FEATURES"
 	msg " SDK       = $TARGET_SDK"
+	msg "=================================================================================="
 	msg ""
-	msg " Command Build:"
-	msg "  $> ./tools/scripts/$(basename "$0") $message\n"
 	msg " Bitbake Setup:"
 	msg "  $> source $YOCTO_DISTRO/oe-init-build-env $BUILD_TARGET_DIR"
-	msg "=================================================================================="
+	msg ""
+	msg " Build Command:"
+	msg "  $> ./tools/scripts/$(basename "$0") $message\n"
 	fi
 }
 
@@ -753,10 +754,6 @@ function setup_bitbake () {
 
 	# run oe-init-build-env
 	source "$YOCTO_DISTRO/oe-init-build-env" "$BUILD_TARGET_DIR" >/dev/null 2>&1
-
-	msg ""
-	msg " Bitbake Setup:"
-	msg " $> source $YOCTO_DISTRO/oe-init-build-env $BUILD_TARGET_DIR\n"
 }
 
 function run_build () {
@@ -784,6 +781,9 @@ function run_build () {
 		cmd="$(echo "$cmd" | sed 's/\s\s*/ /g')"
 
 		msg "---------------------------------------------------------------------------"
+		msg " Bitbake Setup:"
+		msg " $> source $YOCTO_DISTRO/oe-init-build-env $BUILD_TARGET_DIR\n"
+		msg " Bitbake Build:"
 		msg " $> bitbake $cmd"
 		msg "---------------------------------------------------------------------------\n"
 
