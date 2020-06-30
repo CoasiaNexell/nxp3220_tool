@@ -9,9 +9,9 @@
 # 	"TOOL		= <crosstool compiler path for make build>",
 # 	"RESULT 	= <to copy build images>",
 # 	"<target>	=
-#  		PATH	: <build source path>,
-#		CONFIG	: <default condig (defconfig) for make build>,
-#		IMAGE	: <target image name for make build>,
+#  		PATH	: <Makefile source path to make build>,
+#		CONFIG	: <default config (defconfig) for make build>,
+#		IMAGE	: <make build target name for make build>,
 #		TOOL	: <crosstool compiler path to make for this target>,
 #		OUTPUT	: <name of make built imag to copy to resultdir, copy after post command>,
 #		OPTION	: <make option>,
@@ -31,9 +31,9 @@ declare -A BUILD_ENV_ELEMENT=(
 )
 
 declare -A BUILD_TARGET_ELEMENT=(
-	["PATH"]=" "	# build source path
-	["CONFIG"]=" "	# default condig (defconfig) for make build
-	["IMAGE"]=" "	# target image name for make build
+	["PATH"]=" "	# Makefile source path to make build
+	["CONFIG"]=" "	# default config (defconfig) for make build
+	["IMAGE"]=" "	# make build target name for make build
 	["TOOL"]=" "	# crosstool compiler path to make for this target
 	["OUTPUT"]=" "	# name of make built imag to copy to resultdir, copy after post command
 	["OPTION"]=" "	# make option
@@ -63,11 +63,12 @@ BUILD_COMMAND=""
 BUILD_JOBS="$(grep -c processor /proc/cpuinfo)"
 BUILD_OPTION=""
 
-DBG_VERBOSE=false
-DBG_TRACE=false
 CMD_SHOW_INFO=false
 CMD_SHOW_LIST=false
 CMD_EDIT=false
+
+DBG_VERBOSE=false
+DBG_TRACE=false
 
 function err () { echo -e "\033[1;31m$*\033[0m"; }
 function msg () { echo -e "\033[0;33m$*\033[0m"; }
@@ -111,10 +112,8 @@ function show_build_time () {
 }
 
 function show_progress () {
-	local spin='-\|/'
-	local pos=0
-	local delay=0.3
-	local start=$SECONDS
+	local spin='-\|/' pos=0
+	local delay=0.3 start=$SECONDS
 
 	while true; do
 		local hrs=$(( (SECONDS-start)/3600 ));
@@ -499,9 +498,9 @@ function copy_target () {
 	fi
 
 	if ! copy_result "${BUILD_TARGET_ELEMENT["PATH"]}" \
-		    "${BUILD_TARGET_ELEMENT["OUTPUT"]}" \
-		    "${BUILD_ENV_ELEMENT["RESULT"]}" \
-		    "${BUILD_TARGET_ELEMENT["COPY"]}"; then
+			 "${BUILD_TARGET_ELEMENT["OUTPUT"]}" \
+			 "${BUILD_ENV_ELEMENT["RESULT"]}" \
+			 "${BUILD_TARGET_ELEMENT["COPY"]}"; then
 		exit 1;
 	fi
 }
