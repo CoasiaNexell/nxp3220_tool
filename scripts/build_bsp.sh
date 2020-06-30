@@ -8,7 +8,8 @@
 # 	"ARCH  		= <architecture ex> arm, arm64>",
 # 	"TOOL		= <crosstool compiler path for make build>",
 # 	"RESULT 	= <to copy build images>",
-# 	"<target>	=
+#
+# 	"<TARGET>	=
 #  		PATH	: <Makefile source path to make build>,
 #		CONFIG	: <default config (defconfig) for make build>,
 #		IMAGE	: <make build target name for make build>,
