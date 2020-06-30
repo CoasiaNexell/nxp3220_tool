@@ -24,6 +24,8 @@
 
 eval "$(locale | sed -e 's/\(.*\)=.*/export \1=en_US.UTF-8/')"
 
+EDIT_TOOL="vim"		# execute to edit with '-e' option
+
 declare -A BUILD_ENV_ELEMENT=(
 	["ARCH"]=" "
   	["MACHINE"]=" "
@@ -51,18 +53,13 @@ declare -A BUILD_STAGE_COMMAND=(
 	["postcmd"]=true	# execute script 'POSTCMD'
 )
 
-BUILD_EDIT_TOOL="vim"
-BUILD_LOG_DIR="$(realpath "$(dirname "$(realpath "${0}")")")/.build"
-BUILD_PROGRESS_PID="$BUILD_LOG_DIR/progress_pid"
-
-BUILD_CONFIG_IMAGES=()	# copy BUILD_IMAGES
-BUILD_CONFIG_TARGETS=()
-
-BUILD_CONFIG=""
-BUILD_TARGETS=()
+BUILD_CONFIG_SCRIPT=""
+BUILD_CONFIG_IMAGE=()	# store $BUILD_IMAGES
+BUILD_TARGET_LIST=()
+BUILD_TARGET=()
 BUILD_COMMAND=""
-BUILD_JOBS="$(grep -c processor /proc/cpuinfo)"
 BUILD_OPTION=""
+BUILD_JOBS="$(grep -c processor /proc/cpuinfo)"
 
 CMD_SHOW_INFO=false
 CMD_SHOW_LIST=false
@@ -70,6 +67,9 @@ CMD_EDIT=false
 
 DBG_VERBOSE=false
 DBG_TRACE=false
+
+BUILD_LOG_DIR="$(realpath "$(dirname "$(realpath "${0}")")")/.build"
+BUILD_PROGRESS_PID="$BUILD_LOG_DIR/progress_pid"
 
 function err () { echo -e "\033[1;31m$*\033[0m"; }
 function msg () { echo -e "\033[0;33m$*\033[0m"; }
@@ -177,7 +177,7 @@ function print_env () {
 function parse_env_value () {
 	local key=$1 ret=$2
 
-	for i in "${BUILD_CONFIG_IMAGES[@]}"; do
+	for i in "${BUILD_CONFIG_IMAGE[@]}"; do
 		if [[ $i = *"$key"* ]]; then
 			local elem
 			elem="$(echo "$i" | cut -d'=' -f 2-)"
@@ -250,7 +250,7 @@ function parse_target_element () {
 	local target=$1
 	local contents
 
-	for i in "${BUILD_CONFIG_IMAGES[@]}"; do
+	for i in "${BUILD_CONFIG_IMAGE[@]}"; do
 		if [[ $i == *"$target"* ]]; then
 			local elem
 
@@ -295,7 +295,7 @@ function parse_target_element () {
 }
 
 function parse_targets () {
-	for str in "${BUILD_CONFIG_IMAGES[@]}"; do
+	for str in "${BUILD_CONFIG_IMAGE[@]}"; do
 		local val add=true
 
 		str="$(echo "$str" | tr '\n' ' ')"
@@ -313,7 +313,7 @@ function parse_targets () {
 		[[ $add != true ]] && continue;
 
 		if [[ $str == *"="* ]];then
-			BUILD_CONFIG_TARGETS+=("$val")
+			BUILD_TARGET_LIST+=("$val")
 		fi
 	done
 }
@@ -538,7 +538,7 @@ function build_target () {
 }
 
 function run_build () {
-	if [[ ${#BUILD_TARGETS[@]} -eq 0 ]]; then
+	if [[ ${#BUILD_TARGET[@]} -eq 0 ]]; then
 		if [[ -n $BUILD_COMMAND ]] &&
 		   [[ $BUILD_COMMAND != clean ]] &&
 		   [[ $BUILD_COMMAND != cleanbuild ]] &&
@@ -551,11 +551,11 @@ function run_build () {
 			exit 1;
 		fi
 
-		BUILD_TARGETS=("${BUILD_CONFIG_TARGETS[@]}");
+		BUILD_TARGET=("${BUILD_TARGET_LIST[@]}");
 	else
-		for i in "${BUILD_TARGETS[@]}"; do
+		for i in "${BUILD_TARGET[@]}"; do
 			local found=false;
-			for n in "${BUILD_CONFIG_TARGETS[@]}"; do
+			for n in "${BUILD_TARGET_LIST[@]}"; do
 				if [[ $i == "$n" ]]; then
 					found=true
 					break;
@@ -563,7 +563,7 @@ function run_build () {
 			done
 			if [[ $found == false ]]; then
 				echo -ne "\n\033[1;31m Not Support Target: $i ( \033[0m"
-				for t in "${BUILD_CONFIG_TARGETS[@]}"; do
+				for t in "${BUILD_TARGET_LIST[@]}"; do
 					echo -n "$t "
 				done
 				echo -e "\033[1;31m)\033[0m\n"
@@ -575,7 +575,7 @@ function run_build () {
 	if [[ $CMD_SHOW_LIST == true ]]; then
 		msg "-------------------------------------------------------------------------------"
 		msg " Build Targets:"
-		for i in "${BUILD_CONFIG_TARGETS[@]}"; do
+		for i in "${BUILD_TARGET_LIST[@]}"; do
 			echo -n " $i"
 		done
 		msg "\n-------------------------------------------------------------------------------"
@@ -584,7 +584,7 @@ function run_build () {
 
 	[[ $CMD_SHOW_INFO == true ]] && print_env;
 
-	for t in "${BUILD_TARGETS[@]}"; do
+	for t in "${BUILD_TARGET[@]}"; do
 		build_target "$t" "$BUILD_COMMAND"
 	done
 
@@ -607,16 +607,16 @@ function setup_config () {
 		exit 1
 	fi
 
-	BUILD_CONFIG_IMAGES=("${BUILD_IMAGES[@]}");
+	BUILD_CONFIG_IMAGE=("${BUILD_IMAGES[@]}");
 }
 
 function parse_arguments () {
 	while getopts "f:t:c:j:o:s:ilevDh" opt; do
 	case $opt in
-		f )	BUILD_CONFIG=$OPTARG;;
-		t )	BUILD_TARGETS=("$OPTARG")
+		f )	BUILD_CONFIG_SCRIPT=$OPTARG;;
+		t )	BUILD_TARGET=("$OPTARG")
 			until [[ $(eval "echo \${$OPTIND}") =~ ^-.* ]] || [[ -z "$(eval "echo \${$OPTIND}")" ]]; do
-				BUILD_TARGETS+=("$(eval "echo \${$OPTIND}")")
+				BUILD_TARGET+=("$(eval "echo \${$OPTIND}")")
 				OPTIND=$((OPTIND + 1))
 			done
 			;;
@@ -642,10 +642,10 @@ function parse_arguments () {
 ###############################################################################
 
 parse_arguments "$@"
-setup_config "$BUILD_CONFIG"
+setup_config "$BUILD_CONFIG_SCRIPT"
 
 if [[ "${CMD_EDIT}" == true ]]; then
-	$BUILD_EDIT_TOOL "$BUILD_CONFIG"
+	$EDIT_TOOL "$BUILD_CONFIG_SCRIPT"
 	exit 0;
 fi
 
