@@ -10,16 +10,17 @@
 # 	"RESULT 	= <to copy build images>",
 #
 # 	"<TARGET>	=
-#  		PATH	: <Makefile source path to make build>,
-#		CONFIG	: <default config (defconfig) for make build>,
-#		IMAGE	: <make build target name for make build>,
-#		TOOL	: <crosstool compiler path to make for this target>,
-#		OUTPUT	: <name of make built imag to copy to resultdir, copy after post command>,
-#		OPTION	: <make option>,
-#		PRECMD	: <pre command before make build>,
-#		POSTCMD	: <post command after make build and copy done>,
-# 		COPY	: <copy name to RESULT>,
-#  		JOBS	: <build jobs number (-j n)>",
+#  		PATH		: <Makefile source path to make build>,
+#		CONFIG		: <default config (defconfig) for make build>,
+#		IMAGE		: <make build target name for make build>,
+#		TOOL		: <crosstool compiler path to make for this target>,
+#		OUTPUT		: <name of make built imag to copy to resultdir, copy after post command>,
+#		OPTION		: <make option>,
+#		PRECMD		: <pre command before make build>,
+#		POSTCMD		: <post command after make build and copy done>,
+#		CLEANCMD	: clean command>,
+# 		COPY		: <copy name to RESULT>,
+#  		JOBS		: <build jobs number (-j n)>",
 #
 
 eval "$(locale | sed -e 's/\(.*\)=.*/export \1=en_US.UTF-8/')"
@@ -34,16 +35,17 @@ declare -A BUILD_ENV_ELEMENT=(
 )
 
 declare -A BUILD_TARGET_ELEMENT=(
-	["PATH"]=" "	# Makefile source path to make build
-	["CONFIG"]=" "	# default config (defconfig) for make build
-	["IMAGE"]=" "	# make build target name for make build
-	["TOOL"]=" "	# crosstool compiler path to make for this target
-	["OUTPUT"]=" "	# name of make built imag to copy to resultdir, copy after post command
-	["OPTION"]=" "	# make option
-	["PRECMD"]=" "	# pre command before make build.
-	["POSTCMD"]=" "	# post command after make build and copy done.
-  	["COPY"]=" "	# copy name to RESULT
-  	["JOBS"]=" "	# build jobs number (-j n)
+	["PATH"]=" "		# Makefile source path to make build
+	["CONFIG"]=" "		# default config (defconfig) for make build
+	["IMAGE"]=" "		# make build target name for make build
+	["TOOL"]=" "		# crosstool compiler path to make for this target
+	["OUTPUT"]=" "		# name of make built imag to copy to resultdir, copy after post command
+	["OPTION"]=" "		# make option
+	["PRECMD"]=" "		# pre command before make build.
+	["POSTCMD"]=" "		# post command after make build and copy done.
+	["CLEANCMD"]=" "	# clean command.
+	["COPY"]=" "		# copy name to RESULT
+	["JOBS"]=" "		# build jobs number (-j n)
 )
 
 declare -A BUILD_STAGE_COMMAND=(
@@ -58,6 +60,7 @@ BUILD_CONFIG_IMAGE=()	# store $BUILD_IMAGES
 BUILD_TARGET_LIST=()
 BUILD_TARGET=()
 BUILD_COMMAND=""
+BUILD_CLEANALL=false
 BUILD_OPTION=""
 BUILD_JOBS="$(grep -c processor /proc/cpuinfo)"
 
@@ -71,7 +74,7 @@ DBG_TRACE=false
 BUILD_LOG_DIR="$(realpath "$(dirname "$(realpath "${0}")")")/.build"
 BUILD_PROGRESS_PID="$BUILD_LOG_DIR/progress_pid"
 
-function err () { echo -e "\033[1;31m$*\033[0m"; }
+function err () { echo -e "\033[0;31m$*\033[0m"; }
 function msg () { echo -e "\033[0;33m$*\033[0m"; }
 
 function usage() {
@@ -81,13 +84,8 @@ function usage() {
 	echo " options:"
 	echo -e  "\t-t\t select build targets, ex> -t target ..."
 	echo -e  "\t-c\t build command"
-	echo -e  "\t\t - defconfig"
-	echo -e  "\t\t - menuconfig"
-	echo -e  "\t\t - clean"
-	echo -e  "\t\t - distclean"
-	echo -e  "\t\t - cleanbuild"
-	echo -e  "\t\t - rebuild"
-	echo -e  "\t\t - else command supported by target"
+	echo -e  "\t\t support 'cleanbuild','rebuild' and commands supported by target"
+	echo -e  "\t-r\t build clean all targets"
 	echo -e  "\t-i\t show build target info"
 	echo -e  "\t-l\t listup build targets"
 	echo -e  "\t-j\t set build jobs"
@@ -95,12 +93,11 @@ function usage() {
 	echo -e  "\t-e\t edit build config file"
 	echo -e  "\t-v\t print build log"
 	echo -e  "\t-D\t print build log and enable external shell tasks tracing (with 'set -x')"
-	echo -ne "\t-s\t only execute build stage :"
+	echo -ne "\t-s\t only execute stage :"
 	for i in "${!BUILD_STAGE_COMMAND[@]}"; do
-		echo -n " $i";
+		echo -n " '$i'";
 	done
-	echo ""
-	echo -e  "\n\t Build sequence: PRECMD > make > result copy > POSTCMD"
+	echo -e  "\n\t\t Build stage order  : precmd > make > copy > postcmd"
 	echo ""
 }
 
@@ -161,7 +158,11 @@ function copy_result () {
 	fi
 
 	msg ""; msg " $> cp -a $src $dst"
+	[[ $DBG_VERBOSE == false ]] && run_progress;
+
 	cp -a "$src" "$dst"
+
+	kill_progress
 }
 
 function print_env () {
@@ -270,11 +271,7 @@ function parse_target_element () {
 		local value=""
 
 		parse_element_value "$contents" "$key" value
-
 		BUILD_TARGET_ELEMENT[$key]=$value
-		if [[ $key == PRECMD ]] || [[ $key == POSTCMD ]] || [[ $key == OPTION ]]; then
-			continue;
-		fi
 	done
 
 	if [[ -n ${BUILD_TARGET_ELEMENT["PATH"]} ]]; then
@@ -387,7 +384,7 @@ function exec_make () {
 
 	if [[ $DBG_VERBOSE == false ]] && [[ $command != *menuconfig* ]]; then
 		run_progress
-		make $command >> "$log"  2>&1
+		make $command >> "$log" 2>&1
 	else
 		make $command
 	fi
@@ -405,10 +402,11 @@ function exec_make () {
 	return $ret
 }
 
-function precmd_target () {
+function build_precmd () {
 	local target=$1
 
 	if [[ -z ${BUILD_TARGET_ELEMENT["PRECMD"]} ]] ||
+	   [[ $BUILD_CLEANALL == true ]] ||
 	   [[ ${BUILD_STAGE_COMMAND["precmd"]} == false ]]; then
 		return;
 	fi
@@ -418,19 +416,30 @@ function precmd_target () {
 	fi
 }
 
-function make_target () {
+function build_make () {
 	local target=$1 command=$2
 	local path=${BUILD_TARGET_ELEMENT["PATH"]}
 	local crosstool="ARCH=${BUILD_ENV_ELEMENT["ARCH"]} CROSS_COMPILE=${BUILD_TARGET_ELEMENT["TOOL"]}"
 	local image=${BUILD_TARGET_ELEMENT["IMAGE"]}
-	local config=${BUILD_TARGET_ELEMENT["CONFIG"]}
+	local defconfig=${BUILD_TARGET_ELEMENT["CONFIG"]}
 	local opt="${BUILD_TARGET_ELEMENT["OPTION"]} -j${BUILD_TARGET_ELEMENT["JOBS"]}"
+	local refconfig="${path}/.${target}_defconfig"
+	local newconfig="BSP:${defconfig}"
 
-	[[ -z ${BUILD_TARGET_ELEMENT["PATH"]} ]] ||
-	[[ ${BUILD_STAGE_COMMAND["make"]} == false ]] && return;
+	declare -A make_mode=(
+		["distclean"]=false
+		["clean"]=false
+		["defconfig"]=false
+		["menuconfig"]=false
+		)
 
-	if [[ ! -d $path ]]; then
-		err " Not found 'PATH': '$path'"
+	if [[ -z ${BUILD_TARGET_ELEMENT["PATH"]} ]] ||
+	   [[ ${BUILD_STAGE_COMMAND["make"]} == false ]]; then
+		return;
+	fi
+
+	if [[ ! -d ${BUILD_TARGET_ELEMENT["PATH"]} ]]; then
+		err " Not found 'PATH': '${BUILD_TARGET_ELEMENT["PATH"]}'"
 		exit 1;
 	fi
 
@@ -440,60 +449,95 @@ function make_target () {
 	fi
 
 	if [[ $image != *".dtb"* ]]; then
-		if [[ $command == distclean ]] || [[ $command == rebuild ]]; then
-			exec_make "-C $path clean" "$target"
-			exec_make "-C $path distclean" "$target"
+		if [[ $command == clean ]] || [[ $command == cleanbuild ]] ||
+		   [[ $command == rebuild ]]; then
+			make_mode["clean"]=true
 		fi
 
-		if [[ $command == clean ]] || [[ $command == cleanbuild ]]; then
-			exec_make "-C $path clean" "$target"
+		if [[ $command == cleanall ]] ||
+		   [[ $command == distclean ]] || [[ $command == rebuild ]]; then
+			make_mode["clean"]=true;
+			make_mode["distclean"]=true;
 		fi
 	fi
 
-	if [[ $command == distclean ]] || [[ $command == clean ]]; then
-		exit 0;
-	fi
-
-	if [[ -n $config ]]; then
-		local old new
-
-		# Check previous build config.
-		old="${path}/.${target}_defconfig"
-		new="BSP:${config}"
-
-		if [[ ! -e $old ]] || [[ $(cat "$old") != "$new" ]]; then
-			rm -f "$old";
-			exec_make "-C $path distclean" "$target"
-			echo  "$new" >> $old;
+	if [[ $image != *".dtb"* ]]; then
+		if [[ -n ${BUILD_TARGET_ELEMENT["OPTION"]} ]]; then
+			newconfig+=":${BUILD_TARGET_ELEMENT["OPTION"]}"
 		fi
 
-		if [[ $command == defconfig ]] || [[ ! -f $path/.config ]]; then
-			if ! exec_make "-C $path $crosstool $config" "$target";
-			then
-				exit 1;
+		if [[ ! -e $refconfig ]] || [[ $(cat "$refconfig") != "$newconfig" ]]; then
+			make_mode["defconfig"]=true
+			make_mode["clean"]=true;
+			make_mode["distclean"]=true
+
+			rm -f "$refconfig";
+			echo "$newconfig" >> "$refconfig";
+		fi
+
+		if [[ -n $defconfig ]]; then
+			if [[ ! -f $path/.config ]] ||
+			   [[ $command == defconfig ]] || [[ $command == rebuild ]]; then
+				make_mode["defconfig"]=true
+				make_mode["clean"]=true;
+				make_mode["distclean"]=true;
 			fi
-			[[ $command == defconfig ]] && exit 0;
-		fi
 
-		if [[ $command == menuconfig ]]; then
-			exec_make "-C $path $crosstool menuconfig" "$target";
+			if [[ $command == menuconfig ]]; then
+				make_mode["menuconfig"]=true
+			fi
+		fi
+	fi
+
+	# make clean
+	if [[ ${make_mode["clean"]} == true ]]; then
+		exec_make "-C $path clean" "$target"
+		[[ $command == clean ]] && exit 0;
+	fi
+
+	# make distclean
+	if [[ ${make_mode["distclean"]} == true ]]; then
+		exec_make "-C $path distclean" "$target"
+
+		if [[ $BUILD_CLEANALL == true ]]; then
+			rm -f "$refconfig";
+			return;
+		fi
+		if [[ $command == distclean ]]; then
+			rm -f "$refconfig";
 			exit 0;
 		fi
 	fi
 
-	if [[ -z $command ]] ||
-	   [[ $command == rebuild ]] || [[ $command == cleanbuild ]]; then
-		command=$image;
+	# make defconfig
+	if [[ ${make_mode["defconfig"]} == true ]]; then
+		if ! exec_make "-C $path $crosstool $defconfig" "$target"; then
+			exit 1;
+		fi
+		[[ $command == defconfig ]] && exit 0;
 	fi
 
-	if ! exec_make "-C $path $crosstool $command $opt" "$target";
-	then
+	# make menuconfig
+	if [[ ${make_mode["menuconfig"]} == true ]]; then
+		exec_make "-C $path $crosstool menuconfig" "$target";
+		exit 0;
+	fi
+
+	# Set command with image
+	if [[ -z $command ]] ||
+	   [[ $command == rebuild ]] || [[ $command == cleanbuild ]]; then
+		command=$image
+	fi
+
+	# do make
+	if ! exec_make "-C $path $crosstool $command $opt" "$target"; then
 		exit 1
 	fi
 }
 
-function copy_target () {
+function build_copy () {
 	if [[ -z ${BUILD_TARGET_ELEMENT["OUTPUT"]} ]] ||
+	   [[ $BUILD_CLEANALL == true ]] ||
 	   [[ ${BUILD_STAGE_COMMAND["copy"]} == false ]]; then
 		return;
 	fi
@@ -506,15 +550,29 @@ function copy_target () {
 	fi
 }
 
-function postcmd_target () {
+function build_postcmd () {
 	local target=$1
 
 	if [[ -z ${BUILD_TARGET_ELEMENT["POSTCMD"]} ]] ||
+	   [[ $BUILD_CLEANALL == true ]] ||
 	   [[ ${BUILD_STAGE_COMMAND["postcmd"]} == false ]]; then
 		return;
 	fi
 
 	if ! exec_shell "${BUILD_TARGET_ELEMENT["POSTCMD"]}" "$target"; then
+		exit 1;
+	fi
+}
+
+function build_clean () {
+	local target=$1
+
+	if [[ -z ${BUILD_TARGET_ELEMENT["CLEANCMD"]} ]] ||
+	   [[ $BUILD_CLEANALL == false ]]; then
+		return;
+	fi
+
+	if ! exec_shell "${BUILD_TARGET_ELEMENT["CLEANCMD"]}" "$target"; then
 		exit 1;
 	fi
 }
@@ -530,46 +588,43 @@ function build_target () {
 	if ! mkdir -p "${BUILD_ENV_ELEMENT["RESULT"]}"; then exit 1; fi
 	if ! mkdir -p "$BUILD_LOG_DIR"; then exit 1; fi
 
-	# build commands
-	precmd_target "$target"
-	make_target "$target" "$command"
-	copy_target
-	postcmd_target "$target"
+	build_precmd "$target"
+	build_make "$target" "$command"
+	build_copy
+	build_postcmd "$target"
+	build_clean "$target"
 }
 
 function run_build () {
+	for i in "${BUILD_TARGET[@]}"; do
+		local found=false;
+		for n in "${BUILD_TARGET_LIST[@]}"; do
+			if [[ $i == "$n" ]]; then
+				found=true
+				break;
+			fi
+		done
+		if [[ $found == false ]]; then
+			echo -ne "\n\033[1;31m Not Support Target: $i ( \033[0m"
+			for t in "${BUILD_TARGET_LIST[@]}"; do
+				echo -n "$t "
+			done
+			echo -e "\033[1;31m)\033[0m\n"
+			exit 1;
+		fi
+	done
+
 	if [[ ${#BUILD_TARGET[@]} -eq 0 ]]; then
-		if [[ -n $BUILD_COMMAND ]] &&
-		   [[ $BUILD_COMMAND != clean ]] &&
-		   [[ $BUILD_COMMAND != cleanbuild ]] &&
-		   [[ $BUILD_COMMAND != rebuild ]]; then
+		if [[ $BUILD_CLEANALL != true ]] &&
+		   [[ -n $BUILD_COMMAND ]] &&
+                   [[ $BUILD_COMMAND != cleanbuild ]] && [[ $BUILD_COMMAND != rebuild ]]; then
 			err "-------------------------------------------------------------------------------"
-			err " Not Support Command: $BUILD_COMMAND"
-			err " *** if the target is not selected, support command:"
-			msg " clean, cleanbuild, rebuild"
+			err " Not Support command : $BUILD_COMMAND"
+			msg " If the target is not selected, Support commands: cleanbuild, rebuild"
 			err "-------------------------------------------------------------------------------"
 			exit 1;
 		fi
-
 		BUILD_TARGET=("${BUILD_TARGET_LIST[@]}");
-	else
-		for i in "${BUILD_TARGET[@]}"; do
-			local found=false;
-			for n in "${BUILD_TARGET_LIST[@]}"; do
-				if [[ $i == "$n" ]]; then
-					found=true
-					break;
-				fi
-			done
-			if [[ $found == false ]]; then
-				echo -ne "\n\033[1;31m Not Support Target: $i ( \033[0m"
-				for t in "${BUILD_TARGET_LIST[@]}"; do
-					echo -n "$t "
-				done
-				echo -e "\033[1;31m)\033[0m\n"
-				exit 1;
-			fi
-		done
 	fi
 
 	if [[ $CMD_SHOW_LIST == true ]]; then
@@ -588,6 +643,9 @@ function run_build () {
 		build_target "$t" "$BUILD_COMMAND"
 	done
 
+	[[ $BUILD_CLEANALL == true ]] &&
+	[[ -d $BUILD_LOG_DIR ]] && rm -rf "$BUILD_LOG_DIR";
+
 	show_build_time
 }
 
@@ -603,7 +661,7 @@ function setup_config () {
 	# include config script file
 	source "$config"
 	if [[ -z $BUILD_IMAGES ]]; then
-		err "Not defined 'BUILD_IMAGES'"
+		err " Not defined 'BUILD_IMAGES'"
 		exit 1
 	fi
 
@@ -611,7 +669,7 @@ function setup_config () {
 }
 
 function parse_arguments () {
-	while getopts "f:t:c:j:o:s:ilevDh" opt; do
+	while getopts "f:t:c:rj:o:s:ilevDh" opt; do
 	case $opt in
 		f )	BUILD_CONFIG_SCRIPT=$OPTARG;;
 		t )	BUILD_TARGET=("$OPTARG")
@@ -621,6 +679,7 @@ function parse_arguments () {
 			done
 			;;
 		c )	BUILD_COMMAND="$OPTARG";;
+		r )	BUILD_CLEANALL=true; BUILD_COMMAND="distclean";;
 		j )	BUILD_JOBS=$OPTARG;;
 		v )	DBG_VERBOSE=true;;
 		D )	DBG_VERBOSE=true; DBG_TRACE=true;;

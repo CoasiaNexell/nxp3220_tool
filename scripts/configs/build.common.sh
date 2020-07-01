@@ -238,14 +238,14 @@ function make_data_image () {
 	bash -c "${MAKE_DATA_IMAGE}";
 }
 
-function do_copy_tools () {
+function copy_tools () {
 	for file in "${BSP_TOOL_FILES[@]}"; do
 		[[ -d $file ]] && continue;
 		cp -a $file ${RESULT_DIR}
 	done
 }
 
-function do_result_link () {
+function link_result () {
 	local link=result
 	local ret=$(basename $RESULT_DIR)
 
@@ -255,6 +255,17 @@ function do_result_link () {
 
 	rm -f $link;
 	ln -s $ret $link
+}
+
+function clean_result () {
+	local link=result
+	local ret=$(basename $RESULT_DIR)
+
+	msg " CLEAR RETDIR : $RESULT_DIR"
+	cd $(dirname $RESULT_DIR)
+
+	rm -f "$link";
+	rm -rf "$ret";
 }
 
 ###############################################################################
@@ -312,8 +323,9 @@ BUILD_IMAGES=(
 		POSTCMD : make_data_image",
 
 	"tools  =
-		POSTCMD	: do_copy_tools",
+		POSTCMD	: copy_tools",
 
 	"ret    =
-		POSTCMD	: do_result_link",
+		POSTCMD	: link_result,
+		CLEANCMD: clean_result",
 )
