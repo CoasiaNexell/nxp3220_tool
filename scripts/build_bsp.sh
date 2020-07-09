@@ -2,7 +2,7 @@
 # Copyright (c) 2018 Nexell Co., Ltd.
 # Author: Junghyun, Kim <jhkim@nexell.co.kr>
 #
-# - Build Config File Formats
+# - Config File Formats
 # BUILD_IMAGES=(
 # 	"MACHINE	= <machine name>",
 # 	"ARCH  		= <architecture ex> arm, arm64>",
@@ -25,16 +25,18 @@
 
 eval "$(locale | sed -e 's/\(.*\)=.*/export \1=en_US.UTF-8/')"
 
-EDIT_TOOL="vim"		# execute to edit with '-e' option
+EDIT_TOOL="vim"			# editor with '-e' option
 
-declare -A BUILD_ENV_ELEMENT=(
+# config script's environment elements
+declare -A BUILD_CONFIG_ENV=(
 	["ARCH"]=" "
   	["MACHINE"]=" "
   	["TOOL"]=" "
   	["RESULT"]=" "
 )
 
-declare -A BUILD_TARGET_ELEMENT=(
+# config script's target elements
+declare -A BUILD_CONFIG_TARGET=(
 	["PATH"]=" "		# Makefile source path to make build
 	["CONFIG"]=" "		# default config (defconfig) for make build
 	["IMAGE"]=" "		# make build target name for make build
@@ -48,15 +50,16 @@ declare -A BUILD_TARGET_ELEMENT=(
 	["JOBS"]=" "		# build jobs number (-j n)
 )
 
-declare -A BUILD_STAGE_COMMAND=(
+BUILD_CONFIG_SCRIPT=""		# build config script file
+BUILD_CONFIG_IMAGE=()		# store $BUILD_IMAGES
+
+declare -A BUILD_STAGE=(
 	["precmd"]=true		# execute script 'PRECMD'
 	["make"]=true		# make with 'PATH' and 'IMAGE'
 	["copy"]=true		# execute copy with 'COPY'
 	["postcmd"]=true	# execute script 'POSTCMD'
 )
 
-BUILD_CONFIG_SCRIPT=""
-BUILD_CONFIG_IMAGE=()	# store $BUILD_IMAGES
 BUILD_TARGET_LIST=()
 BUILD_TARGET=()
 BUILD_COMMAND=""
@@ -94,7 +97,7 @@ function usage() {
 	echo -e  "\t-v\t print build log"
 	echo -e  "\t-D\t print build log and enable external shell tasks tracing (with 'set -x')"
 	echo -ne "\t-s\t only execute stage :"
-	for i in "${!BUILD_STAGE_COMMAND[@]}"; do
+	for i in "${!BUILD_STAGE[@]}"; do
 		echo -n " '$i'";
 	done
 	echo -e  "\n\t\t Build stage order  : precmd > make > copy > postcmd"
@@ -144,66 +147,37 @@ function run_progress () {
 	echo $! > "$BUILD_PROGRESS_PID"
 }
 
-function copy_result () {
-	local path=$1 src=$2 retdir=$3 dst=$4
-
-	[[ -z $src ]] && return;
-
-	if ! mkdir -p "$retdir"; then exit 1; fi
-
-	src=$(realpath "$path/$src")
-	dst=$(realpath "$retdir/$dst")
-	if [[ -d $src ]] && [[ -d $dst ]]; then
-		rm -rf "$dst";
-	fi
-
-	msg ""; msg " $> cp -a $src $dst"
-	[[ $DBG_VERBOSE == false ]] && run_progress;
-
-	cp -a "$src" "$dst"
-
-	kill_progress
-}
-
 function print_env () {
 	msg "==============================================================================="
-	for key in "${!BUILD_ENV_ELEMENT[@]}"; do
-		[[ -z ${BUILD_ENV_ELEMENT[$key]} ]] && continue;
-		message=$(printf " %-8s = %s\n" "$key" "${BUILD_ENV_ELEMENT[$key]}")
+	for key in "${!BUILD_CONFIG_ENV[@]}"; do
+		[[ -z ${BUILD_CONFIG_ENV[$key]} ]] && continue;
+		message=$(printf " %-8s = %s\n" "$key" "${BUILD_CONFIG_ENV[$key]}")
 		msg "$message"
 	done
 	msg "==============================================================================="
 }
 
-function parse_env_value () {
-	local key=$1 ret=$2
-
-	for i in "${BUILD_CONFIG_IMAGE[@]}"; do
-		if [[ $i = *"$key"* ]]; then
-			local elem
-			elem="$(echo "$i" | cut -d'=' -f 2-)"
-			elem="$(echo "$elem" | cut -d',' -f 1)"
-			elem="$(echo -e "${elem}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
-			eval "$ret=(\"${elem}\")"
-			break
-		fi
-	done
-}
-
 function parse_env () {
-	for key in "${!BUILD_ENV_ELEMENT[@]}"; do
+	for key in "${!BUILD_CONFIG_ENV[@]}"; do
 		local val=""
-		parse_env_value "$key" val
-		BUILD_ENV_ELEMENT[$key]=$val
+		for i in "${BUILD_CONFIG_IMAGE[@]}"; do
+			if [[ $i = *"$key"* ]]; then
+				local elem
+				elem="$(echo "$i" | cut -d'=' -f 2-)"
+				elem="$(echo "$elem" | cut -d',' -f 1)"
+				elem="$(echo -e "${elem}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+				val=$elem
+				break
+			fi
+		done
+		BUILD_CONFIG_ENV[$key]=$val
 	done
 }
 
 function setup_env () {
-	local path
-
 	[[ -z $1 ]] && return;
 
-	path=$(realpath "$(dirname "$1")")
+	local path=$(realpath "$(dirname "$1")")
 	if [[ -z $path ]]; then
 		err " No such 'TOOL': $(dirname "$1")"
 		exit 1
@@ -211,46 +185,29 @@ function setup_env () {
 	export PATH=$path:$PATH
 }
 
-function print_target_element () {
+function print_target () {
 	local target=$1
 
 	msg ""
 	msg "-------------------------------------------------------------------------------"
 	echo -e "\033[1;32m Build Target : $target\033[0m";
-	for key in "${!BUILD_TARGET_ELEMENT[@]}"; do
-		[[ -z "${BUILD_TARGET_ELEMENT[$key]}" ]] && continue;
+	for key in "${!BUILD_CONFIG_TARGET[@]}"; do
+		[[ -z "${BUILD_CONFIG_TARGET[$key]}" ]] && continue;
 		if [[ "${key}" == "PATH" ]]; then
-			message=$(printf " %-12s = %s\n" "$key" "$(realpath "${BUILD_TARGET_ELEMENT[$key]}")")
+			message=$(printf " %-12s = %s\n" "$key" "$(realpath "${BUILD_CONFIG_TARGET[$key]}")")
 		else
-			message=$(printf " %-12s = %s\n" "$key" "${BUILD_TARGET_ELEMENT[$key]}")
+			message=$(printf " %-12s = %s\n" "$key" "${BUILD_CONFIG_TARGET[$key]}")
 		fi
 		msg "$message"
 	done
 	msg "-------------------------------------------------------------------------------"
 }
 
-function parse_element_value () {
-	local str=$1 key=$2 ret=$3
-	local val
-
-	[[ $str != *"$key"* ]] && return;
-
-	val="${str#*$key}"
-	val="$(echo "$val" | cut -d":" -f 2-)"
-	val="$(echo "$val" | cut -d"," -f 1)"
-	val="$(echo "$val" | cut -d"'" -f 2)"
-	val="$(echo "$val" | cut -d"'" -f 1)"
-
-	# remove first,last space and set multiple space to single space
-	val="$(echo "$val" | sed 's/^[ \t]*//;s/[ \t]*$//')"
-	val="$(echo "$val" | sed 's/\s\s*/ /g')"
-	eval "$ret=(\"${val}\")"
-}
-
-function parse_target_element () {
+function parse_target () {
 	local target=$1
 	local contents
 
+	# get target's contents
 	for i in "${BUILD_CONFIG_IMAGE[@]}"; do
 		if [[ $i == *"$target"* ]]; then
 			local elem
@@ -267,31 +224,46 @@ function parse_target_element () {
 		fi
 	done
 
-	for key in "${!BUILD_TARGET_ELEMENT[@]}"; do
-		local value=""
+	# parse contents's elements
+	for key in "${!BUILD_CONFIG_TARGET[@]}"; do
+		local val=""
 
-		parse_element_value "$contents" "$key" value
-		BUILD_TARGET_ELEMENT[$key]=$value
+		if [[ $contents != *"$key"* ]]; then
+			BUILD_CONFIG_TARGET[$key]=$val
+			continue;
+		fi
+
+		val="${contents#*$key}"
+		val="$(echo "$val" | cut -d":" -f 2-)"
+		val="$(echo "$val" | cut -d"," -f 1)"
+		val="$(echo "$val" | cut -d"'" -f 2)"
+		val="$(echo "$val" | cut -d"'" -f 1)"
+
+		# remove first,last space and set multiple space to single space
+		val="$(echo "$val" | sed 's/^[ \t]*//;s/[ \t]*$//')"
+		val="$(echo "$val" | sed 's/\s\s*/ /g')"
+
+		BUILD_CONFIG_TARGET[$key]="$val"
 	done
 
-	if [[ -n ${BUILD_TARGET_ELEMENT["PATH"]} ]]; then
-		BUILD_TARGET_ELEMENT["PATH"]=$(realpath "${BUILD_TARGET_ELEMENT["PATH"]}")
+	if [[ -n ${BUILD_CONFIG_TARGET["PATH"]} ]]; then
+		BUILD_CONFIG_TARGET["PATH"]=$(realpath "${BUILD_CONFIG_TARGET["PATH"]}")
 	fi
 
-	if [[ -z ${BUILD_TARGET_ELEMENT["TOOL"]} ]]; then
-		BUILD_TARGET_ELEMENT["TOOL"]=${BUILD_ENV_ELEMENT["TOOL"]};
+	if [[ -z ${BUILD_CONFIG_TARGET["TOOL"]} ]]; then
+		BUILD_CONFIG_TARGET["TOOL"]=${BUILD_CONFIG_ENV["TOOL"]};
 	fi
 
-	if [[ -z ${BUILD_TARGET_ELEMENT["JOBS"]} ]];then
-		BUILD_TARGET_ELEMENT["JOBS"]=$BUILD_JOBS;
+	if [[ -z ${BUILD_CONFIG_TARGET["JOBS"]} ]];then
+		BUILD_CONFIG_TARGET["JOBS"]=$BUILD_JOBS;
 	fi
 
 	if [[ -n $BUILD_OPTION ]]; then
-		BUILD_TARGET_ELEMENT["OPTION"]+="$BUILD_OPTION"
+		BUILD_CONFIG_TARGET["OPTION"]+="$BUILD_OPTION"
 	fi
 }
 
-function parse_targets () {
+function listup_target () {
 	for str in "${BUILD_CONFIG_IMAGE[@]}"; do
 		local val add=true
 
@@ -300,7 +272,7 @@ function parse_targets () {
 		val="$(echo -e "$val" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
 
 		# skip buil environments"
-		for n in "${!BUILD_ENV_ELEMENT[@]}"; do
+		for n in "${!BUILD_CONFIG_ENV[@]}"; do
 			if [[ $n == "$val" ]]; then
 				add=false
 				break
@@ -313,25 +285,6 @@ function parse_targets () {
 			BUILD_TARGET_LIST+=("$val")
 		fi
 	done
-}
-
-function set_build_stage () {
-	for i in "${!BUILD_STAGE_COMMAND[@]}"; do
-		if [[ $i == "$1" ]]; then
-			for n in "${!BUILD_STAGE_COMMAND[@]}"; do
-				BUILD_STAGE_COMMAND[$n]=false
-			done
-			BUILD_STAGE_COMMAND[$i]=true
-			return
-		fi
-	done
-
-	echo -ne "\n\033[1;31m Not Support Stage Command: $i ( \033[0m"
-	for i in "${!BUILD_STAGE_COMMAND[@]}"; do
-		echo -n "$i "
-	done
-	echo -e "\033[1;31m)\033[0m\n"
-	exit 1;
 }
 
 function exec_shell () {
@@ -402,29 +355,29 @@ function exec_make () {
 	return $ret
 }
 
-function build_precmd () {
+function do_precmd () {
 	local target=$1
 
-	if [[ -z ${BUILD_TARGET_ELEMENT["PRECMD"]} ]] ||
+	if [[ -z ${BUILD_CONFIG_TARGET["PRECMD"]} ]] ||
 	   [[ $BUILD_CLEANALL == true ]] ||
-	   [[ ${BUILD_STAGE_COMMAND["precmd"]} == false ]]; then
+	   [[ ${BUILD_STAGE["precmd"]} == false ]]; then
 		return;
 	fi
 
-	if ! exec_shell "${BUILD_TARGET_ELEMENT["PRECMD"]}" "$target"; then
+	if ! exec_shell "${BUILD_CONFIG_TARGET["PRECMD"]}" "$target"; then
 		exit 1;
 	fi
 }
 
-function build_make () {
+function do_make () {
 	local target=$1 command=$2
-	local path=${BUILD_TARGET_ELEMENT["PATH"]}
-	local crosstool="ARCH=${BUILD_ENV_ELEMENT["ARCH"]} CROSS_COMPILE=${BUILD_TARGET_ELEMENT["TOOL"]}"
-	local image=${BUILD_TARGET_ELEMENT["IMAGE"]}
-	local defconfig=${BUILD_TARGET_ELEMENT["CONFIG"]}
-	local opt="${BUILD_TARGET_ELEMENT["OPTION"]} -j${BUILD_TARGET_ELEMENT["JOBS"]}"
-	local refconfig="${path}/.${target}_defconfig"
-	local newconfig="BSP:${defconfig}"
+	local path=${BUILD_CONFIG_TARGET["PATH"]}
+	local crosstool="ARCH=${BUILD_CONFIG_ENV["ARCH"]} CROSS_COMPILE=${BUILD_CONFIG_TARGET["TOOL"]}"
+	local image=${BUILD_CONFIG_TARGET["IMAGE"]}
+	local defconfig=${BUILD_CONFIG_TARGET["CONFIG"]}
+	local opt="${BUILD_CONFIG_TARGET["OPTION"]} -j${BUILD_CONFIG_TARGET["JOBS"]}"
+	local save_config="${path}/.${target}_defconfig"
+	local config_ver="BSP:${defconfig}"
 
 	declare -A make_mode=(
 		["distclean"]=false
@@ -433,13 +386,13 @@ function build_make () {
 		["menuconfig"]=false
 		)
 
-	if [[ -z ${BUILD_TARGET_ELEMENT["PATH"]} ]] ||
-	   [[ ${BUILD_STAGE_COMMAND["make"]} == false ]]; then
+	if [[ -z ${BUILD_CONFIG_TARGET["PATH"]} ]] ||
+	   [[ ${BUILD_STAGE["make"]} == false ]]; then
 		return;
 	fi
 
-	if [[ ! -d ${BUILD_TARGET_ELEMENT["PATH"]} ]]; then
-		err " Not found 'PATH': '${BUILD_TARGET_ELEMENT["PATH"]}'"
+	if [[ ! -d ${BUILD_CONFIG_TARGET["PATH"]} ]]; then
+		err " Not found 'PATH': '${BUILD_CONFIG_TARGET["PATH"]}'"
 		exit 1;
 	fi
 
@@ -459,25 +412,26 @@ function build_make () {
 			make_mode["clean"]=true;
 			make_mode["distclean"]=true;
 		fi
-	fi
 
-	if [[ $image != *".dtb"* ]]; then
-		if [[ -n ${BUILD_TARGET_ELEMENT["OPTION"]} ]]; then
-			newconfig+=":${BUILD_TARGET_ELEMENT["OPTION"]}"
+		if [[ -n ${BUILD_CONFIG_TARGET["OPTION"]} ]]; then
+			config_ver+=":${BUILD_CONFIG_TARGET["OPTION"]}"
 		fi
 
-		if [[ ! -e $refconfig ]] || [[ $(cat "$refconfig") != "$newconfig" ]]; then
+		# check saved config
+		if [[ ! -e $save_config ]] ||
+		   [[ $(cat "$save_config") != "$config_ver" ]]; then
 			make_mode["defconfig"]=true
 			make_mode["clean"]=true;
 			make_mode["distclean"]=true
 
-			rm -f "$refconfig";
-			echo "$newconfig" >> "$refconfig";
+			rm -f "$save_config";
+			echo "$config_ver" >> "$save_config";
 		fi
 
+		# check .config
 		if [[ -n $defconfig ]]; then
-			if [[ ! -f $path/.config ]] ||
-			   [[ $command == defconfig ]] || [[ $command == rebuild ]]; then
+			if [[ $command == defconfig ]] || [[ $command == rebuild ]] ||
+			   [[ ! -f $path/.config ]]; then
 				make_mode["defconfig"]=true
 				make_mode["clean"]=true;
 				make_mode["distclean"]=true;
@@ -498,13 +452,9 @@ function build_make () {
 	# make distclean
 	if [[ ${make_mode["distclean"]} == true ]]; then
 		exec_make "-C $path distclean" "$target"
-
-		if [[ $BUILD_CLEANALL == true ]]; then
-			rm -f "$refconfig";
-			return;
-		fi
-		if [[ $command == distclean ]]; then
-			rm -f "$refconfig";
+		if [[ $command == distclean ]]|| [[ $BUILD_CLEANALL == true ]]; then
+			rm -f "$save_config";
+			[[ $BUILD_CLEANALL == true ]] && return;
 			exit 0;
 		fi
 	fi
@@ -529,50 +479,64 @@ function build_make () {
 		command=$image
 	fi
 
-	# do make
+	# make <command>
 	if ! exec_make "-C $path $crosstool $command $opt" "$target"; then
 		exit 1
 	fi
 }
 
-function build_copy () {
-	if [[ -z ${BUILD_TARGET_ELEMENT["OUTPUT"]} ]] ||
+function do_copy () {
+	local target=$1
+	local path=${BUILD_CONFIG_TARGET["PATH"]}
+	local src=${BUILD_CONFIG_TARGET["OUTPUT"]}
+	local retdir=${BUILD_CONFIG_ENV["RESULT"]}
+	local dst=${BUILD_CONFIG_TARGET["COPY"]}
+
+	if [[ -z $src ]] ||
 	   [[ $BUILD_CLEANALL == true ]] ||
-	   [[ ${BUILD_STAGE_COMMAND["copy"]} == false ]]; then
+	   [[ ${BUILD_STAGE["copy"]} == false ]]; then
 		return;
 	fi
 
-	if ! copy_result "${BUILD_TARGET_ELEMENT["PATH"]}" \
-			 "${BUILD_TARGET_ELEMENT["OUTPUT"]}" \
-			 "${BUILD_ENV_ELEMENT["RESULT"]}" \
-			 "${BUILD_TARGET_ELEMENT["COPY"]}"; then
+	if ! mkdir -p "$retdir"; then exit 1; fi
+
+	src=$(realpath "$path/$src")
+	dst=$(realpath "$retdir/$dst")
+	if [[ -d $src ]] && [[ -d $dst ]]; then
+		rm -rf "$dst";
+	fi
+
+	msg ""; msg " $> cp -a $src $dst"
+	[[ $DBG_VERBOSE == false ]] && run_progress;
+
+	cp -a "$src" "$dst"
+
+	kill_progress
+}
+
+function do_postcmd () {
+	local target=$1
+
+	if [[ -z ${BUILD_CONFIG_TARGET["POSTCMD"]} ]] ||
+	   [[ $BUILD_CLEANALL == true ]] ||
+	   [[ ${BUILD_STAGE["postcmd"]} == false ]]; then
+		return;
+	fi
+
+	if ! exec_shell "${BUILD_CONFIG_TARGET["POSTCMD"]}" "$target"; then
 		exit 1;
 	fi
 }
 
-function build_postcmd () {
+function do_cleancmd () {
 	local target=$1
 
-	if [[ -z ${BUILD_TARGET_ELEMENT["POSTCMD"]} ]] ||
-	   [[ $BUILD_CLEANALL == true ]] ||
-	   [[ ${BUILD_STAGE_COMMAND["postcmd"]} == false ]]; then
-		return;
-	fi
-
-	if ! exec_shell "${BUILD_TARGET_ELEMENT["POSTCMD"]}" "$target"; then
-		exit 1;
-	fi
-}
-
-function build_clean () {
-	local target=$1
-
-	if [[ -z ${BUILD_TARGET_ELEMENT["CLEANCMD"]} ]] ||
+	if [[ -z ${BUILD_CONFIG_TARGET["CLEANCMD"]} ]] ||
 	   [[ $BUILD_CLEANALL == false ]]; then
 		return;
 	fi
 
-	if ! exec_shell "${BUILD_TARGET_ELEMENT["CLEANCMD"]}" "$target"; then
+	if ! exec_shell "${BUILD_CONFIG_TARGET["CLEANCMD"]}" "$target"; then
 		exit 1;
 	fi
 }
@@ -580,19 +544,19 @@ function build_clean () {
 function build_target () {
 	local target=$1 command=$2
 
-	parse_target_element "$target"
-	print_target_element "$target"
+	parse_target "$target"
+	print_target "$target"
 
 	[[ $CMD_SHOW_INFO == true ]] && return;
 
-	if ! mkdir -p "${BUILD_ENV_ELEMENT["RESULT"]}"; then exit 1; fi
+	if ! mkdir -p "${BUILD_CONFIG_ENV["RESULT"]}"; then exit 1; fi
 	if ! mkdir -p "$BUILD_LOG_DIR"; then exit 1; fi
 
-	build_precmd "$target"
-	build_make "$target" "$command"
-	build_copy
-	build_postcmd "$target"
-	build_clean "$target"
+	do_precmd "$target"
+	do_make "$target" "$command"
+	do_copy "$target"
+	do_postcmd "$target"
+	do_cleancmd "$target"
 }
 
 function run_build () {
@@ -649,6 +613,25 @@ function run_build () {
 	show_build_time
 }
 
+function setup_stage () {
+	for i in "${!BUILD_STAGE[@]}"; do
+		if [[ $i == "$1" ]]; then
+			for n in "${!BUILD_STAGE[@]}"; do
+				BUILD_STAGE[$n]=false
+			done
+			BUILD_STAGE[$i]=true
+			return
+		fi
+	done
+
+	echo -ne "\n\033[1;31m Not Support Stage Command: $i ( \033[0m"
+	for i in "${!BUILD_STAGE[@]}"; do
+		echo -n "$i "
+	done
+	echo -e "\033[1;31m)\033[0m\n"
+	exit 1;
+}
+
 function setup_config () {
 	local config=$1
 
@@ -688,7 +671,7 @@ function parse_arguments () {
 		l )	CMD_SHOW_LIST=true;;
 		e )	CMD_EDIT=true;
 			break;;
-		s ) 	set_build_stage "$OPTARG";;
+		s ) 	setup_stage "$OPTARG";;
 		h )	usage;
 			exit 1;;
 	        * )	exit 1;;
@@ -708,8 +691,8 @@ if [[ "${CMD_EDIT}" == true ]]; then
 	exit 0;
 fi
 
-parse_targets
 parse_env
-setup_env "${BUILD_ENV_ELEMENT["TOOL"]}"
+setup_env "${BUILD_CONFIG_ENV["TOOL"]}"
+listup_target
 
 run_build
