@@ -2,23 +2,25 @@
 # Copyright (c) 2018 Nexell Co., Ltd.
 # Author: Junghyun, Kim <jhkim@nexell.co.kr>
 
-BASEDIR="$(cd "$(dirname "$0")" && pwd)"
-RESULTDIR=`realpath "./"`
+RESULTDIR=$(realpath "./")
 
-PARTMAP_FILE=
-PARTMAP_CONTEXT=()
-PARTMAP_TARGETS=()
+FASTBOOT_PARTMAP_FILE=
+FASTBOOT_PARTMAP_CONFIG=()
+FASTBOOT_PARTMAP_LIST=()
+
+FASTBOOT_TARGETS=()
+FASTBOOT_REBOOT=false
 
 function usage () {
-	echo "usage: `basename $0` -f [partmap file] <targets> <options>"
+	echo "usage: $(basename "$0") -f [partmap file] <targets> <options>"
 	echo ""
 	echo "[OPTIONS]"
 	echo "  -d : image path for fastboot, default: '$RESULTDIR'"
 	echo "  -i : partmap info"
 	echo "  -l : listup target in partmap list"
-	echo "  -r : send reboot command after end of fastboot"
+	echo "  -r : fastboot reboot command after end of fastboot"
 	echo ""
-	echo "Partmap struct:"
+	echo "Partmap format:"
 	echo "  fash=<device>,<device number>:<target>:<device area>:<start:hex>,<size:hex>:<image>\""
 	echo "  device      : support 'mmc','spi'"
 	echo "  device area : for 'mmc' = 'bootsector', 'raw', 'partition', 'gpt', 'mbr'"
@@ -30,141 +32,147 @@ function usage () {
 	echo ""
 }
 
+SZ_KB=$((1024))
+SZ_MB=$((SZ_KB * 1024))
+SZ_GB=$((SZ_MB * 1024))
+_SPACE_STR_='          '
+
 function convert_byte_to_hn () {
 	local val=$1 ret=$2
-	local KB=$((1024)) MB=$((1024 * 1024)) GB=$((1024 * 1024 * 1024))
 
-	if [[ $((val)) -ge $((GB)) ]]; then
-		val="$((val/$GB))G";
-	elif [[ $((val)) -ge $((MB)) ]]; then
-		val="$((val/$MB))M";
-	elif [[ $((val)) -ge $((KB)) ]]; then
-		val="$((val/$KB))K";
+	if [[ $((val)) -ge $((SZ_GB)) ]]; then
+		val="$((val / SZ_GB)).$(((val % SZ_GB) / SZ_MB)) G";
+	elif [[ $((val)) -ge $((SZ_MB)) ]]; then
+		val="$((val / SZ_MB)).$(((val % SZ_MB) / SZ_KB)) M";
+	elif [[ $((val)) -ge $((SZ_KB)) ]]; then
+		val="$((val / SZ_KB)).$((val % SZ_KB)) K";
 	else
-		val="$((val))B";
+		val="$((val)) B";
 	fi
 	eval "$ret=\"${val}\""
 }
 
-function parse_targets () {
-	local value=$1	# $1 = store the value
-	local params=("${@}")
-	local images=("${params[@]:1}")	 # $3 = search array
+function parse_partmap () {
+	if [[ ! -f $FASTBOOT_PARTMAP_FILE ]]; then
+		echo -e "\033[47;31m No such partmap: $FASTBOOT_PARTMAP_FILE \033[0m"
+		echo -e "\n"
+		exit 1;
+	fi
 
-	for i in "${images[@]}"
-	do
-		local val="$(echo $i| cut -d':' -f 2)"
-		eval "${value}+=(\"${val}\")"
+	while read -r line; do
+		line="${line//[[:space:]]/}"
+		[[ "$line" == *"#"* ]] && continue;
+		FASTBOOT_PARTMAP_CONFIG+=($line)
+	done < "$FASTBOOT_PARTMAP_FILE"
+
+	for i in "${FASTBOOT_PARTMAP_CONFIG[@]}"; do
+		FASTBOOT_PARTMAP_LIST+=( "$(echo "$i" | cut -d':' -f 2)" )
 	done
 }
 
-function do_fastboot () {
-	partmap_images=()
+function print_partmap () {
+	if [[ $SHOW_PARTMAP_LIST == true ]]; then
+		echo -e  " Partmap : $FASTBOOT_PARTMAP_FILE"
+		echo -en " Targets :"
+		for i in "${FASTBOOT_PARTMAP_LIST[@]}"; do
+			echo -n " $i"
+		done
+		echo -e "\n"
+		exit 0;
+	fi
 
-	for i in "${PARTMAP_TARGETS[@]}"
-	do
-		image=""
-		for n in "${PARTMAP_CONTEXT[@]}"
-		do
-			local v="$(echo $n| cut -d':' -f 2)"
-			if [ "$i" == "$v" ]; then
-				image="$(echo $(echo $n| cut -d':' -f 5)| cut -d';' -f 1)"
-				[ -z "$image" ] && continue;
+	if [[ $SHOW_PARTMAP_INFO == true ]]; then
+		echo -e " Partmap : $FASTBOOT_PARTMAP_FILE"
+		printf "\n"
+		for i in "${FASTBOOT_PARTMAP_CONFIG[@]}"; do
+			size=$(echo "$i" | cut -d':' -f4)
+			size=$(echo "$size" | cut -d',' -f2)
+			convert_byte_to_hn "$size" size
+			printf "%s%s: %s\n" "${_SPACE_STR_:${#size}}" "$size" "$i"
+		done
+		printf "\n"
+		exit 0;
+	fi
+}
+
+function do_fastboot () {
+	local partmap_targets=()
+
+	for i in "${FASTBOOT_TARGETS[@]}"; do
+		local image=""
+		for n in "${FASTBOOT_PARTMAP_CONFIG[@]}"; do
+			if [[ "$i" == $(echo "$n" | cut -d':' -f 2) ]]; then
+				image="$(echo "$n" | cut -d':' -f 5 | cut -d';' -f 1)"
+				[[ -z $image ]] && continue;
 				image="$RESULTDIR/$image"
 				break;
 			fi
 		done
 
-		[ -z "$image" ] && continue;
+		[[ -z $image ]] && continue;
 
-		if [ ! -f "$image" ]; then
-			image=./$(basename $image)
-			if [ ! -f "$image" ]; then
+		if [[ ! -f $image ]]; then
+			image=./$(basename "$image")
+			if [[ ! -f $image ]]; then
 				echo -e "\033[47;31m Not found '$i': $image\033[0m"
 				continue
 			fi
 		fi
-		partmap_images+=("$i:`realpath "$image"`");
+		partmap_targets+=("$i:$(realpath "$image")");
 	done
 
-	echo -e "\033[0;33m Partmap: $PARTMAP_FILE\033[0m"
-	sudo fastboot flash partmap $PARTMAP_FILE
-	[ $? -ne 0 ] && exit 1;
+	echo -e "\033[0;33m Partmap: $FASTBOOT_PARTMAP_FILE\033[0m"
+	if ! sudo fastboot flash partmap $FASTBOOT_PARTMAP_FILE; then
+		exit 1
+	fi
+	echo ""
 
-	for i in ${partmap_images[@]}
-	do
-		target=$(echo $i| cut -d':' -f 1)
-		image=$(echo $i| cut -d':' -f 2)
+	for i in "${partmap_targets[@]}"; do
+		target=$(echo "$i" | cut -d':' -f 1)
+		image=$(echo "$i" | cut -d':' -f 2)
 
 		echo -e "\033[0;33m $target: $image\033[0m"
-		sudo fastboot flash $target $image
-		[ $? -ne 0 ] && exit 1;
+		if ! sudo fastboot flash "$target" "$image"; then
+			exit 1
+		fi
+		echo ""
 	done
 }
 
-SEND_REBOOT=false
+SHOW_PARTMAP_LIST=false
+SHOW_PARTMAP_INFO=false
 
 case "$1" in
 	-f )
-		PARTMAP_FILE=$2
-		partmap_lists=()
+		FASTBOOT_PARTMAP_FILE=$(realpath "$2")
 		args=$# options=0 counts=0
 
-		if [ ! -f $PARTMAP_FILE ]; then
-			echo -e "\033[47;31m No such to partmap: $PARTMAP_FILE \033[0m"
-			exit 1;
-		fi
+		parse_partmap
 
-		while read line;
-		do
-			if [[ "$line" == *"#"* ]];then
-				continue
-			fi
-
-			PARTMAP_CONTEXT+=($line)
-		done < $PARTMAP_FILE
-
-		parse_targets partmap_lists "${PARTMAP_CONTEXT[@]}"
-
-		while [ "$#" -gt 2 ]; do
+		while [[ "$#" -gt 2 ]]; do
 			# argc
-			for i in "${partmap_lists[@]}"
-			do
-				if [ "$i" == "$3" ]; then
-					PARTMAP_TARGETS+=("$i");
+			for i in "${FASTBOOT_PARTMAP_LIST[@]}"; do
+				if [[ "$i" == "$3" ]]; then
+					FASTBOOT_TARGETS+=("$i");
 					shift 1
 					break
 				fi
 			done
 
 			case "$3" in
-			-d )	RESULTDIR=`realpath $4`; ((options+=2)); shift 2;;
-			-r ) 	SEND_REBOOT=true; ((options+=1)); shift 1;;
-			-l )
-				echo -e "\033[0;33m------------------------------------------------------------------ \033[0m"
-				echo -en " Partmap targets: "
-				for i in "${partmap_lists[@]}"
-				do
-					echo -n "$i "
-				done
-				echo -e "\n\033[0;33m------------------------------------------------------------------ \033[0m"
+			-d )	RESULTDIR=$(realpath "$4"); ((options+=2)); shift 2;;
+			-r ) 	FASTBOOT_REBOOT=true; ((options+=1)); shift 1;;
+			-l )	SHOW_PARTMAP_LIST=true;	print_partmap;
 				exit 0;;
-			-i )
-				echo -e "\033[0;33m------------------------------------------------------------------ \033[0m"
-				for i in "${PARTMAP_CONTEXT[@]}"
-				do
-					size=$(echo "$(echo "$i" | cut -d':' -f4)" | cut -d',' -f2)
-					convert_byte_to_hn $size size
-					printf "[%s]\t %s\n" $size $i
-				done
-				echo -e "\033[0;33m------------------------------------------------------------------ \033[0m"
+			-i )	SHOW_PARTMAP_INFO=true;	print_partmap;
 				exit 0;;
 			-e )
-				vim $PARTMAP_FILE
+				vim "$FASTBOOT_PARTMAP_FILE"
 				exit 0;;
-			-h )	usage;	exit 1;;
+			-h )	usage;
+				exit 1;;
 			* )
-				if [ $((counts+=1)) -gt $args ]; then
+				if [[ $((counts+=1)) -gt $args ]]; then
 					break;
 				fi
 				;;
@@ -172,34 +180,34 @@ case "$1" in
 		done
 
 		((args-=2))
-		num=${#PARTMAP_TARGETS[@]}
+		num=${#FASTBOOT_TARGETS[@]}
 		num=$((args-num-options))
 
-		if [ $num -ne 0 ]; then
-			echo -e "\033[47;31m Unknown target: $PARTMAP_FILE\033[0m"
+		if [[ $num -ne 0 ]]; then
+			echo -e "\033[47;31m Unknown target: $FASTBOOT_PARTMAP_FILE\033[0m"
 			echo -en " Check targets: "
-			for i in "${partmap_lists[@]}"
-			do
+			for i in "${FASTBOOT_PARTMAP_LIST[@]}"; do
 				echo -n "$i "
 			done
 			echo ""
 			exit 1
 		fi
 
-		if [ ${#PARTMAP_TARGETS[@]} -eq 0 ]; then
-			PARTMAP_TARGETS=(${partmap_lists[@]})
+		if [[ ${#FASTBOOT_TARGETS[@]} -eq 0 ]]; then
+			FASTBOOT_TARGETS=(${FASTBOOT_PARTMAP_LIST[@]})
 		fi
 
 		do_fastboot
 		;;
 	-r )
-		SEND_REBOOT=true; shift 1;;
+		FASTBOOT_REBOOT=true;
+		shift 1;;
 	-h | * )
 		usage;
 		exit 1;;
 esac
 
-if [ $SEND_REBOOT == true ]; then
+if [[ $FASTBOOT_REBOOT == true ]]; then
 	echo -e "\033[47;30m send reboot command...\033[0m"
 	sudo fastboot reboot
 fi
