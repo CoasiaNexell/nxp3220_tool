@@ -599,7 +599,7 @@ function copy_result_image () {
 			file=$(echo "$file" | sed "s/BUILD_MACHINE_NAME/$BUILD_MACHINE_NAME/")
 
 		local files
-		files=$(find "$file" -print \
+		files=$(find $file -print \
 			2> >(grep -v 'No such file or directory' >&2) | sort)
 
 		for n in $files; do
@@ -653,7 +653,7 @@ function copy_result_tools () {
 	for file in "${BSP_TOOLS_FILES[@]}"; do
 		local files
 
-		files=$(find "$file" -print \
+		files=$(find $file -print \
 			2> >(grep -v 'No such file or directory' >&2) | sort)
 
 		for n in $files; do
