@@ -452,7 +452,7 @@ EOF
 }
 
 function get_config_value () {
-	local file=$1 machine=$2 image=$3 features=$4 sdk=$5
+	local file=$1 machine=$2 image=$3 features=$4 sdk=false
 	local str
 
 	str=$(sed -n '/^\<MACHINE\>/p' "$file"); ret=$(echo "$str" | cut -d'=' -f 2)
@@ -829,7 +829,6 @@ parse_arguments "$@"
 if [[ $1 == "menuconfig" ]]; then
 	menu_target "$AVAIL_MACHINE_TABLE" "$AVAIL_MACHINE" TARGET_MACHINE
 	menu_target "$AVAIL_IMAGE_TABLE" "$AVAIL_IMAGE" TARGET_IMAGE
-	menu_sdk TARGET_SDK
 	menu_feature "$AVAIL_FEATURE_TABLE" "$AVAIL_FEATURE" TARGET_FEATURES
 	menu_save
 fi
