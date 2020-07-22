@@ -279,20 +279,17 @@ function parse_conf_machine () {
 
 	[[ ! -f $src ]] && exit 1;
 
-	msg "---------------------------------------------------------------------------"
-	msg " COPY     : $src"
-	msg " TO       : $dst"
-	msg "---------------------------------------------------------------------------"
+	msg ""
+	msg "local.conf [MACHINE]"
+	msg " - copy    = $src"
 
 	cp "$src" "$dst"
 
 	rep="\"$BUILD_MACHINE_NAME\""
 	sed -i "s/^MACHINE.*/MACHINE = $rep/" "$dst"
 
-	msg "---------------------------------------------------------------------------"
-	msg " PARSE    : $cmp"
-	msg " TO       : $dst"
-	msg "---------------------------------------------------------------------------"
+	msg " - merge   = $cmp"
+	msg " - to      = $dst\n"
 
 	echo "" >> "$dst"
 	echo "# PARSING: $cmp" >> "$dst"
@@ -316,10 +313,9 @@ function parse_conf_image () {
 
 	for i in "${srcs[@]}"; do
 		[[ ! -f $i ]] && continue;
-		msg "---------------------------------------------------------------------------"
-		msg " PARSE    : $i"
-		msg " TO       : $dst"
-		msg "---------------------------------------------------------------------------"
+		msg "local.conf [IMAGE]"
+		msg " - merge   = $i"
+		msg " - to      = $dst\n"
 
 		echo "" >> "$dst"
 		echo "# PARSING: $i" >> "$dst"
@@ -334,10 +330,9 @@ function parse_conf_sdk () {
 
 	[[ $BB_TARGET_SDK != true ]] && return;
 
-	msg "---------------------------------------------------------------------------"
-	msg " PARSE    : $src"
-	msg " TO       : $dst"
-	msg "---------------------------------------------------------------------------"
+	msg "local.conf [SDK]"
+	msg " - merge   = $src"
+	msg " - to      = $dst\n"
 
 	echo "" >> "$dst"
 	echo "# PARSING: $src" >> "$dst"
@@ -365,10 +360,9 @@ function parse_conf_bblayer () {
 	local src="$YOCTO_MACHINE_CONFIGS/bblayers.conf"
         local dst=$BUILD_LAYER_CONF
 
-	msg "---------------------------------------------------------------------------"
-	msg " COPY     : $src"
-	msg " TO       : $dst"
-	msg "---------------------------------------------------------------------------"
+	msg "bblayers.conf"
+	msg " - copy    = $src"
+	msg " - to      = $dst\n"
 	[[ ! -f $src ]] && exit 1;
 
         cp -a "$src" "$dst"
@@ -565,10 +559,10 @@ function show_info () {
 	msg "\tFEATURES  = $BB_TARGET_FEATURES"
 	msg "\tSDK       = $BB_TARGET_SDK"
 	msg ""
-	msg " Bitbake Setup:"
+	msg " Bitbake Setup :"
 	msg "  $> source $YOCTO_DISTRO/oe-init-build-env $BUILD_TARGET_DIR"
 	msg ""
-	msg " Build Command:"
+	msg " Shell build   :"
 	msg "  $> ./tools/scripts/$(basename "$0") $message\n"
 	fi
 }
@@ -751,6 +745,7 @@ function setup_bitbake () {
 }
 
 function run_build () {
+	msg ""
 	msg " MACHINE   = $BB_TARGET_MACHINE"
 	msg " IMAGE     = $BB_TARGET_IMAGE"
 	msg " FEATURES  = $BB_TARGET_FEATURES"
@@ -774,12 +769,12 @@ function run_build () {
 		cmd="$(echo "$cmd" | sed 's/^[ \t]*//;s/[ \t]*$//')"
 		cmd="$(echo "$cmd" | sed 's/\s\s*/ /g')"
 
-		msg "---------------------------------------------------------------------------"
-		msg " Bitbake Setup:"
+		msg ""
+		msg " Bitbake Setup :"
 		msg " $> source $YOCTO_DISTRO/oe-init-build-env $BUILD_TARGET_DIR\n"
-		msg " Bitbake Build:"
+		msg " Bitbake Build :"
 		msg " $> bitbake $cmd"
-		msg "---------------------------------------------------------------------------\n"
+		msg ""
 
 		if ! bitbake $cmd; then exit 1; fi
 	fi
@@ -793,17 +788,16 @@ function run_build () {
 		fi
 
 		link_result
-		msg "---------------------------------------------------------------------------"
+		msg ""
 		msg " DEPLOY     : $BUILD_DEPLOY_DIR"
 		msg " RESULT     : $BUILD_RESULT_DIR"
 		msg " Link       : $BSP_RESULT_TOP/$BUILD_RESULT_LINK"
-		msg "---------------------------------------------------------------------------"
 	fi
 
-	msg "---------------------------------------------------------------------------"
-	msg " Bitbake Setup:"
+	msg ""
+	msg " Bitbake Setup :"
 	msg " $> source $YOCTO_DISTRO/oe-init-build-env $BUILD_TARGET_DIR"
-	msg "---------------------------------------------------------------------------\n"
+	msg "\n"
 }
 
 ###############################################################################
