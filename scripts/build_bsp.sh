@@ -10,6 +10,7 @@
 # 	"RESULT 	= <to copy build images>",
 #
 # 	"<TARGET>	=
+# 		ARCH  		: <architecture ex> arm, arm64>",
 #  		PATH		: <Makefile source path to make build>,
 #		CONFIG		: <default config (defconfig) for make build>,
 #		IMAGE		: <make build target name for make build>,
@@ -37,6 +38,7 @@ declare -A BUILD_CONFIG_ENV=(
 
 # config script's target elements
 declare -A BUILD_CONFIG_TARGET=(
+	["ARCH"]=" "		# architecture ex> arm, arm64
 	["PATH"]=" "		# Makefile source path to make build
 	["CONFIG"]=" "		# default config (defconfig) for make build
 	["IMAGE"]=" "		# make build target name for make build
@@ -245,6 +247,10 @@ function parse_target () {
 
 		BUILD_CONFIG_TARGET[$key]="$val"
 	done
+
+	if [[ -n ${BUILD_CONFIG_TARGET["ARCH"]} ]]; then
+		BUILD_CONFIG_ENV["ARCH"]=${BUILD_CONFIG_TARGET["ARCH"]};
+	fi
 
 	if [[ -n ${BUILD_CONFIG_TARGET["PATH"]} ]]; then
 		BUILD_CONFIG_TARGET["PATH"]=$(realpath "${BUILD_CONFIG_TARGET["PATH"]}")
