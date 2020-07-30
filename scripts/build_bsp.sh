@@ -4,8 +4,6 @@
 #
 # - Config File Formats
 # BUILD_IMAGES=(
-# 	"MACHINE	= <machine name>",
-# 	"ARCH  		= <architecture ex> arm, arm64>",
 # 	"TOOL		= <crosstool compiler path for make build>",
 # 	"RESULT 	= <to copy build images>",
 #
@@ -30,8 +28,6 @@ EDIT_TOOL="vim"			# editor with '-e' option
 
 # config script's environment elements
 declare -A BUILD_CONFIG_ENV=(
-	["ARCH"]=" "
-  	["MACHINE"]=" "
   	["TOOL"]=" "
   	["RESULT"]=" "
 )
@@ -249,7 +245,7 @@ function parse_target () {
 	done
 
 	if [[ -n ${BUILD_CONFIG_TARGET["ARCH"]} ]]; then
-		BUILD_CONFIG_ENV["ARCH"]=${BUILD_CONFIG_TARGET["ARCH"]};
+		BUILD_CONFIG_TARGET["ARCH"]=${BUILD_CONFIG_TARGET["ARCH"]}
 	fi
 
 	if [[ -n ${BUILD_CONFIG_TARGET["PATH"]} ]]; then
@@ -262,10 +258,6 @@ function parse_target () {
 
 	if [[ -z ${BUILD_CONFIG_TARGET["JOBS"]} ]];then
 		BUILD_CONFIG_TARGET["JOBS"]=$BUILD_JOBS;
-	fi
-
-	if [[ -n $BUILD_OPTION ]]; then
-		BUILD_CONFIG_TARGET["OPTION"]+="$BUILD_OPTION"
 	fi
 }
 
@@ -376,15 +368,15 @@ function do_precmd () {
 }
 
 function do_make () {
-	local target=$1 command=$2
+	local target=$1
+	local command=$2
 	local path=${BUILD_CONFIG_TARGET["PATH"]}
-	local crosstool="ARCH=${BUILD_CONFIG_ENV["ARCH"]} CROSS_COMPILE=${BUILD_CONFIG_TARGET["TOOL"]}"
 	local image=${BUILD_CONFIG_TARGET["IMAGE"]}
-	local defconfig=${BUILD_CONFIG_TARGET["CONFIG"]}
-	local opt="${BUILD_CONFIG_TARGET["OPTION"]} -j${BUILD_CONFIG_TARGET["JOBS"]}"
-	local save_config="${path}/.${target}_defconfig"
-	local config_ver="BSP:${defconfig}"
-
+	local config=${BUILD_CONFIG_TARGET["CONFIG"]}
+	local opt="${BUILD_CONFIG_TARGET["OPTION"]} -j${BUILD_CONFIG_TARGET["JOBS"]} "
+	local ver_file="${path}/.${target}_defconfig"
+	local ver_build="BSP:${config}"
+	local crosstool=""
 	declare -A make_mode=(
 		["distclean"]=false
 		["clean"]=false
@@ -407,6 +399,10 @@ function do_make () {
 		return;
 	fi
 
+	[[ -n $BUILD_OPTION ]] && opt+="$BUILD_OPTION"
+	[[ ${BUILD_CONFIG_TARGET["ARCH"]} ]] && crosstool="ARCH=${BUILD_CONFIG_TARGET["ARCH"]} "
+	[[ ${BUILD_CONFIG_TARGET["TOOL"]} ]] && crosstool+="CROSS_COMPILE=${BUILD_CONFIG_TARGET["TOOL"]} "
+
 	if [[ $image != *".dtb"* ]]; then
 		if [[ $command == clean ]] || [[ $command == cleanbuild ]] ||
 		   [[ $command == rebuild ]]; then
@@ -420,22 +416,22 @@ function do_make () {
 		fi
 
 		if [[ -n ${BUILD_CONFIG_TARGET["OPTION"]} ]]; then
-			config_ver+=":${BUILD_CONFIG_TARGET["OPTION"]}"
+			ver_build+=":${BUILD_CONFIG_TARGET["OPTION"]}"
 		fi
 
 		# check saved config
-		if [[ ! -e $save_config ]] ||
-		   [[ $(cat "$save_config") != "$config_ver" ]]; then
+		if [[ ! -e $ver_file ]] ||
+		   [[ $(cat "$ver_file") != "$ver_build" ]]; then
 			make_mode["defconfig"]=true
 			make_mode["clean"]=true;
 			make_mode["distclean"]=true
 
-			rm -f "$save_config";
-			echo "$config_ver" >> "$save_config";
+			rm -f "$ver_file";
+			echo "$ver_build" >> "$ver_file";
 		fi
 
 		# check .config
-		if [[ -n $defconfig ]]; then
+		if [[ -n $config ]]; then
 			if [[ $command == defconfig ]] || [[ $command == rebuild ]] ||
 			   [[ ! -f $path/.config ]]; then
 				make_mode["defconfig"]=true
@@ -459,7 +455,7 @@ function do_make () {
 	if [[ ${make_mode["distclean"]} == true ]]; then
 		exec_make "-C $path distclean" "$target"
 		if [[ $command == distclean ]]|| [[ $BUILD_CLEANALL == true ]]; then
-			rm -f "$save_config";
+			rm -f "$ver_file";
 			[[ $BUILD_CLEANALL == true ]] && return;
 			exit 0;
 		fi
@@ -467,7 +463,7 @@ function do_make () {
 
 	# make defconfig
 	if [[ ${make_mode["defconfig"]} == true ]]; then
-		if ! exec_make "-C $path $crosstool $defconfig" "$target"; then
+		if ! exec_make "-C $path $crosstool $config" "$target"; then
 			exit 1;
 		fi
 		[[ $command == defconfig ]] && exit 0;

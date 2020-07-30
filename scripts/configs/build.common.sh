@@ -274,7 +274,6 @@ function clean_result () {
 
 BUILD_IMAGES=(
 	"MACHINE= nxp3220",
-	"ARCH  	= arm",
 	"TOOL	= ${TOOLCHAIN_LINUX}",
 	"RESULT = ${RESULT_DIR}",
 	"bl1   	=
@@ -304,11 +303,13 @@ BUILD_IMAGES=(
 		OUTPUT	: output/target,
 		COPY  	: rootfs",
 	"kernel	=
+		ARCH  	: arm,
 		PATH  	: ${KERNEL_DIR},
 		CONFIG	: ${KERNEL_DEFCONFIG},
 		IMAGE 	: ${KERNEL_BIN},
 		OUTPUT	: arch/arm/boot/${KERNEL_BIN}",
 	"dtb   	=
+		ARCH  	= arm,
 		PATH  	: ${KERNEL_DIR},
 		IMAGE 	: ${DTB_BIN},
 		OUTPUT	: arch/arm/boot/dts/${DTB_BIN}",
