@@ -309,7 +309,7 @@ BUILD_IMAGES=(
 		IMAGE 	: ${KERNEL_BIN},
 		OUTPUT	: arch/arm/boot/${KERNEL_BIN}",
 	"dtb   	=
-		ARCH  	= arm,
+		ARCH  	: arm,
 		PATH  	: ${KERNEL_DIR},
 		IMAGE 	: ${DTB_BIN},
 		OUTPUT	: arch/arm/boot/dts/${DTB_BIN}",
