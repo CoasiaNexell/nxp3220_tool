@@ -58,7 +58,7 @@ UBOOT_LOGO_BMP="${BASE_DIR}/tools/files/logo.bmp"
 KERNEL_DIR=${BASE_DIR}/kernel-4.14
 KERNEL_DEFCONFIG=${TARGET_KERNEL_DEFCONFIG}
 KERNEL_BIN=${TARGET_KERNEL_IMAGE}
-DTB_BIN=${TARGET_KERNEL_DTB}.dtb
+KERNEL_DTB_BIN=${TARGET_KERNEL_DTB}.dtb
 
 # buildroot configs
 BR2_DIR=${BASE_DIR}/buildroot
@@ -70,25 +70,6 @@ IMAGE_BOOT_SIZE=${TARGET_BOOT_IMAGE_SIZE}
 IMAGE_ROOT_SIZE=${TARGET_ROOT_IMAGE_SIZE}
 IMAGE_DATA_SIZE=${TARGET_DATA_IMAGE_SIZE}
 IMAGE_MISC_SIZE=${TARGET_MISC_IMAGE_SIZE}
-
-if [[ ${IMAGE_TYPE} == "ext4" ]]; then
-MAKE_BOOT_IMAGE="make_ext4fs -L boot -s -b 4k -l ${IMAGE_BOOT_SIZE} $RESULT_DIR/boot.img $RESULT_DIR/boot";
-MAKE_ROOT_IMAGE="make_ext4fs -L rootfs -s -b 4k -l ${IMAGE_ROOT_SIZE} $RESULT_DIR/rootfs.img $RESULT_DIR/rootfs";
-MAKE_DATA_IMAGE="make_ext4fs -L userdata -s -b 4k -l ${IMAGE_DATA_SIZE} $RESULT_DIR/userdata.img $RESULT_DIR/userdata";
-MAKE_MISC_IMAGE="make_ext4fs -L misc -s -b 4k -l ${IMAGE_MISC_SIZE} $RESULT_DIR/misc.img $RESULT_DIR/misc";
-elif [[ ${IMAGE_TYPE} == "ubi" ]]; then
-MAKE_BOOT_IMAGE="${TOOL_MKUBIFS} -r ${RESULT_DIR}/boot -v boot -i 0 -l ${IMAGE_BOOT_SIZE} \
-		-p ${FLASH_PAGE_SIZE} -b ${FLASH_BLOCK_SIZE} -c ${FLASH_DEVICE_SIZE}";
-MAKE_ROOT_IMAGE="${TOOL_MKUBIFS} -r ${RESULT_DIR}/rootfs -v rootfs -i 1 -l ${IMAGE_ROOT_SIZE} \
-		-p ${FLASH_PAGE_SIZE} -b ${FLASH_BLOCK_SIZE} -c ${FLASH_DEVICE_SIZE}";
-MAKE_DATA_IMAGE="${TOOL_MKUBIFS} -r ${RESULT_DIR}/userdata -v userdata -i 1 -l ${IMAGE_DATA_SIZE} \
-		-p ${FLASH_PAGE_SIZE} -b ${FLASH_BLOCK_SIZE} -c ${FLASH_DEVICE_SIZE}";
-MAKE_MISC_IMAGE="${TOOL_MKUBIFS} -r ${RESULT_DIR}/misc -v misc -i 1 -l ${IMAGE_MISC_SIZE} \
-		-p ${FLASH_PAGE_SIZE} -b ${FLASH_BLOCK_SIZE} -c ${FLASH_DEVICE_SIZE}";
-else
-	err "Not support image type: ${IMAGE_TYPE}"
-	exit 1;
-fi
 
 # copy to result
 BSP_TOOL_FILES=(
@@ -109,6 +90,20 @@ BSP_TOOL_FILES=(
 	"${BASE_DIR}/tools/files/efuse_cfg-verify_enb-hash0.txt"
 	"${BASE_DIR}/tools/files/efuse_cfg-sjtag_enb.txt"
 )
+
+function make_image () {
+	local label=$1 dir=$2 size=$3
+	local out=${dir}.img
+
+	if [[ ${IMAGE_TYPE} == "ext4" ]]; then
+		bash -c "make_ext4fs -L $label -s -b 4k -l $size $out $dir";
+	elif [[ ${IMAGE_TYPE} == "ubi" ]]; then
+		bash -c "${TOOL_MKUBIFS} -r $dir -v $label -i 0 -l $size -p ${FLASH_PAGE_SIZE} -b ${FLASH_BLOCK_SIZE} -c ${FLASH_DEVICE_SIZE}";
+	else
+		err "Not support image type: ${IMAGE_TYPE}"
+		exit 1;
+	fi
+}
 
 ###############################################################################
 # build commands
@@ -215,27 +210,26 @@ function post_build_modules () {
 }
 
 function make_boot_image () {
-	if ! mkdir -p ${RESULT_DIR}/boot; then exit 1; fi
+	BOOT_DIR=$RESULT_DIR/boot
 
-	cp -a ${RESULT_DIR}/${KERNEL_BIN} ${RESULT_DIR}/boot;
-	cp -a ${RESULT_DIR}/${DTB_BIN} ${RESULT_DIR}/boot;
-	[[ -f ${UBOOT_LOGO_BMP} ]] && cp -a ${UBOOT_LOGO_BMP} ${RESULT_DIR}/boot;
+	if ! mkdir -p ${BOOT_DIR}; then exit 1; fi
 
-	MAKE_BOOT_IMAGE="$(echo "$MAKE_BOOT_IMAGE" | sed 's/\s\s*/ /g')"
-	bash -c "${MAKE_BOOT_IMAGE}";
+	cp -a ${RESULT_DIR}/${KERNEL_BIN} ${BOOT_DIR};
+	cp -a ${RESULT_DIR}/${KERNEL_DTB_BIN} ${BOOT_DIR};
+	[[ -f ${UBOOT_LOGO_BMP} ]] && cp -a ${UBOOT_LOGO_BMP} ${BOOT_DIR};
+
+	make_image "boot" "$BOOT_DIR" "$IMAGE_BOOT_SIZE"
 }
 
 function make_root_image () {
-	MAKE_ROOT_IMAGE="$(echo "$MAKE_ROOT_IMAGE" | sed 's/\s\s*/ /g')"
-	bash -c "${MAKE_ROOT_IMAGE}";
+	make_image "rootfs" "$RESULT_DIR/rootfs" "$IMAGE_ROOT_SIZE"
 }
 
 function make_data_image () {
 	[[ -z ${IMAGE_DATA_SIZE} ]] || [[ ${IMAGE_TYPE} == "ubi" ]] && return;
 	[[ ! -d $RESULT_DIR/userdata ]] && mkdir -p $RESULT_DIR/userdata;
 
-	MAKE_DATA_IMAGE="$(echo "$MAKE_DATA_IMAGE" | sed 's/\s\s*/ /g')"
-	bash -c "${MAKE_DATA_IMAGE}";
+	make_image "userdata" "$RESULT_DIR/userdata" "$IMAGE_DATA_SIZE"
 }
 
 function copy_tools () {
@@ -311,8 +305,8 @@ BUILD_IMAGES=(
 	"dtb   	=
 		ARCH  	: arm,
 		PATH  	: ${KERNEL_DIR},
-		IMAGE 	: ${DTB_BIN},
-		OUTPUT	: arch/arm/boot/dts/${DTB_BIN}",
+		IMAGE 	: ${KERNEL_DTB_BIN},
+		OUTPUT	: arch/arm/boot/dts/${KERNEL_DTB_BIN}",
 
 	"bootimg =
 		POSTCMD : make_boot_image",
