@@ -8,6 +8,7 @@
 # 	"RESULT 	= <to copy build images>",
 #
 # 	"<TARGET>	=
+# 		PASS  		: <skip build>",
 # 		ARCH  		: <architecture ex> arm, arm64>",
 #  		PATH		: <Makefile source path to make build>,
 #		CONFIG		: <default config (defconfig) for make build>,
@@ -34,6 +35,7 @@ declare -A BUILD_CONFIG_ENV=(
 
 # config script's target elements
 declare -A BUILD_CONFIG_TARGET=(
+	["PASS"]=" "		# skip build
 	["ARCH"]=" "		# architecture ex> arm, arm64
 	["PATH"]=" "		# Makefile source path to make build
 	["CONFIG"]=" "		# default config (defconfig) for make build
@@ -551,6 +553,7 @@ function build_target () {
 
 	[[ $CMD_SHOW_INFO == true ]] && return;
 
+	[[ ${BUILD_CONFIG_TARGET["PASS"]} == true ]] && return;
 	if ! mkdir -p "${BUILD_CONFIG_ENV["RESULT"]}"; then exit 1; fi
 	if ! mkdir -p "$BUILD_LOG_DIR"; then exit 1; fi
 
