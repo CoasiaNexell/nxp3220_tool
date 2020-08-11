@@ -18,17 +18,19 @@ BB_TARGET_SDK=false
 # build macros
 MACHINE_SUPPORT=( "nxp3220" )
 
-BSP_ROOT_DIR="$(realpath "$(dirname "$(realpath "$0")")/../..")"
-BSP_YOCTO_DIR="$BSP_ROOT_DIR/yocto"
+BSP_TOP_DIR="$(realpath "$(dirname "$(realpath "$0")")/../..")"
+BSP_VENDOR_DIR="${BSP_TOP_DIR}/vendor/nexell"
+BSP_TOOLS_DIR="${BSP_TOP_DIR}/nxp3220_tools"
+BSP_YOCTO_DIR="$BSP_TOP_DIR/layers"
 
 YOCTO_DISTRO="$BSP_YOCTO_DIR/poky"
 YOCTO_META="$BSP_YOCTO_DIR/meta-nexell/meta-nxp3220"
 YOCTO_MACHINE_CONFIGS="$YOCTO_META/configs/machines"
 YOCTO_FEATURE_CONFIGS="$YOCTO_META/configs/images"
 YOCTO_IMAGE_ROOTFS="$YOCTO_META/recipes-core/images"
-YOCTO_BUILD_DIR="$BSP_YOCTO_DIR/build"
+YOCTO_BUILD_DIR="$BSP_TOP_DIR"
 
-BSP_RESULT_TOP="$BSP_YOCTO_DIR/out"
+BSP_RESULT_TOP="$BSP_TOP_DIR/out"
 BSP_RESULT_LINK_NAME="result"
 BSP_SDK_LINK_NAME="SDK"
 
@@ -67,24 +69,24 @@ BSP_RESULT_FILES=(
 
 # Copy from tools to result dir
 BSP_RESULT_TOOLS=(
-	"tools/scripts/partmap_fastboot.sh"
-	"tools/scripts/partmap_diskimg.sh"
-	"tools/scripts/usb-down.sh"
-	"tools/scripts/configs/udown.bootloader.sh"
-	"tools/scripts/configs/udown.bootloader-secure.sh"
-	"tools/bin/linux-usbdownloader"
-	"tools/bin/simg2dev"
-	"tools/files/partmap_*.txt"
-	"tools/files/secure-bl1-enckey.txt"
-	"tools/files/secure-bl32-enckey.txt"
-	"tools/files/secure-bl32-ivector.txt"
-	"tools/files/secure-bootkey.pem"
-	"tools/files/secure-userkey.pem"
-	"tools/files/secure-jtag-hash.txt"
-	"tools/files/secure-bootkey.pem.pub.hash.txt"
-	"tools/files/efuse_cfg-aes_enb.txt"
-	"tools/files/efuse_cfg-verify_enb-hash0.txt"
-	"tools/files/efuse_cfg-sjtag_enb.txt"
+	"nxp3220_tools/scripts/partmap_fastboot.sh"
+	"nxp3220_tools/scripts/partmap_diskimg.sh"
+	"nxp3220_tools/scripts/usb-down.sh"
+	"nxp3220_tools/scripts/configs/udown.bootloader.sh"
+	"nxp3220_tools/scripts/configs/udown.bootloader-secure.sh"
+	"nxp3220_tools/bin/linux-usbdownloader"
+	"nxp3220_tools/bin/simg2dev"
+	"nxp3220_tools/files/partmap_*.txt"
+	"nxp3220_tools/files/secure-bl1-enckey.txt"
+	"nxp3220_tools/files/secure-bl32-enckey.txt"
+	"nxp3220_tools/files/secure-bl32-ivector.txt"
+	"nxp3220_tools/files/secure-bootkey.pem"
+	"nxp3220_tools/files/secure-userkey.pem"
+	"nxp3220_tools/files/secure-jtag-hash.txt"
+	"nxp3220_tools/files/secure-bootkey.pem.pub.hash.txt"
+	"nxp3220_tools/files/efuse_cfg-aes_enb.txt"
+	"nxp3220_tools/files/efuse_cfg-verify_enb-hash0.txt"
+	"nxp3220_tools/files/efuse_cfg-sjtag_enb.txt"
 )
 
 # Recipe alias
@@ -119,7 +121,8 @@ BUILD_RESULT_LINK=""
 BUILD_CONFIG=$YOCTO_BUILD_DIR/.config
 
 declare -A BUILD_LOCAL_CONF_CONFIGURE=(
-	["BSP_ROOT_DIR"]="$BSP_ROOT_DIR"
+	["BSP_VENDOR_DIR"]="$BSP_VENDOR_DIR"
+	["BSP_TOOLS_DIR"]="$BSP_TOOLS_DIR"
 	["BSP_TARGET_MACHINE"]=""
 )
 
@@ -563,7 +566,7 @@ function show_info () {
 	msg "  $> source $YOCTO_DISTRO/oe-init-build-env $BUILD_TARGET_DIR"
 	msg ""
 	msg " Shell build   :"
-	msg "  $> ./tools/scripts/$(basename "$0") $message\n"
+	msg "  $> ./nxp3220_tools/scripts/$(basename "$0") $message\n"
 	fi
 }
 
