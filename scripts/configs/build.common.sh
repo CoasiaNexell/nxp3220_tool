@@ -4,21 +4,22 @@
 #
 
 BASE_DIR=$(realpath $(dirname $(realpath "$BASH_SOURCE"))/../../..)
-RESULT_DIR=${BASE_DIR}/out/result
-[[ ! -z $TARGET_RESULT ]] && RESULT_DIR=${BASE_DIR}/out/${TARGET_RESULT};
+RESULT_DIR=${BASE_DIR}/vendor/nexell/out/result
+[[ ! -z $TARGET_RESULT ]] && RESULT_DIR=${BASE_DIR}/vendor/nexell/out/${TARGET_RESULT};
+TOOL_DIR=${BASE_DIR}/nxp3220_tools
 
-TOOL_BINGEN="${BASE_DIR}/tools/bin/bingen"
-TOOL_BINECC="${BASE_DIR}/tools/bin/nandbingen"
-TOOL_BOOTPARAM="${BASE_DIR}/tools/scripts/mk_bootparam.sh"
-TOOL_MKUBIFS="${BASE_DIR}/tools/scripts/mk_ubifs.sh"
-TOOLCHAIN_BOOTLOADER="${BASE_DIR}/tools/crosstools/gcc-arm-none-eabi-6-2017-q2-update/bin/arm-none-eabi-"
-TOOLCHAIN_LINUX="${BASE_DIR}/tools/crosstools/gcc-linaro-7.2.1-2017.11-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-"
+TOOL_BINGEN="${TOOL_DIR}/bin/bingen"
+TOOL_BINECC="${TOOL_DIR}/bin/nandbingen"
+TOOL_BOOTPARAM="${TOOL_DIR}/scripts/mk_bootparam.sh"
+TOOL_MKUBIFS="${TOOL_DIR}/scripts/mk_ubifs.sh"
+TOOLCHAIN_BOOTLOADER="${TOOL_DIR}/crosstools/gcc-arm-none-eabi-6-2017-q2-update/bin/arm-none-eabi-"
+TOOLCHAIN_LINUX="${TOOL_DIR}/crosstools/gcc-linaro-7.2.1-2017.11-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-"
 
 # secure keys
-SECURE_BOOTKEY="${BASE_DIR}/tools/files/secure-bootkey.pem"
-SECURE_USERKEY="${BASE_DIR}/tools/files/secure-userkey.pem"
-SECURE_BL1_ENCKEY="${BASE_DIR}/tools/files/secure-bl1-enckey.txt"
-SECURE_BL32_ENCKEY="${BASE_DIR}/tools/files/secure-bl32-enckey.txt"
+SECURE_BOOTKEY="${TOOL_DIR}/files/secure-bootkey.pem"
+SECURE_USERKEY="${TOOL_DIR}/files/secure-userkey.pem"
+SECURE_BL1_ENCKEY="${TOOL_DIR}/files/secure-bl1-enckey.txt"
+SECURE_BL32_ENCKEY="${TOOL_DIR}/files/secure-bl32-enckey.txt"
 SECURE_BL1_IVECTOR=73FC7B44B996F9990261A01C9CB93C8F
 SECURE_BL32_IVECTOR=73FC7B44B996F9990261A01C9CB93C8F
 
@@ -26,13 +27,13 @@ SECURE_BL32_IVECTOR=73FC7B44B996F9990261A01C9CB93C8F
 # Add to build source at target script:
 # TARGET_BL1_DIR=$(realpath $(dirname $(realpath "$BASH_SOURCE"))/../../..)/firmwares/bl1-nxp3220
 BL1_DIR=${TARGET_BL1_DIR}
-[[ -z $TARGET_BL1_DIR ]] && BL1_DIR=${BASE_DIR}/firmwares/binary;
+[[ -z $TARGET_BL1_DIR ]] && BL1_DIR=${BASE_DIR}/vendor/nexell/bl1/bl1-nxp3220-binary;
 BL1_BIN="bl1-nxp3220.bin"
 BL1_LOADADDR=0xFFFF0000
-BL1_NSIH="${BASE_DIR}/tools/files/nsih_bl1.txt"
+BL1_NSIH="${TOOL_DIR}/files/nsih_bl1.txt"
 
 # b2 configs
-BL2_DIR=${BASE_DIR}/firmwares/bl2-nxp3220
+BL2_DIR=${BASE_DIR}/vendor/nexell/secure/bl2-nxp3220
 BL2_BIN="bl2-${TARGET_BL2_BOARD}.bin"
 BL2_LOADADDR=0xFFFF9000
 BL2_NSIH="${BL2_DIR}/reference-nsih/$TARGET_BL2_NSIH"
@@ -41,27 +42,27 @@ BL2_BOARD=${TARGET_BL2_BOARD}
 BL2_PMIC=${TARGET_BL2_PMIC}
 
 # b32 configs
-BL32_DIR=${BASE_DIR}/firmwares/bl32-nxp3220
+BL32_DIR=${BASE_DIR}/vendor/nexell/secure/bl32-nxp3220
 BL32_BIN="bl32.bin"
 BL32_LOADADDR=${TARGET_BL32_LOADADDR}
 BL32_NSIH="${BL32_DIR}/reference-nsih/nsih_general.txt"
 
 # uboot configs
-UBOOT_DIR=${BASE_DIR}/u-boot-2018.5
+UBOOT_DIR=${BASE_DIR}/vendor/nexell/u-boot/u-boot-2018.5
 UBOOT_BIN="u-boot.bin"
 UBOOT_LOADADDR=0x43c00000
-UBOOT_NSIH="${BASE_DIR}/tools/files/nsih_uboot.txt"
+UBOOT_NSIH="${TOOL_DIR}/files/nsih_uboot.txt"
 UBOOT_DEFCONFIG=${TARGET_UBOOT_DEFCONFIG}
-UBOOT_LOGO_BMP="${BASE_DIR}/tools/files/logo.bmp"
+UBOOT_LOGO_BMP="${TOOL_DIR}/files/logo.bmp"
 
 # kernel configs
-KERNEL_DIR=${BASE_DIR}/kernel-4.14
+KERNEL_DIR=${BASE_DIR}/vendor/nexell/kernel/kernel-4.14
 KERNEL_DEFCONFIG=${TARGET_KERNEL_DEFCONFIG}
 KERNEL_BIN=${TARGET_KERNEL_IMAGE}
 KERNEL_DTB_BIN=${TARGET_KERNEL_DTB}.dtb
 
 # buildroot configs
-BR2_DIR=${BASE_DIR}/buildroot
+BR2_DIR=${BASE_DIR}/vendor/nexell/buildroot
 BR2_DEFCONFIG=${TARGET_BR2_DEFCONFIG}
 
 # images configs
@@ -73,22 +74,22 @@ IMAGE_MISC_SIZE=${TARGET_MISC_IMAGE_SIZE}
 
 # copy to result
 BSP_TOOL_FILES=(
-	"${BASE_DIR}/tools/scripts/partmap_fastboot.sh"
-	"${BASE_DIR}/tools/scripts/partmap_diskimg.sh"
-	"${BASE_DIR}/tools/scripts/usb-down.sh"
-	"${BASE_DIR}/tools/scripts/configs/udown.bootloader.sh"
-	"${BASE_DIR}/tools/scripts/configs/udown.bootloader-secure.sh"
-	"${BASE_DIR}/tools/bin/linux-usbdownloader"
-	"${BASE_DIR}/tools/bin/simg2dev"
-	"${BASE_DIR}/tools/files/partmap_*.txt"
-	"${BASE_DIR}/tools/scripts/swu_image.sh"
-	"${BASE_DIR}/tools/scripts/swu_hash.py"
-	"${BASE_DIR}/tools/files/secure-bootkey.pem"
-	"${BASE_DIR}/tools/files/secure-userkey.pem"
-	"${BASE_DIR}/tools/files/secure-jtag-hash.txt"
-	"${BASE_DIR}/tools/files/efuse_cfg-aes_enb.txt"
-	"${BASE_DIR}/tools/files/efuse_cfg-verify_enb-hash0.txt"
-	"${BASE_DIR}/tools/files/efuse_cfg-sjtag_enb.txt"
+	"${TOOL_DIR}/scripts/partmap_fastboot.sh"
+	"${TOOL_DIR}/scripts/partmap_diskimg.sh"
+	"${TOOL_DIR}/scripts/usb-down.sh"
+	"${TOOL_DIR}/scripts/configs/udown.bootloader.sh"
+	"${TOOL_DIR}/scripts/configs/udown.bootloader-secure.sh"
+	"${TOOL_DIR}/bin/linux-usbdownloader"
+	"${TOOL_DIR}/bin/simg2dev"
+	"${TOOL_DIR}/files/partmap_*.txt"
+	"${TOOL_DIR}/scripts/swu_image.sh"
+	"${TOOL_DIR}/scripts/swu_hash.py"
+	"${TOOL_DIR}/files/secure-bootkey.pem"
+	"${TOOL_DIR}/files/secure-userkey.pem"
+	"${TOOL_DIR}/files/secure-jtag-hash.txt"
+	"${TOOL_DIR}/files/efuse_cfg-aes_enb.txt"
+	"${TOOL_DIR}/files/efuse_cfg-verify_enb-hash0.txt"
+	"${TOOL_DIR}/files/efuse_cfg-sjtag_enb.txt"
 )
 
 function make_image () {
@@ -267,60 +268,59 @@ function clean_result () {
 ###############################################################################
 
 BUILD_IMAGES=(
-	"MACHINE= nxp3220",
-	"TOOL	= ${TOOLCHAIN_LINUX}",
-	"RESULT = ${RESULT_DIR}",
+	"CROSS_TOOL = ${TOOLCHAIN_LINUX}",
+	"RESULT_DIR = ${RESULT_DIR}",
 	"bl1   	=
-		PATH  	: ${BL1_DIR},
-		TOOL  	: ${TOOLCHAIN_BOOTLOADER},
-		POSTCMD : post_build_bl1,
-		JOBS  	: 1", # must be 1
+		CROSS_TOOL  	: ${TOOLCHAIN_BOOTLOADER},
+		MAKE_PATH	: ${BL1_DIR},
+		SCRIPT_LATE 	: post_build_bl1,
+		MAKE_JOBS  	: 1", # must be 1
 	"bl2   	=
-		PATH  	: ${BL2_DIR},
-		TOOL  	: ${TOOLCHAIN_BOOTLOADER},
-		OPTION	: CHIPNAME=${BL2_CHIP} BOARD=${BL2_BOARD} PMIC=${BL2_PMIC},
-		POSTCMD : post_build_bl2,
-		JOBS  	: 1", # must be 1
+		CROSS_TOOL  	: ${TOOLCHAIN_BOOTLOADER},
+		MAKE_PATH  	: ${BL2_DIR},
+		MAKE_OPTION	: CHIPNAME=${BL2_CHIP} BOARD=${BL2_BOARD} PMIC=${BL2_PMIC},
+		SCRIPT_LATE 	: post_build_bl2,
+		MAKE_JOBS  	: 1", # must be 1
 	"bl32  =
-		PATH  	: ${BL32_DIR},
-		TOOL  	: ${TOOLCHAIN_BOOTLOADER},
-		POSTCMD	: post_build_bl32,
-		JOBS  	: 1", # must be 1
+		CROSS_TOOL  	: ${TOOLCHAIN_BOOTLOADER},
+		MAKE_PATH  	: ${BL32_DIR},
+		SCRIPT_LATE	: post_build_bl32,
+		MAKE_JOBS  	: 1", # must be 1
 	"uboot 	=
-		PATH  	: ${UBOOT_DIR},
-		CONFIG	: ${UBOOT_DEFCONFIG},
-		OUTPUT	: u-boot.bin,
-		POSTCMD	: post_build_uboot"
+		MAKE_PATH  	: ${UBOOT_DIR},
+		MAKE_CONFIG	: ${UBOOT_DEFCONFIG},
+		RESULT_FILE	: u-boot.bin,
+		SCRIPT_LATE	: post_build_uboot"
 	"br2   	=
-		PATH  	: ${BR2_DIR},
-		CONFIG	: ${BR2_DEFCONFIG},
-		OUTPUT	: output/target,
-		COPY  	: rootfs",
+		MAKE_PATH  	: ${BR2_DIR},
+		MAKE_CONFIG	: ${BR2_DEFCONFIG},
+		RESULT_FILE	: output/target,
+		RESULT_NAME  	: rootfs",
 	"kernel	=
-		ARCH  	: arm,
-		PATH  	: ${KERNEL_DIR},
-		CONFIG	: ${KERNEL_DEFCONFIG},
-		IMAGE 	: ${KERNEL_BIN},
-		OUTPUT	: arch/arm/boot/${KERNEL_BIN}",
+		MAKE_ARCH  	: arm,
+		MAKE_PATH  	: ${KERNEL_DIR},
+		MAKE_CONFIG	: ${KERNEL_DEFCONFIG},
+		MAKE_TARGET 	: ${KERNEL_BIN},
+		RESULT_FILE	: arch/arm/boot/${KERNEL_BIN}",
 	"dtb   	=
-		ARCH  	: arm,
-		PATH  	: ${KERNEL_DIR},
-		IMAGE 	: ${KERNEL_DTB_BIN},
-		OUTPUT	: arch/arm/boot/dts/${KERNEL_DTB_BIN}",
+		MAKE_ARCH  	: arm,
+		MAKE_PATH  	: ${KERNEL_DIR},
+		MAKE_TARGET 	: ${KERNEL_DTB_BIN},
+		RESULT_FILE	: arch/arm/boot/dts/${KERNEL_DTB_BIN}",
 
 	"bootimg =
-		POSTCMD : make_boot_image",
+		SCRIPT_LATE 	: make_boot_image",
 
 	"rootimg =
-		POSTCMD : make_root_image",
+		SCRIPT_LATE 	: make_root_image",
 
 	"dataimg =
-		POSTCMD : make_data_image",
+		SCRIPT_LATE 	: make_data_image",
 
-	"tools  =
-		POSTCMD	: copy_tools",
+	"tool  =
+		SCRIPT_LATE	: copy_tools",
 
 	"ret    =
-		POSTCMD	: link_result,
-		CLEANCMD: clean_result",
+		SCRIPT_LATE	: link_result,
+		SCRIPT_CLEAN	: clean_result",
 )
