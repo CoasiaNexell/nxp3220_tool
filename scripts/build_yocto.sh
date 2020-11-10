@@ -818,6 +818,10 @@ fi
 parse_arguments "$@"
 
 if [[ $1 == "menuconfig" ]]; then
+	if ! whiptail -v &> /dev/null; then
+		msg "whiptail could not be found, please install whipatil $> sudo apt-get install -y whiptail"
+		exit 1;
+	fi
 	menu_target "$AVAIL_MACHINE_TABLE" "$AVAIL_MACHINE" BB_TARGET_MACHINE
 	menu_target "$AVAIL_IMAGE_TABLE" "$AVAIL_IMAGE" BB_TARGET_IMAGE
 	menu_feature "$AVAIL_FEATURE_TABLE" "$AVAIL_FEATURE" BB_TARGET_FEATURES
